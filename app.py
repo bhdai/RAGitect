@@ -76,12 +76,22 @@ def get_response_stream(
     llm_model: ChatOllama,
     embedding_model: OllamaEmbeddings,
 ) -> Generator[str]:
+    """Generate response stream for given query
+
+    Args:
+        query: query string
+        faiss_index: faiss index
+        document_store: document store
+        llm_model: llm model
+        embedding_model: embeddings model
+
+    Returns:
+        Generator of response strings
+    """
     print(f"Generating response for query {query[:20]}...")
 
     query_vector = embed_text(embedding_model, query)
-
     retrieved_docs = search_index(faiss_index, query_vector, document_store, k=10)
-
     context = "\n\n".join([doc.page_content for doc, _ in retrieved_docs])
 
     prompt = f"""
@@ -97,31 +107,6 @@ Answer:
     """
 
     return generate_response_stream(llm_model, prompt)
-
-
-def file_item(file_name: str) -> None:
-    """clickable file item when click display the file
-
-    Args:
-        file_name: file name
-    """
-    if st.button(file_name, key=f"view_{file_name}"):
-        st.session_state["file_to_view"] = file_name
-
-
-def uploaded_file_items(uploaded_files: list[UploadedFile]) -> dict[str, UploadedFile]:
-    """Display file items
-
-    Args:
-        uploaded_files: list of uploaded files
-
-    Returns:
-        dictionary with key is file name and value is file object
-    """
-    file_dict = {f.name: f for f in uploaded_files}
-    for file_name in file_dict:
-        file_item(file_name)
-    return file_dict
 
 
 def main():
