@@ -43,7 +43,7 @@ def embed_documents(model: OllamaEmbeddings, texts: list[str]) -> list[list[floa
     return model.embed_documents(texts)
 
 
-def dimension_size() -> int:
+def get_embedding_dimension() -> int:
     """Embedding dimension size
 
     Returns:
