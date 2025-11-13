@@ -6,15 +6,15 @@ from langchain_ollama.embeddings import OllamaEmbeddings
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 import streamlit as st
 
-from src.document_processor import load_document, split_document, create_documents
-from src.embedding import (
+from ragitect.document_processor import load_document, split_document, create_documents
+from ragitect.embedding import (
     create_embeddings_model,
     embed_documents,
     embed_text,
     get_embedding_dimension,
 )
-from src.vector_store import initialize_index, add_vectors_to_index, search_index
-from src.llm import generate_response_stream, create_llm
+from ragitect.vector_store import initialize_index, add_vectors_to_index, search_index
+from ragitect.llm import generate_response_stream, create_llm
 
 
 @st.cache_resource
