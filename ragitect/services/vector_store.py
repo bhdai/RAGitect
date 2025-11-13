@@ -1,6 +1,6 @@
-from langchain_core.documents.base import Document
 import numpy as np
 from faiss import IndexFlatIP
+from langchain_core.documents.base import Document
 
 
 def initialize_index(dimension: int) -> IndexFlatIP:

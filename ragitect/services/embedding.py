@@ -1,5 +1,5 @@
-from langchain_ollama import OllamaEmbeddings
 import numpy as np
+from langchain_ollama import OllamaEmbeddings
 
 
 def create_embeddings_model() -> OllamaEmbeddings:

@@ -1,5 +1,6 @@
-from langchain_ollama import ChatOllama
 from collections.abc import Generator
+
+from langchain_ollama import ChatOllama
 
 
 def create_llm(
