@@ -8,6 +8,7 @@ from ragitect.services import (
     embedding,
     llm,
     vector_store,
+    query_service,
 )
 
 
@@ -53,6 +54,7 @@ class ChatEngine:
         query: str,
         faiss_index: IndexFlatIP,
         document_store: list[Document],
+        chat_history: list[dict[str, str]] | None = None,
     ) -> Generator[str]:
         """Generate response stream for given query
 
@@ -60,28 +62,45 @@ class ChatEngine:
             query: query string
             faiss_index: faiss index
             document_store: document store
+            chat_history: list of history messages
 
         Returns:
             Generator of response strings
         """
         print(f"Generating response for query {query[:20]}...")
+        if chat_history is None:
+            chat_history = []
 
-        query_vector = embedding.embed_text(self.embedding_model, query)
+        reformulated_query = query_service.reformulate_query_with_chat_history(
+            self.llm_model, query, chat_history
+        )
+
+        query_vector = embedding.embed_text(self.embedding_model, reformulated_query)
         retrieved_docs = vector_store.search_index(
             faiss_index, query_vector, document_store, k=10
         )
         context = "\n\n".join([doc.page_content for doc, _ in retrieved_docs])
 
         prompt = f"""
-    Answer the question using ONLY the information in the retrieved context below.
-    If the context does not contain enough information to answer the question, respond with: "I don't have that information in the provided document."
-    Do not use any outside knowledge.
+    You are a helpful AI assistant with expertise in
+    technical documentation.
+    Your goal is to provide clear, detailed, and educational answers based on the retrieved context.
 
-    Context:
-                {context}
-    Question:
-                {query}
-    Answer:
+        **Instructions:**
+        1. Answer the user's question using the information from the context below
+        2. Provide detailed explanations with examples when relevant
+        3. Structure your answer clearly (use sections if helpful)
+        4. If the context contains code examples, include them in your response
+        5. If the context doesn't contain enough information, acknowledge what you don't know
+        6. Do not make up information outside the provided context
+
+    **Context:**
+    {context}
+
+    **User Question:**
+    {query}
+
+    **Your Detailed Answer:**
         """
 
         return llm.generate_response_stream(self.llm_model, prompt)

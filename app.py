@@ -71,6 +71,7 @@ def main():
                         query=prompt,
                         faiss_index=st.session_state.faiss_index,
                         document_store=st.session_state.document_store,
+                        chat_history=st.session_state.messages,
                     )
                     full_response = st.write_stream(response_generator)
 

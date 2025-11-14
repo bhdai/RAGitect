@@ -24,7 +24,7 @@ def embed_text(model: OllamaEmbeddings, text: str) -> list[float]:
     Returns:
         list of float (the vector)
     """
-    print(f"Embedding text: {text[:30]}...")
+    print(f"Embedding text: {text[:100]}...")
     vector = model.embed_query(text)
     return vector
 
