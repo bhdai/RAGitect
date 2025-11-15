@@ -1,12 +1,22 @@
+import logging
 import streamlit as st
 
 from ragitect.engine import ChatEngine
+from ragitect.services.config import load_config_from_env
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 
 
 @st.cache_resource
 def get_chat_engine() -> ChatEngine:
     """Load the ChatEngine instance"""
-    return ChatEngine()
+    config = load_config_from_env()
+    return ChatEngine(config=config)
 
 
 def initialize_session_state():

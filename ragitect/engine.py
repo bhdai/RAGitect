@@ -1,4 +1,10 @@
+from collections.abc import Sequence
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_ollama.embeddings import OllamaEmbeddings
+import logging
 from collections.abc import Generator
+
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 
 from faiss import IndexFlatIP
 from langchain_core.documents.base import Document
@@ -7,19 +13,28 @@ from ragitect.services import (
     document_processor,
     embedding,
     llm,
-    vector_store,
     query_service,
+    vector_store,
 )
+from ragitect.services.config import LLMConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ChatEngine:
-    def __init__(self):
-        print("Initializing ChatEngine...")
-        # TODO: in app, these would be configurable
-        self.embedding_model = embedding.create_embeddings_model()
-        self.llm_model = llm.create_llm(model_name="llama3.1:8b", temperature=0.2)
-        self.dimension = embedding.get_embedding_dimension()
-        print("ChatEngine initialized")
+    def __init__(self, config: LLMConfig | None = None):
+        if config is None:
+            from ragitect.services.config import load_config_from_env
+
+            config = load_config_from_env()
+        self.config: LLMConfig = config
+        is_valid, error_msg = llm.valididate_llm_config(config)
+        if not is_valid:
+            raise ValueError(f"Invalid LLM configuration: {error_msg}")
+        self.embedding_model: OllamaEmbeddings = embedding.create_embeddings_model()
+        self.llm_model: BaseChatModel = llm.create_llm(config)
+        self.dimension: int = embedding.get_embedding_dimension()
+        logger.info(f"ChatEngine initialized with provider={config.provider}")
 
     def process_document(
         self,
@@ -81,10 +96,10 @@ class ChatEngine:
         )
         context = "\n\n".join([doc.page_content for doc, _ in retrieved_docs])
 
-        prompt = f"""
-    You are a helpful AI assistant with expertise in
-    technical documentation.
-    Your goal is to provide clear, detailed, and educational answers based on the retrieved context.
+        system_instruction = """
+        You are a helpful AI assistant with expertise in
+        technical documentation.
+        Your goal is to provide clear, detailed, and educational answers based on the retrieved context.
 
         **Instructions:**
         1. Answer the user's question using the information from the context below
@@ -93,14 +108,68 @@ class ChatEngine:
         4. If the context contains code examples, include them in your response
         5. If the context doesn't contain enough information, acknowledge what you don't know
         6. Do not make up information outside the provided context
-
-    **Context:**
-    {context}
-
-    **User Question:**
-    {query}
-
-    **Your Detailed Answer:**
         """
 
-        return llm.generate_response_stream(self.llm_model, prompt)
+        history_messages = _format_chat_history_for_prompt(chat_history)
+        messages = _build_prompt_messages(
+            system_instruction,
+            context,
+            query,
+            history_messages,
+        )
+
+        return llm.generate_response_stream(self.llm_model, messages)
+
+
+def _format_chat_history_for_prompt(
+    chat_history: list[dict[str, str]],
+) -> Sequence[BaseMessage]:
+    """convert chat history to langchain message format
+
+    Args:
+        chat_history: list of message dict with 'role' and 'content' keys
+
+    Returns:
+        list[BaseMessage]: list of langchain message objects
+    """
+    messages: list[BaseMessage] = []
+    for message in chat_history:
+        if message["role"] == "user":
+            messages.append(HumanMessage(content=message["content"]))
+        elif message["role"] == "assistant":
+            messages.append(AIMessage(content=message["content"]))
+        else:
+            logger.warning(f"Unknown message role: {message['role']}")
+    return messages
+
+
+def _build_prompt_messages(
+    system_instruction: str,
+    context: str,
+    query: str,
+    chat_history: Sequence[BaseMessage],
+) -> Sequence[BaseMessage]:
+    """Build complete message list for llm including history
+
+    Args:
+        system_instruction: system level instruction
+        context: retrieved context from vector store
+        query: current user query
+        chat_history: previous conversation history
+
+    Returns:
+        list[BaseMessage]: list of langchain message objects
+    """
+    messages: list[BaseMessage] = []
+    messages.append(SystemMessage(content=system_instruction))
+    # add conversation history
+    messages.extend(chat_history)
+    # build context messages
+    context_text = f"""
+    Retrieved Context:
+            {context}
+    Current Question:
+            {query}
+    """
+    messages.append(HumanMessage(content=context_text))
+    return messages

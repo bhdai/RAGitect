@@ -1,6 +1,7 @@
 import logging
 
-from langchain_ollama.chat_models import ChatOllama
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 
 from ragitect.services.llm import generate_response
 
@@ -48,61 +49,61 @@ def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     """
     prompt = f"""You are a query reformulation assistant. Your task is to take a user's current query and the conversation history, then reformulate the query to be self-contained and optimized for semantic search.
 
-**Rules:**
-1. Resolve all pronouns (it, that, this, they, etc.) to their actual referents from the history
-2. Include necessary context from previous messages to make the query standalone
-3. Keep the reformulated query concise (1-2 sentences maximum)
-4. Preserve the user's original intent and question type
-5. Output ONLY the reformulated query with no preamble or explanation
+    **Rules:**
+    1. Resolve all pronouns (it, that, this, they, etc.) to their actual referents from the history
+    2. Include necessary context from previous messages to make the query standalone
+    3. Keep the reformulated query concise (1-2 sentences maximum)
+    4. Preserve the user's original intent and question type
+    5. Output ONLY the reformulated query with no preamble or explanation
 
-**Examples:**
+    **Examples:**
 
-Example 1:
-History:
-<chat_history>
-<message role="user">What is FastAPI?</message>
-<message role="assistant">FastAPI is a modern Python web framework for building APIs with automatic validation and documentation.</message>
-</chat_history>
+    Example 1:
+    History:
+    <chat_history>
+    <message role="user">What is FastAPI?</message>
+    <message role="assistant">FastAPI is a modern Python web framework for building APIs with automatic validation and documentation.</message>
+    </chat_history>
 
-Current Query: How do I install it?
-Reformulated Query: How do I install FastAPI?
+    Current Query: How do I install it?
+    Reformulated Query: How do I install FastAPI?
 
----
+    ---
 
-Example 2:
-History:
-<chat_history>
-<message role="user">Explain Python decorators</message>
-<message role="assistant">Decorators are functions that modify the behavior of other functions. They use the @syntax.</message>
-<message role="user">That's helpful</message>
-</chat_history>
+    Example 2:
+    History:
+    <chat_history>
+    <message role="user">Explain Python decorators</message>
+    <message role="assistant">Decorators are functions that modify the behavior of other functions. They use the @syntax.</message>
+    <message role="user">That's helpful</message>
+    </chat_history>
 
-Current Query: Show me an example
-Reformulated Query: Show me an example of Python decorators
+    Current Query: Show me an example
+    Reformulated Query: Show me an example of Python decorators
 
----
+    ---
 
-Example 3:
-History:
-<chat_history>
-<message role="user">What's the difference between async and sync in Python?</message>
-<message role="assistant">Async functions use async/await for concurrent operations, while sync functions execute sequentially.</message>
-<message role="user">Which one is faster?</message>
-<message role="assistant">Async is faster for I/O-bound tasks like API calls or database queries.</message>
-</chat_history>
+    Example 3:
+    History:
+    <chat_history>
+    <message role="user">What's the difference between async and sync in Python?</message>
+    <message role="assistant">Async functions use async/await for concurrent operations, while sync functions execute sequentially.</message>
+    <message role="user">Which one is faster?</message>
+    <message role="assistant">Async is faster for I/O-bound tasks like API calls or database queries.</message>
+    </chat_history>
 
-Current Query: When should I use it?
-Reformulated Query: When should I use async functions in Python instead of synchronous functions?
+    Current Query: When should I use it?
+    Reformulated Query: When should I use async functions in Python instead of synchronous functions?
 
----
+    ---
 
-**Now reformulate this query:**
+    **Now reformulate this query:**
 
-History:
-{formatted_history}
+    History:
+    {formatted_history}
 
-Current Query: {user_query}
-Reformulated Query:"""
+    Current Query: {user_query}
+    Reformulated Query:"""
 
     return prompt
 
@@ -132,7 +133,7 @@ def _extract_reformulated_query(llm_response: str) -> str:
 
 
 def reformulate_query_with_chat_history(
-    llm_model: ChatOllama,
+    llm_model: BaseChatModel,
     user_query: str,
     chat_history: list[dict[str, str]],
 ) -> str:
@@ -166,7 +167,8 @@ def reformulate_query_with_chat_history(
 
         # clal the llm
         logger.debug("Calling LLM for reformulation...")
-        llm_response = generate_response(llm_model, prompt)
+        human_message = HumanMessage(content=prompt)
+        llm_response = generate_response(llm_model, messages=[human_message])
 
         reformulated = _extract_reformulated_query(llm_response)
         logger.debug(f"Exacted query: '{reformulated}'")
