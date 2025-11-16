@@ -3,6 +3,7 @@ from ragitect.services import (
     embedding,
     llm,
     vector_store,
+    query_service,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "embedding",
     "llm",
     "vector_store",
+    "query_service",
 ]
