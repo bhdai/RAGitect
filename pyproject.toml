@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "chainlit>=2.9.0",
+    "docling>=2.61.2",
     "langchain-community>=0.3.17",
     "langchain-litellm>=0.3.0",
     "litellm>=1.79.3",
