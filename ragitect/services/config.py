@@ -33,6 +33,16 @@ class LLMConfig:
     timeout: int = 60
 
 
+@dataclass
+class DocumentConfig:
+    """Document processing configuration"""
+
+    enable_docling: bool = True
+    enable_unstructure: bool = False
+    chunk_size: int = 500
+    chunk_overlap: int = 50
+
+
 def load_config_from_env() -> LLMConfig:
     """Load LLM configuration from env variables
 
