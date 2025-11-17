@@ -39,9 +39,7 @@ class ProcessorFactory:
         self.complex_formats: list[str] = self.docling_processor.supported_formats()
 
         logger.info(
-            "ProcessorFactory initialized - ",
-            f"Text formats: {len(self.text_formats)}, ",
-            f"Complex formats: {len(self.complex_formats)}",
+            f"ProcessorFactory initialized - Text formats: {len(self.text_formats)}, Complex formats: {len(self.complex_formats)}"
         )
 
     def get_processor(self, file_name: str) -> BaseDocumentProcessor:
