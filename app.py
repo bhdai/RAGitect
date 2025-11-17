@@ -41,27 +41,26 @@ def main():
     initialize_session_state()
 
     with st.sidebar:
-        uploaded_file = st.file_uploader(
+        uploaded_files = st.file_uploader(
             "Upload your document",
-            type=["txt"],
+            type=["txt", "md", "pdf", "docx", "pptx", "xlsx", "html"],
+            accept_multiple_files=True,
         )
-        if (
-            uploaded_file is not None
-            and uploaded_file.name != st.session_state.processed_file_name
-        ):
-            with st.spinner(f"Processing {uploaded_file.name}..."):
-                file_bytes = uploaded_file.getvalue()
-                index, doc_store = engine.process_document(
-                    file_bytes,
-                    uploaded_file.name,
-                )
+        if uploaded_files:
+            current_file_names = [file.name for file in uploaded_files]
 
-                st.session_state.faiss_index = index
-                st.session_state.document_store = doc_store
-                st.session_state.processed_file_name = uploaded_file.name
-                st.session_state.messages = []  # clear the chat when upload new docs for now
+            if st.session_state.processed_file_name != current_file_names:
+                st.info(f"{len(uploaded_files)} file(s) uploaded")
+                file_to_process = [(file.read(), file.name) for file in uploaded_files]
+                with st.spinner(f"Processing {len(uploaded_files)} document(s)..."):
+                    faiss_index, document_store = engine.process_multiple_documents(
+                        file_to_process
+                    )
 
-            st.success(f"File '{uploaded_file.name}' processed.")
+                st.success(f"Processed {len(uploaded_files)} files successfully!")
+                st.session_state.faiss_index = faiss_index
+                st.session_state.document_store = document_store
+                st.session_state.processed_file_name = current_file_names
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
