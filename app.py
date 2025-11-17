@@ -1,15 +1,16 @@
 import logging
-import streamlit as st
 
-from ragitect.engine import ChatEngine
-from ragitect.services.config import load_config_from_env
-
-# Configure logging
+# Configure logging FIRST, before any other imports
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
+
+import streamlit as st
+
+from ragitect.engine import ChatEngine
+from ragitect.services.config import load_config_from_env
 
 
 @st.cache_resource
@@ -80,7 +81,7 @@ def main():
                         query=prompt,
                         faiss_index=st.session_state.faiss_index,
                         document_store=st.session_state.document_store,
-                        chat_history=st.session_state.messages[:, -1],
+                        chat_history=st.session_state.messages[:-1],
                     )
                     full_response = st.write_stream(response_generator)
 
