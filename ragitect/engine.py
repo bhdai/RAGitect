@@ -1,13 +1,11 @@
-from collections.abc import Sequence
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_ollama.embeddings import OllamaEmbeddings
 import logging
-from collections.abc import Generator
-
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from collections.abc import Generator, Sequence
 
 from faiss import IndexFlatIP
 from langchain_core.documents.base import Document
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_ollama.embeddings import OllamaEmbeddings
 
 from ragitect.services import (
     document_processor,
@@ -50,8 +48,8 @@ class ChatEngine:
         Returns:
             tuple of Faiss index and document store
         """
-        print(f"Processing document: {file_name}")
-        raw_text = file_bytes.decode("utf-8", errors="replace")
+        logger.info(f"Processing document: {file_name}")
+        raw_text = document_processor.process_file_bytes(file_bytes, file_name)
         chunks = document_processor.split_document(raw_text, chunk_size=500, overlap=50)
         document_store = document_processor.create_documents(chunks, file_name)
 
@@ -61,8 +59,41 @@ class ChatEngine:
         faiss_index = vector_store.initialize_index(self.dimension)
         vector_store.add_vectors_to_index(faiss_index, vectors)
 
-        print(f"File processed. Index created with {len(vectors)} vectors")
+        logger.info(f"File processed. Index created with {len(vectors)} vectors")
         return faiss_index, document_store
+
+    def process_multiple_documents(
+        self,
+        files: list[tuple[bytes, str]],
+    ) -> tuple[IndexFlatIP, list[Document]]:
+        """Processs multiple files and combine into single knowledge base
+
+        Args:
+            files: list of tupes containing (file_bytes, file_name)
+
+        Returns:
+            tupe of combined index and document store
+        """
+        logger.info(f"Processing {len(files)} documents...")
+        all_document_store: list[Document] = []
+        for file_bytes, file_name in files:
+            logger.info(f"Processing document: {file_name}")
+            raw_text = document_processor.process_file_bytes(file_bytes, file_name)
+            chunks = document_processor.split_document(
+                raw_text, chunk_size=500, overlap=50
+            )
+            docs = document_processor.create_documents(chunks, file_name)
+            all_document_store.extend(docs)
+        logger.info(f"Embedding {len(all_document_store)} total chunks...")
+        vectors = embedding.embed_documents(
+            self.embedding_model, [doc.page_content for doc in all_document_store]
+        )
+        faisse_index = vector_store.initialize_index(self.dimension)
+        vector_store.add_vectors_to_index(faisse_index, vectors)
+        logger.info(
+            f"Batch processing complete: {len(vectors)} vectors from {len(files)} files"
+        )
+        return faisse_index, all_document_store
 
     def get_response_stream(
         self,
@@ -82,7 +113,7 @@ class ChatEngine:
         Returns:
             Generator of response strings
         """
-        print(f"Generating response for query {query[:20]}...")
+        logger.info(f"Generating response for query {query[:20]}...")
         if chat_history is None:
             chat_history = []
 
