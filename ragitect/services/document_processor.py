@@ -1,3 +1,4 @@
+from ragitect.services.processor.factory import ProcessorFactory
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -54,3 +55,18 @@ def split_document(
     )
     all_splits = text_splitter.split_text(raw_text)
     return all_splits
+
+
+def process_file_bytes(file_bytes: bytes, file_name: str) -> str:
+    """Process file bytes and extract text
+
+    Args:
+        file_bytes: file bytes
+        file_name: file name
+
+    Returns:
+        extracted text
+    """
+    factory = ProcessorFactory()
+    processor = factory.get_processor(file_name)
+    return processor.process(file_bytes, file_name)
