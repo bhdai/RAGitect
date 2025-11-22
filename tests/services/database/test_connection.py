@@ -478,7 +478,6 @@ class TestDatabaseIntegration:
         async with get_session() as session:
             # Enable extension
             await session.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            await session.commit()
 
         async with get_session() as session:
             # Create test table
@@ -490,7 +489,6 @@ class TestDatabaseIntegration:
                     )
                 """)
             )
-            await session.commit()
 
         async with get_session() as session:
             # Insert test vector
@@ -499,7 +497,6 @@ class TestDatabaseIntegration:
                 text("INSERT INTO test_vectors_temp (embedding) VALUES (:vec)"),
                 {"vec": str(test_vector)},
             )
-            await session.commit()
 
         async with get_session() as session:
             # Query vector
@@ -528,7 +525,6 @@ class TestDatabaseIntegration:
         # Cleanup
         async with get_session() as session:
             await session.execute(text("DROP TABLE IF EXISTS test_vectors_temp"))
-            await session.commit()
 
     @pytest.mark.asyncio
     @pytest.mark.integration
@@ -552,7 +548,6 @@ class TestDatabaseIntegration:
                     )
                 """)
             )
-            await session.commit()
 
         # Insert data (should auto-commit)
         async with get_session() as session:
@@ -597,7 +592,6 @@ class TestDatabaseIntegration:
                     )
                 """)
             )
-            await session.commit()
 
         # Insert data but raise exception
         try:
@@ -622,4 +616,3 @@ class TestDatabaseIntegration:
         # Cleanup
         async with get_session() as session:
             await session.execute(text("DROP TABLE IF EXISTS test_rollback_temp"))
-            await session.commit()
