@@ -286,6 +286,9 @@ async def get_session_no_autocommit() -> AsyncGenerator[AsyncSession, None]:
         await session.close()
 
 
+# testing and utility functions
+
+
 async def check_connection() -> bool:
     """Verify database connection is working
 
@@ -301,3 +304,54 @@ async def check_connection() -> bool:
     except Exception as e:
         logger.error(f"Database connection check failed: {e}")
         return False
+
+
+async def create_table(engine: AsyncEngine | None = None) -> None:
+    """Create all the tables defined in SQLAlchemy models
+
+    WARNING: This is for testing or initial setup only.
+    In production, use Alembic migrations instead
+
+    Args:
+        engine: Optional AsyncEngine to use (defaults to singleton engine)
+    """
+    from ragitect.services.database.models import Base
+
+    engine = engine or get_engine()
+
+    logger.info("Creating all database tables...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("All database tables created successfully.")
+
+
+async def drop_table(engine: AsyncEngine | None = None) -> None:
+    """Drop all the tables defined in SQLAlchemy models
+
+    WARNING: This is destructive! Only use for testing.
+
+    Args:
+        engine: Optional AsyncEngine to use (defaults to singleton engine)
+    """
+    from ragitect.services.database.models import Base
+
+    engine = engine or get_engine()
+    logger.info("Dropping all database tables...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    logger.info("All database tables dropped successfully.")
+
+
+async def reset_database(engine: AsyncEngine | None = None) -> None:
+    """Drop and recreate all tables in the database
+
+    WARNING: This is destructive! Only use for testing.
+
+    Args:
+        engine: Optional AsyncEngine to use (defaults to singleton engine)
+    """
+    logger.info("Resetting the database...")
+    engine = engine or get_engine()
+    await drop_table(engine)
+    await create_table(engine)
+    logger.info("Database reset successfully.")
