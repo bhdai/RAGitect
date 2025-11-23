@@ -48,6 +48,22 @@ uv run pytest -m integration
 uv run pytest -m "not integration"
 ```
 
+### Running Integration Tests with a Dedicated Test Database
+
+For integration tests that interact with a PostgreSQL database, it is crucial to use a dedicated test database (e.g., `ragitect_test`) to prevent data loss in your main development database.
+
+1.  **Create `.env.test`**: In your project root, create a file named `.env.test` with your test database credentials:
+    ```
+    DATABASE_URL="postgresql+asyncpg://admin:admin@localhost:5432/ragitect_test"
+    ```
+    (Adjust credentials and port if different). **Do NOT commit this file to Git.** Consider adding `.env.test` to your `.gitignore`.
+
+2.  **Run with `--env-file`**: Execute tests using the following command:
+    ```bash
+    uv run --env-file .env.test pytest -m integration
+    ```
+    This ensures your tests use the specified test database.
+
 ## Test Structure
 
 ```

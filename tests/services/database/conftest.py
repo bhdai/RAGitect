@@ -1,7 +1,9 @@
 """Pytest fixtures for database connection tests"""
 
+import os
 import pytest
 import asyncio
+from urllib.parse import urlparse
 from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -9,17 +11,39 @@ from ragitect.services.database import DatabaseManager
 
 
 @pytest.fixture(autouse=True)
-def clean_db_manager():
-    """Automatically clean up database manager before and after each test"""
+def clean_db_manager(request):
+    """
+    Automatically clean up the database manager and enforce safety checks.
+
+    This autouse fixture ensures that:
+    1. Integration tests only run against a database ending in '_test'.
+    2. The DatabaseManager engine is closed before and after each test
+       to ensure a clean state.
+    """
+    # --- Safety Check for Integration Tests ---
+    if "integration" in request.keywords:
+        db_url = os.getenv("DATABASE_URL")
+        # The test itself will skip if the URL is not set, so we only check if it *is* set.
+        if db_url:
+            parsed_url = urlparse(db_url)
+            db_name = parsed_url.path.lstrip("/")
+            if not db_name.endswith("_test"):
+                pytest.fail(
+                    f"\n\n*** SAFETY ABORT ***\n"
+                    f"Attempting to run integration tests on a non-test database: '{db_name}'.\n"
+                    f"To prevent data loss, the database name in DATABASE_URL must end with '_test'.\n"
+                )
+    # --- End Safety Check ---
+
     db_manager = DatabaseManager.get_instance()
 
-    # cleanup before test (sync wrapper for async cleanup)
+    # Cleanup before test
     if db_manager._engine:
         asyncio.run(db_manager.close())
 
     yield db_manager
 
-    # cleanup after test (optional, but ensures clean state)
+    # Cleanup after test
     if db_manager._engine:
         asyncio.run(db_manager.close())
 
