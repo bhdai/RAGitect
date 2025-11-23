@@ -3018,6 +3018,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pgvector"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/43/9a0fb552ab4fd980680c2037962e331820f67585df740bedc4a2b50faf20/pgvector-0.4.1.tar.gz", hash = "sha256:83d3a1c044ff0c2f1e95d13dfb625beb0b65506cfec0941bfe81fd0ad44f4003", size = 30646, upload-time = "2025-04-26T18:56:37.151Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/21/b5735d5982892c878ff3d01bb06e018c43fc204428361ee9fc25a1b2125c/pgvector-0.4.1-py3-none-any.whl", hash = "sha256:34bb4e99e1b13d08a2fe82dda9f860f15ddcd0166fbb25bffe15821cbfeb7362", size = 27086, upload-time = "2025-04-26T18:56:35.956Z" },
+]
+
+[[package]]
 name = "pillow"
 version = "11.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3720,6 +3732,7 @@ dependencies = [
     { name = "langchain-community" },
     { name = "langchain-litellm" },
     { name = "litellm" },
+    { name = "pgvector" },
     { name = "pypdf" },
     { name = "python-dotenv" },
     { name = "sqlalchemy" },
@@ -3744,6 +3757,7 @@ requires-dist = [
     { name = "langchain-community", specifier = ">=0.3.17" },
     { name = "langchain-litellm", specifier = ">=0.3.0" },
     { name = "litellm", specifier = ">=1.79.3" },
+    { name = "pgvector", specifier = ">=0.4.1" },
     { name = "pypdf", specifier = ">=6.2.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "sqlalchemy", specifier = ">=2.0.44" },
