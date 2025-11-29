@@ -120,8 +120,6 @@ class Document(Base):
         workspace: Relationship to parent Workspace
         chunks: Relationship to document chunks
 
-    Constraints:
-        - workspace_id and content_hash must be unique together
     """
 
     __tablename__: str = "documents"
@@ -160,7 +158,7 @@ class Document(Base):
         String(64),
         nullable=False,
         index=True,
-        comment="SHA-256 hash of 'workspace_id:content'",
+        comment="SHA-256 hash of 'content'",
     )
 
     unique_identifier_hash: Mapped[str] = mapped_column(
@@ -213,11 +211,6 @@ class Document(Base):
     )
 
     __table_args__ = (  # pyright: ignore[reportAny, reportUnannotatedClassAttribute]
-        UniqueConstraint(
-            "workspace_id",
-            "content_hash",
-            name="uq_workspace_content_hash",
-        ),
         {"comment": "Processed documents with embeddings"},
     )
 
