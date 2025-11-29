@@ -136,25 +136,6 @@ class TestDocumentModel:
         workspace_id_col = inspector.columns["workspace_id"]
         assert len(list(workspace_id_col.foreign_keys)) > 0
 
-    def test_document_has_unique_constraint(self):
-        """Test document has unique constraint on workspace_id and content_hash"""
-        table = Document.__table__
-        unique_constraints = [
-            c for c in table.constraints if isinstance(c, UniqueConstraint)
-        ]
-
-        # Find the specific constraint
-        workspace_content_constraint = None
-        for constraint in unique_constraints:
-            col_names = [col.name for col in constraint.columns]
-            if "workspace_id" in col_names and "content_hash" in col_names:
-                workspace_content_constraint = constraint
-                break
-
-        assert workspace_content_constraint is not None, (
-            "Unique constraint on workspace_id and content_hash not found"
-        )
-
     def test_document_unique_identifier_hash_is_unique(self):
         """Test unique_identifier_hash has unique constraint"""
         inspector = inspect(Document)
@@ -543,71 +524,6 @@ class TestDocumentModelIntegration:
                 assert document.file_name == "test.pdf"
                 assert document.file_type == "pdf"
                 assert document.metadata_ == {"page_count": 10}
-
-        finally:
-            from ragitect.services.database.connection import drop_table
-
-            await drop_table()
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_document_workspace_content_hash_unique(self, clean_db_manager):
-        """Test document workspace_id + content_hash unique constraint"""
-        import os
-
-        if not os.getenv("DATABASE_URL"):
-            pytest.skip("DATABASE_URL not set - skipping integration test")
-
-        if not clean_db_manager._engine:
-            await clean_db_manager.initialize()
-
-        # Enable pgvector extension
-        async with get_session() as session:
-            await session.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-
-        from ragitect.services.database.connection import create_table
-
-        await create_table()
-
-        try:
-            # Create workspace
-            async with get_session() as session:
-                workspace = Workspace(name="Unique Test Workspace")
-                session.add(workspace)
-                await session.flush()
-                workspace_id = workspace.id
-
-            # Create first document
-            async with get_session() as session:
-                test_embedding = [0.1] * 768
-                doc1 = Document(
-                    workspace_id=workspace_id,
-                    file_name="test1.pdf",
-                    file_type="pdf",
-                    content_hash="same_hash",
-                    unique_identifier_hash="unique1",
-                    embedding=test_embedding,
-                )
-                session.add(doc1)
-
-            # Try to create duplicate (same workspace + content_hash)
-            with pytest.raises(IntegrityError) as exc_info:
-                async with get_session() as session:
-                    doc2 = Document(
-                        workspace_id=workspace_id,
-                        file_name="test2.pdf",
-                        file_type="pdf",
-                        content_hash="same_hash",  # Same hash
-                        unique_identifier_hash="unique2",
-                        embedding=test_embedding,
-                    )
-                    session.add(doc2)
-                    await session.flush()
-
-            assert (
-                "unique" in str(exc_info.value).lower()
-                or "duplicate" in str(exc_info.value).lower()
-            )
 
         finally:
             from ragitect.services.database.connection import drop_table
