@@ -50,7 +50,7 @@ class WorkspaceRepository(BaseRepository[Workspace]):
 
             self.session.add(workspace)
             await self.session.flush()  # flush to catch IntegrityError
-            await self.session.refresh(Workspace)
+            await self.session.refresh(workspace)
 
             self._log_operation("creaet", f"name={name}")
             return workspace
