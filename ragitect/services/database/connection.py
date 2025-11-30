@@ -73,7 +73,7 @@ class DatabaseManager:
 
         Args:
             database_url: PostgreSQL connection string (defaults to config)
-            echo: enable sql query logging (defaullt to config)
+            echo: enable sql query logging (default to config)
             pool_size: connection pool size (default to config)
             max_overflow: max overflow connections (default to config)
             poll_timeout: connection pool timeout (default to config)
@@ -86,7 +86,7 @@ class DatabaseManager:
             DBConnectionError: if connection cannot be established
         """
         if self._engine is not None:
-            logger.info("Database engine already initalized")
+            logger.info("Database engine already initialized")
             return self._engine
 
         url = database_url or DATABASE_URL
@@ -97,7 +97,7 @@ class DatabaseManager:
         pool_recycle = pool_recycle or DB_POOL_RECYCLE
 
         logger.info(
-            f"Intializing database engine: {url.split('@')[-1]}"
+            f"Initializing database engine: {url.split('@')[-1]}"
         )  # hide the credentials
 
         try:
@@ -129,7 +129,7 @@ class DatabaseManager:
             raise DBConnectionError(original_error=e)
 
     async def initialize_for_testing(self, database_url: str) -> AsyncEngine:
-        """Intialize engine for testing with NullPool
+        """Initialize engine for testing with NullPool
 
         Args:
             database_url: test database_url
@@ -172,7 +172,7 @@ class DatabaseManager:
         """
         if self._engine is None:
             raise RuntimeError(
-                "Databse engine not initialized "
+                "Database engine not initialized "
                 + "Call DatabaseManager.get_instance().initialize() first"
             )
         return self._engine
@@ -196,7 +196,7 @@ class DatabaseManager:
     async def close(self) -> None:
         """Close the engine and dispose of connection pool"""
         if self._engine is not None:
-            logger.info("Closing databse engine")
+            logger.info("Closing database engine")
             await self._engine.dispose()
             self._engine = None
             self._session_factory = None

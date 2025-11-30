@@ -165,7 +165,7 @@ class Document(Base):
         String(64),
         nullable=False,
         unique=True,
-        comment="Unique hash accross the entire system",
+        comment="Unique hash across the entire system",
     )
 
     processed_content: Mapped[str | None] = mapped_column(

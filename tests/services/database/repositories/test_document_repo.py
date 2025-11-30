@@ -337,7 +337,7 @@ class TestDocumentRepositoryIntegration:
 
                 # Update embedding
                 new_emb = [0.9] * 768
-                updated_doc = await doc_repo.update_embedding(doc.id, new_emb)
+                _ = await doc_repo.update_embedding(doc.id, new_emb)
                 # Need to fetch again or check if returned object is updated
                 # PGVector returns numpy array or list? asyncpg usually returns string or list.
                 # Let's just check if no error and value is set.

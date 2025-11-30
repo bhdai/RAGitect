@@ -1,11 +1,11 @@
 """Document repository for CRUD operations"""
 
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.sql.functions import func
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 import hashlib
 from typing import Any
-from unittest.mock import AsyncMock
 import logging
 from uuid import UUID
 from ragitect.services.database.exceptions import DuplicateError
@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentRepository(BaseRepository[Document]):
-    """Repositories for document operations
+    """Repository for document operations
 
-    Handles all the database operations for documents entities including:
+    Handles all the database operations for document entities including:
     - Creating documents with metadata
     - Adding chunks to documents
-    - Retriveving document by workspace
-    - Duplicates detection via content hashing
+    - Retrieving document by workspace
+    - Duplicate detection via content hashing
     - batch operations
 
     Usage:
@@ -36,7 +36,7 @@ class DocumentRepository(BaseRepository[Document]):
     ::::    )
     """
 
-    def __init__(self, session: AsyncMock):
+    def __init__(self, session: AsyncSession):
         """Initialize DocumentRepository
 
         Args:

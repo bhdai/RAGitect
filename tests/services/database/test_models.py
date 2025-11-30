@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import datetime
-from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import CheckConstraint, UniqueConstraint, inspect, text

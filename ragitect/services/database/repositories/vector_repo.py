@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class VectorRepository:
-    """Repository for vector simillarity search operations
+    """Repository for vector similarity search operations
 
     Handles all the vector similarity search operation using pgvector:
     - Chunk-level similarity search
-    - Document-level similartity search
-    - Configuralble similartity threshold
+    - Document-level similarity search
+    - Configurable similarity threshold
     - Workspace-scoped searches
 
     Attributes:
@@ -68,7 +68,7 @@ class VectorRepository:
         """
         if len(query_vector) != 768:
             raise ValidationError(
-                "query_vector", f"Exxpected 768 demensions, got {len(query_vector)}"
+                "query_vector", f"Expected 768 dimensions, got {len(query_vector)}"
             )
 
         # verify if workspace exists
@@ -132,7 +132,7 @@ class VectorRepository:
         """
         if len(query_vector) != 768:
             raise ValidationError(
-                "query_vector", f"Exxpected 768 demensions, got {len(query_vector)}"
+                "query_vector", f"Expected 768 dimensions, got {len(query_vector)}"
             )
 
         workspace = await self.session.get(Workspace, workspace_id)
@@ -196,7 +196,7 @@ class VectorRepository:
         similarity_threshold: float = 0.0,
     ) -> list[tuple[DocumentChunk, float]]:
         """Search similar chunks within specific document
-        Useful for finding relavent sections within a single documentation
+        Useful for finding relevant sections within a single documentation
 
         Args:
             document_id: Document UUID
@@ -211,7 +211,7 @@ class VectorRepository:
         """
         if len(query_vector) != 768:
             raise ValidationError(
-                "query_vector", f"Exxpected 768 demensions, got {len(query_vector)}"
+                "query_vector", f"Expected 768 dimensions, got {len(query_vector)}"
             )
 
         distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label(
@@ -248,7 +248,7 @@ class VectorRepository:
         similarity_threshold: float = 0.0,
     ) -> list[list[tuple[DocumentChunk, float]]]:
         """Batch search for multiple query vector
-        should be faster than running single query_vecotor multiple times
+        should be faster than running single query_vector multiple times
 
         Args:
             workspace_id: workspace UUID

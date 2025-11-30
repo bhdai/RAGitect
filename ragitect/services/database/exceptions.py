@@ -19,7 +19,7 @@ class DatabaseError(Exception):
 
 
 class NotFoundError(DatabaseError):
-    """Rasied when the entity is not found in the database but caller expect result
+    """Raised when the entity is not found in the database but caller expect result
 
     Attributes:
         entity_type: type of the entity (e.g., "Workspace", "Document")
@@ -37,7 +37,7 @@ class NotFoundError(DatabaseError):
 
 
 class DuplicateError(DatabaseError):
-    """Raised when attemping to create an entity that violates unique constraints
+    """Raised when attempting to create an entity that violates unique constraints
 
     Attributes:
         entity_type: type of the entity (e.g., "Workspace", "Document")

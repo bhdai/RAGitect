@@ -33,7 +33,7 @@ class WorkspaceRepository(BaseRepository[Workspace]):
         super().__init__(session, Workspace)
 
     async def create(self, name: str, description: str | None = None) -> Workspace:
-        """Create a new workspac
+        """Create a new workspace
 
         Args:
             name: Workspace name (must be unique)
@@ -43,7 +43,7 @@ class WorkspaceRepository(BaseRepository[Workspace]):
             Created Workspace instance
 
         Raises:
-            DuplicateError: If workspace with same name exisit
+            DuplicateError: If workspace with same name exists
         """
         try:
             workspace = Workspace(name=name, description=description)
@@ -52,7 +52,7 @@ class WorkspaceRepository(BaseRepository[Workspace]):
             await self.session.flush()  # flush to catch IntegrityError
             await self.session.refresh(workspace)
 
-            self._log_operation("creaet", f"name={name}")
+            self._log_operation("create", f"name={name}")
             return workspace
         except IntegrityError:
             await self.session.rollback()
@@ -210,7 +210,7 @@ class WorkspaceRepository(BaseRepository[Workspace]):
             workspace_id: workspace UUID
 
         Returns:
-            workspace instance with document loadeded
+            workspace instance with document loaded
 
         Raises:
             NotFoundError: if workspace not found
