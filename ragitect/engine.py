@@ -8,13 +8,23 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_ollama.embeddings import OllamaEmbeddings
 
 from ragitect.services import (
-    document_processor,
-    embedding,
-    llm,
-    query_service,
-    vector_store,
+    LLMConfig,
+    add_vectors_to_index,
+    create_documents,
+    create_embeddings_model,
+    create_llm,
+    embed_documents,
+    embed_text,
+    generate_response_stream,
+    get_embedding_dimension,
+    initialize_index,
+    load_config_from_env,
+    process_file_bytes,
+    reformulate_query_with_chat_history,
+    search_index,
+    split_document,
+    valididate_llm_config,
 )
-from ragitect.services.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +32,14 @@ logger = logging.getLogger(__name__)
 class ChatEngine:
     def __init__(self, config: LLMConfig | None = None):
         if config is None:
-            from ragitect.services.config import load_config_from_env
-
             config = load_config_from_env()
         self.config: LLMConfig = config
-        is_valid, error_msg = llm.valididate_llm_config(config)
+        is_valid, error_msg = valididate_llm_config(config)
         if not is_valid:
             raise ValueError(f"Invalid LLM configuration: {error_msg}")
-        self.embedding_model: OllamaEmbeddings = embedding.create_embeddings_model()
-        self.llm_model: BaseChatModel = llm.create_llm(config)
-        self.dimension: int = embedding.get_embedding_dimension()
+        self.embedding_model: OllamaEmbeddings = create_embeddings_model()
+        self.llm_model: BaseChatModel = create_llm(config)
+        self.dimension: int = get_embedding_dimension()
         logger.info(f"ChatEngine initialized with provider={config.provider}")
 
     def process_document(
@@ -49,15 +57,15 @@ class ChatEngine:
             tuple of Faiss index and document store
         """
         logger.info(f"Processing document: {file_name}")
-        raw_text = document_processor.process_file_bytes(file_bytes, file_name)
-        chunks = document_processor.split_document(raw_text, chunk_size=500, overlap=50)
-        document_store = document_processor.create_documents(chunks, file_name)
+        raw_text = process_file_bytes(file_bytes, file_name)
+        chunks = split_document(raw_text, chunk_size=500, overlap=50)
+        document_store = create_documents(chunks, file_name)
 
-        vectors = embedding.embed_documents(
+        vectors = embed_documents(
             self.embedding_model, [doc.page_content for doc in document_store]
         )
-        faiss_index = vector_store.initialize_index(self.dimension)
-        vector_store.add_vectors_to_index(faiss_index, vectors)
+        faiss_index = initialize_index(self.dimension)
+        add_vectors_to_index(faiss_index, vectors)
 
         logger.info(f"File processed. Index created with {len(vectors)} vectors")
         return faiss_index, document_store
@@ -78,18 +86,16 @@ class ChatEngine:
         all_document_store: list[Document] = []
         for file_bytes, file_name in files:
             logger.info(f"Processing document: {file_name}")
-            raw_text = document_processor.process_file_bytes(file_bytes, file_name)
-            chunks = document_processor.split_document(
-                raw_text, chunk_size=500, overlap=50
-            )
-            docs = document_processor.create_documents(chunks, file_name)
+            raw_text = process_file_bytes(file_bytes, file_name)
+            chunks = split_document(raw_text, chunk_size=500, overlap=50)
+            docs = create_documents(chunks, file_name)
             all_document_store.extend(docs)
         logger.info(f"Embedding {len(all_document_store)} total chunks...")
-        vectors = embedding.embed_documents(
+        vectors = embed_documents(
             self.embedding_model, [doc.page_content for doc in all_document_store]
         )
-        faisse_index = vector_store.initialize_index(self.dimension)
-        vector_store.add_vectors_to_index(faisse_index, vectors)
+        faisse_index = initialize_index(self.dimension)
+        add_vectors_to_index(faisse_index, vectors)
         logger.info(
             f"Batch processing complete: {len(vectors)} vectors from {len(files)} files"
         )
@@ -117,14 +123,12 @@ class ChatEngine:
         if chat_history is None:
             chat_history = []
 
-        reformulated_query = query_service.reformulate_query_with_chat_history(
+        reformulated_query = reformulate_query_with_chat_history(
             self.llm_model, query, chat_history
         )
 
-        query_vector = embedding.embed_text(self.embedding_model, reformulated_query)
-        retrieved_docs = vector_store.search_index(
-            faiss_index, query_vector, document_store, k=10
-        )
+        query_vector = embed_text(self.embedding_model, reformulated_query)
+        retrieved_docs = search_index(faiss_index, query_vector, document_store, k=10)
         context = "\n\n".join([doc.page_content for doc, _ in retrieved_docs])
 
         system_instruction = """
@@ -149,7 +153,7 @@ Your goal is to provide clear, detailed, and educational answers based on the re
             history_messages,
         )
 
-        return llm.generate_response_stream(self.llm_model, messages)
+        return generate_response_stream(self.llm_model, messages)
 
     @staticmethod
     def _format_chat_history_for_prompt(
