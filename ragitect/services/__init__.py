@@ -1,5 +1,5 @@
 # Document processing
-from .document_processor import (
+from ragitect.services.document_processor import (
     create_documents,
     load_document,
     process_file_bytes,
@@ -7,7 +7,7 @@ from .document_processor import (
 )
 
 # Embeddings
-from .embedding import (
+from ragitect.services.embedding import (
     create_embeddings_model,
     embed_documents,
     embed_text,
@@ -15,7 +15,7 @@ from .embedding import (
 )
 
 # LLM
-from .llm import (
+from ragitect.services.llm import (
     LLMProvider,
     create_llm,
     generate_response,
@@ -25,20 +25,20 @@ from .llm import (
 )
 
 # Vector store
-from .vector_store import (
+from ragitect.services.vector_store import (
     add_vectors_to_index,
     initialize_index,
     search_index,
 )
 
 # Query service
-from .query_service import (
+from ragitect.services.query_service import (
     format_chat_history,
     reformulate_query_with_chat_history,
 )
 
 # Configuration
-from .config import (
+from ragitect.services.config import (
     DATABASE_URL,
     DB_ECHO,
     DB_MAX_OVERFLOW,

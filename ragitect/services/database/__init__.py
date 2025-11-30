@@ -1,6 +1,6 @@
 """Database package - SQLAlchemy async ORM with pgvector support"""
 
-from .connection import (
+from ragitect.services.database.connection import (
     DatabaseManager,
     check_connection,
     get_engine,
@@ -12,7 +12,7 @@ from .connection import (
     reset_database,
 )
 
-from .exceptions import (
+from ragitect.services.database.exceptions import (
     ConnectionError,
     DatabaseError,
     DuplicateError,
@@ -20,14 +20,18 @@ from .exceptions import (
     ValidationError,
 )
 
-from .models import (
+from ragitect.services.database.models import (
     Base,
     Document,
     DocumentChunk,
     Workspace,
 )
 
-from .repositories import DocumentRepository, VectorRepository, WorkspaceRepository
+from ragitect.services.database.repositories import (
+    DocumentRepository,
+    VectorRepository,
+    WorkspaceRepository,
+)
 
 __all__ = [
     # connection management
