@@ -70,15 +70,16 @@ For integration tests that interact with a PostgreSQL database, it is crucial to
 tests/
 ├── services/
 │   ├── database/
-│   │   └── test_connection.py     # Database connection tests
+│   │   ├── repositories/            # Integration tests for database repositories
+│   │   └── test_connection.py       # Database connection tests
 │   ├── processor/
-│   │   ├── test_factory.py        # Processor factory tests
-│   │   └── test_simple.py         # Simple text processor tests
-│   ├── test_config.py             # Configuration loading tests
-│   ├── test_document_processor.py # Document processing tests
-│   ├── test_query_service.py      # Query reformulation tests
-│   └── test_vector_store.py       # Vector store tests
-└── test_engine.py                 # ChatEngine tests
+│   │   ├── test_factory.py          # Processor factory tests
+│   │   └── test_simple.py           # Simple text processor tests
+│   ├── test_config.py               # Configuration loading tests
+│   ├── test_document_processor.py   # Document processing tests
+│   ├── test_query_service.py        # Query reformulation tests
+│   └── test_vector_store.py         # Vector store tests
+└── test_engine.py                   # ChatEngine tests
 ```
 
 ## Coverage
@@ -194,6 +195,17 @@ The `test_models.py` file ensures the correctness of the SQLAlchemy ORM models t
 - **Constraint Enforcement**: Verifies that database-level constraints (e.g., unique names) raise `IntegrityError` when violated.
 - **Cascade Behavior**: Tests that deleting a `Workspace` cascades to `Document`s and `DocumentChunk`s, and `Document` deletion cascades to `DocumentChunk`s.
 - **`onupdate` Timestamps**: Ensures that the `updated_at` timestamp on `Workspace` is automatically updated when the record is modified.
+
+## Database Repository Tests
+
+The `repositories` directory (`tests/services/database/repositories`) contains integration tests for the `WorkspaceRepository`, `DocumentRepository`, and `VectorRepository`. These tests verify the interaction of these data access layers with a real PostgreSQL database, covering:
+
+-   **CRUD operations**: Creating, retrieving, updating, and deleting entities.
+-   **Business Logic**: Such as duplicate detection or counting related entities.
+-   **Vector Search**: Verifying similarity searches for documents and chunks using `pgvector`.
+-   **Concurrency and Transactions**: Ensuring operations work correctly in an asynchronous environment.
+
+A common pattern for setting up and tearing down the database for these tests, especially within a test class, involves using an `asynccontextmanager` as detailed in Section 9 of `test_guide.md`.
 
 ## CI/CD
 
