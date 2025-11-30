@@ -5,11 +5,15 @@ description = "Ragitect"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.17.2",
+    "asyncpg>=0.30.0",
     "chainlit>=2.9.0",
     "docling>=2.61.2",
     "langchain-community>=0.3.17",
     "langchain-litellm>=0.3.0",
     "litellm>=1.79.3",
+    "pgvector>=0.4.1",
+    "psycopg2-binary>=2.9.11",
     "pypdf>=6.2.0",
     "python-dotenv>=1.2.1",
     "sqlalchemy>=2.0.44",
@@ -21,8 +25,11 @@ dev = [
     "faiss-cpu>=1.12.0",
     "langchain-ollama>=0.3.10",
     "openai>=2.7.2",
+    "pre-commit>=4.5.0",
     "pytest>=9.0.1",
+    "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
+    "ruff>=0.14.7",
 ]
 
 [tool.pytest.ini_options]
@@ -36,4 +43,7 @@ addopts = [
     "--cov=ragitect",
     "--cov-report=term-missing",
     "--cov-report=html",
+]
+markers = [
+    "integration: marks tests as integration tests (require DATABASE_URL set)",
 ]

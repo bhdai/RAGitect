@@ -8,6 +8,24 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+DATABASE_URL: str = os.getenv(
+    "DATABASE_URL", "postgresql+asyncpg://admin:admin@localhost:5432/ragitect_db"
+)
+
+DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "5"))
+DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+# pool_timeout: seconds to wait before giving up on getting a connection
+DB_POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+# pool_recycle: recycle connections after N seconds (prevents stale connections)
+DB_POOL_RECYCLE: int = int(os.getenv("DB_POOL_RECYCLE", "3600"))  # 1 hour
+DB_ECHO: bool = os.getenv("DB_ECHO", "false").lower() == "true"
+
+# vector search settings
+DEFAULT_SIMILARITY_THRESHOLD: float = float(
+    os.getenv("DEFAULT_SIMILARITY_THRESHOLD", "0.3")
+)
+DEFAULT_RETRIEVAL_K: int = int(os.getenv("DEFAULT_RETRIEVAL_K", "10"))
+
 
 @dataclass
 class LLMConfig:

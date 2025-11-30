@@ -3,3 +3,8 @@
 .streamlit
 
 __pycache__/
+
+.chainlit/
+
+*.bak
+.env.test
