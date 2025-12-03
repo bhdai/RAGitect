@@ -1,6 +1,6 @@
 """Tests for Docker Compose setup and service configuration."""
 
-import os
+import json
 from pathlib import Path
 
 import pytest
@@ -181,8 +181,6 @@ class TestFrontendStructure:
     def test_frontend_has_tailwind(self, project_root: Path):
         """Verify frontend has Tailwind CSS configured."""
         # Check for Tailwind in package.json dependencies
-        import json
-
         package_json = project_root / "frontend" / "package.json"
         with open(package_json) as f:
             pkg = json.load(f)
