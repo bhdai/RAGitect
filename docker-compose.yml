@@ -30,6 +30,8 @@ services:
     volumes:
       - ./ragitect:/app/ragitect
       - ./main.py:/app/main.py
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
     depends_on:
       db:
         condition: service_healthy
