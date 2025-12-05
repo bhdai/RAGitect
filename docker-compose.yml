@@ -48,6 +48,7 @@ services:
       dockerfile: Dockerfile
     container_name: ragitect_frontend
     environment:
+      # For client-side (browser) API calls - browser reaches host's localhost:8000
       NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
       - "3000:3000"
