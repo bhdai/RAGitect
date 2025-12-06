@@ -1,0 +1,1 @@
+"""API schemas tests package"""

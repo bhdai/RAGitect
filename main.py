@@ -1,12 +1,31 @@
 """RAGitect FastAPI Application Entry Point."""
 
+from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from ragitect.api.v1.router import router as api_v1_router
+from ragitect.services.database.connection import DatabaseManager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan manager for startup/shutdown events."""
+    # Startup: Initialize database connection
+    db_manager = DatabaseManager.get_instance()
+    await db_manager.initialize()
+    yield
+    # Shutdown: Close database connection
+    await db_manager.close()
+
 
 app = FastAPI(
     title="RAGitect API",
     description="RAG-powered document intelligence API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS for frontend communication
@@ -32,6 +51,10 @@ async def root():
 async def health_check():
     """Health check endpoint for Docker/orchestration systems."""
     return {"status": "healthy"}
+
+
+# Include API routers
+app.include_router(api_v1_router)
 
 
 def main():
