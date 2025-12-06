@@ -119,7 +119,7 @@ class TestCreateWorkspace:
 
     @pytest.mark.asyncio
     async def test_create_workspace_empty_name_returns_422(self, async_client):
-        """Test that empty name returns 422 validation error"""
+        """Test that empty name returns 422 Pydantic validation error"""
         response = await async_client.post(
             "/api/v1/workspaces",
             json={"name": ""},
