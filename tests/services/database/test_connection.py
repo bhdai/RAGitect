@@ -130,7 +130,7 @@ class TestDatabaseManager:
             )
 
             call_kwargs = mock_create_engine.call_args[1]
-            assert call_kwargs["pool_class"] is NullPool
+            assert call_kwargs["poolclass"] is NullPool
             assert call_kwargs["echo"] is False
 
     @pytest.mark.asyncio

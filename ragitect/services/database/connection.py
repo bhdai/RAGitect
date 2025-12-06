@@ -147,7 +147,7 @@ class DatabaseManager:
 
         try:
             self._engine = create_async_engine(
-                database_url, echo=False, pool_class=NullPool
+                database_url, echo=False, poolclass=NullPool
             )
 
             self._session_factory = async_sessionmaker(
