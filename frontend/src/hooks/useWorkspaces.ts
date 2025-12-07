@@ -14,6 +14,7 @@ interface UseWorkspacesReturn {
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  removeWorkspace: (id: string) => void;
 }
 
 /**
@@ -45,12 +46,18 @@ export function useWorkspaces(): UseWorkspacesReturn {
     fetchWorkspaces();
   }, [fetchWorkspaces]);
 
+  const removeWorkspace = useCallback((id: string) => {
+    setWorkspaces((prev) => prev.filter((w) => w.id !== id));
+    setTotal((prev) => Math.max(0, prev - 1));
+  }, []);
+
   return {
     workspaces,
     total,
     isLoading,
     error,
     refresh: fetchWorkspaces,
+    removeWorkspace,
   };
 }
 

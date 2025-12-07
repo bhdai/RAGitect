@@ -15,7 +15,7 @@ import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useDeleteWorkspace } from '@/hooks/useWorkspaces';
 
 export default function Dashboard() {
-  const { workspaces, isLoading, error, refresh } = useWorkspaces();
+  const { workspaces, isLoading, error, refresh, removeWorkspace } = useWorkspaces();
   const { deleteWorkspace } = useDeleteWorkspace();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -27,14 +27,16 @@ export default function Dashboard() {
     try {
       const success = await deleteWorkspace(id);
       if (success) {
-        // Wait for refresh to complete before returning
-        await refresh();
+        // Optimistically update the UI immediately
+        removeWorkspace(id);
       }
     } catch (error) {
       // Error handling is done in the deleteWorkspace hook
       console.error('Delete failed:', error);
+      // Refresh to ensure UI is in sync with server on error
+      await refresh();
     }
-  }, [deleteWorkspace, refresh]);
+  }, [deleteWorkspace, removeWorkspace, refresh]);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
