@@ -280,16 +280,8 @@ class TestWorkspaceIntegration:
             await doc_repo.add_chunks(
                 document_id=document.id,
                 chunks=[
-                    {
-                        "content": "Chunk 1 content",
-                        "embedding": [0.2] * 768,
-                        "chunk_index": 0,
-                    },
-                    {
-                        "content": "Chunk 2 content",
-                        "embedding": [0.3] * 768,
-                        "chunk_index": 1,
-                    },
+                    ("Chunk 1 content", [0.2] * 768, None),
+                    ("Chunk 2 content", [0.3] * 768, None),
                 ],
             )
             await session.commit()
