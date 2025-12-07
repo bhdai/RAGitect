@@ -20,6 +20,13 @@ async def mock_lifespan(app: FastAPI):
     yield
 
 
+# Helper for mocking async session generator
+async def mock_get_async_session_dependency():
+    """Mock async generator for database sessions used as FastAPI dependency override"""
+    mock_session = AsyncMock()
+    yield mock_session
+
+
 @pytest.fixture(autouse=True)
 def mock_database_manager():
     """
@@ -41,11 +48,20 @@ async def async_client(mock_database_manager) -> AsyncGenerator[AsyncClient, Non
 
     This fixture imports main.app after the lifespan is mocked to ensure
     the mock is in place before app initialization.
+
+    Uses FastAPI's dependency_overrides to mock get_async_session.
     """
-    # Import app here to ensure mocks are in place
+    # Import app and dependencies here to ensure mocks are in place
     from main import app
+    from ragitect.services.database.connection import get_async_session
+
+    # Override the dependency
+    app.dependency_overrides[get_async_session] = mock_get_async_session_dependency
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         yield client
+
+    # Clean up override
+    app.dependency_overrides.clear()

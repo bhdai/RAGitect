@@ -45,7 +45,7 @@ class TestCreateWorkspace:
         mock_repo.create.return_value = mock_workspace
 
         mocker.patch(
-            "ragitect.api.v1.workspaces.get_session",
+            "ragitect.api.v1.workspaces.get_async_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=mock_session),
                 __aexit__=mocker.AsyncMock(return_value=None),
@@ -96,7 +96,7 @@ class TestCreateWorkspace:
         mock_repo.create.return_value = mock_workspace
 
         mocker.patch(
-            "ragitect.api.v1.workspaces.get_session",
+            "ragitect.api.v1.workspaces.get_async_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=mock_session),
                 __aexit__=mocker.AsyncMock(return_value=None),
@@ -137,7 +137,7 @@ class TestCreateWorkspace:
         mock_repo.create.side_effect = DuplicateError("Workspace", "name", "Duplicate")
 
         mocker.patch(
-            "ragitect.api.v1.workspaces.get_session",
+            "ragitect.api.v1.workspaces.get_async_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=mock_session),
                 __aexit__=mocker.AsyncMock(return_value=None),
@@ -182,7 +182,7 @@ class TestListWorkspaces:
         mock_repo.count.return_value = 2
 
         mocker.patch(
-            "ragitect.api.v1.workspaces.get_session",
+            "ragitect.api.v1.workspaces.get_async_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=mock_session),
                 __aexit__=mocker.AsyncMock(return_value=None),
@@ -219,7 +219,7 @@ class TestListWorkspaces:
         mock_repo.count.return_value = 0
 
         mocker.patch(
-            "ragitect.api.v1.workspaces.get_session",
+            "ragitect.api.v1.workspaces.get_async_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=mock_session),
                 __aexit__=mocker.AsyncMock(return_value=None),
@@ -261,7 +261,7 @@ class TestGetWorkspace:
         mock_repo.get_by_id_or_raise.return_value = mock_workspace
 
         mocker.patch(
-            "ragitect.api.v1.workspaces.get_session",
+            "ragitect.api.v1.workspaces.get_async_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=mock_session),
                 __aexit__=mocker.AsyncMock(return_value=None),
@@ -297,7 +297,7 @@ class TestGetWorkspace:
         )
 
         mocker.patch(
-            "ragitect.api.v1.workspaces.get_session",
+            "ragitect.api.v1.workspaces.get_async_session",
             return_value=mocker.AsyncMock(
                 __aenter__=mocker.AsyncMock(return_value=mock_session),
                 __aexit__=mocker.AsyncMock(return_value=None),
@@ -317,5 +317,73 @@ class TestGetWorkspace:
     async def test_get_workspace_invalid_uuid(self, async_client):
         """Test getting workspace with invalid UUID returns 422"""
         response = await async_client.get("/api/v1/workspaces/invalid-uuid")
+
+        assert response.status_code == 422
+
+
+class TestDeleteWorkspace:
+    """Tests for DELETE /api/v1/workspaces/{id}"""
+
+    @pytest.mark.asyncio
+    async def test_delete_workspace_success(self, async_client, mocker):
+        """Test successful workspace deletion returns 204 No Content"""
+        workspace_id = uuid.uuid4()
+
+        mock_session = mocker.AsyncMock()
+        mock_repo = mocker.AsyncMock()
+        mock_repo.delete_by_id.return_value = True
+
+        mocker.patch(
+            "ragitect.api.v1.workspaces.get_async_session",
+            return_value=mocker.AsyncMock(
+                __aenter__=mocker.AsyncMock(return_value=mock_session),
+                __aexit__=mocker.AsyncMock(return_value=None),
+            ),
+        )
+        mocker.patch(
+            "ragitect.api.v1.workspaces.WorkspaceRepository",
+            return_value=mock_repo,
+        )
+
+        response = await async_client.delete(f"/api/v1/workspaces/{workspace_id}")
+
+        assert response.status_code == 204
+        assert response.content == b""  # No content in response body
+
+        # Verify delete_by_id was called with correct workspace_id
+        mock_repo.delete_by_id.assert_called_once_with(workspace_id)
+
+    @pytest.mark.asyncio
+    async def test_delete_workspace_not_found(self, async_client, mocker):
+        """Test deleting non-existent workspace returns 404"""
+        from ragitect.services.database.exceptions import NotFoundError
+
+        workspace_id = uuid.uuid4()
+
+        mock_session = mocker.AsyncMock()
+        mock_repo = mocker.AsyncMock()
+        mock_repo.delete_by_id.side_effect = NotFoundError("Workspace", workspace_id)
+
+        mocker.patch(
+            "ragitect.api.v1.workspaces.get_async_session",
+            return_value=mocker.AsyncMock(
+                __aenter__=mocker.AsyncMock(return_value=mock_session),
+                __aexit__=mocker.AsyncMock(return_value=None),
+            ),
+        )
+        mocker.patch(
+            "ragitect.api.v1.workspaces.WorkspaceRepository",
+            return_value=mock_repo,
+        )
+
+        response = await async_client.delete(f"/api/v1/workspaces/{workspace_id}")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_delete_workspace_invalid_uuid(self, async_client):
+        """Test deleting workspace with invalid UUID returns 422"""
+        response = await async_client.delete("/api/v1/workspaces/invalid-uuid")
 
         assert response.status_code == 422

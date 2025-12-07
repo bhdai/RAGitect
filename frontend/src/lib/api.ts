@@ -72,6 +72,33 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  /**
+   * Delete a workspace by ID
+   */
+  async deleteWorkspace(id: string): Promise<void> {
+    const url = `${this.baseUrl}/api/v1/workspaces/${id}`;
+    
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 404) {
+      throw new Error('Workspace not found');
+    }
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        detail: `Failed to delete workspace: ${response.status}`,
+      }));
+      throw new Error(error.detail);
+    }
+
+    // 204 No Content - no response body to parse
+  }
 }
 
 // Export singleton instance
@@ -82,3 +109,4 @@ export const getWorkspaces = () => apiClient.getWorkspaces();
 export const getWorkspace = (id: string) => apiClient.getWorkspace(id);
 export const createWorkspace = (data: WorkspaceCreateRequest) => 
   apiClient.createWorkspace(data);
+export const deleteWorkspace = (id: string) => apiClient.deleteWorkspace(id);

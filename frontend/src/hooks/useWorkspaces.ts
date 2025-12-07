@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getWorkspaces, createWorkspace } from '@/lib/api';
+import { getWorkspaces, createWorkspace, deleteWorkspace } from '@/lib/api';
 import type { Workspace, WorkspaceCreateRequest } from '@/lib/types';
 
 interface UseWorkspacesReturn {
@@ -91,6 +91,48 @@ export function useCreateWorkspace(): UseCreateWorkspaceReturn {
   return {
     createWorkspace: create,
     isCreating,
+    error,
+    clearError,
+  };
+}
+
+interface UseDeleteWorkspaceReturn {
+  deleteWorkspace: (id: string) => Promise<boolean>;
+  isDeleting: boolean;
+  error: string | null;
+  clearError: () => void;
+}
+
+/**
+ * Hook to delete a workspace
+ */
+export function useDeleteWorkspace(): UseDeleteWorkspaceReturn {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const deleteWorkspaceFn = useCallback(async (id: string): Promise<boolean> => {
+    setIsDeleting(true);
+    setError(null);
+    
+    try {
+      await deleteWorkspace(id);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete workspace';
+      setError(message);
+      return false;
+    } finally {
+      setIsDeleting(false);
+    }
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return {
+    deleteWorkspace: deleteWorkspaceFn,
+    isDeleting,
     error,
     clearError,
   };
