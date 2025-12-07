@@ -8,3 +8,6 @@ __pycache__/
 
 *.bak
 .env.test
+
+.coverage
+docs/

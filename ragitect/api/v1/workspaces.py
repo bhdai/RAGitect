@@ -17,7 +17,7 @@ from ragitect.api.schemas.workspace import (
     WorkspaceListResponse,
     WorkspaceResponse,
 )
-from ragitect.services.database.connection import get_session
+from ragitect.services.database.connection import get_async_session
 from ragitect.services.database.exceptions import DuplicateError, NotFoundError
 from ragitect.services.database.repositories.workspace_repo import WorkspaceRepository
 
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 )
 async def create_workspace(
     data: WorkspaceCreate,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> WorkspaceResponse:
     """Create a new workspace.
 
@@ -80,7 +80,7 @@ async def create_workspace(
 async def list_workspaces(
     skip: int = 0,
     limit: int = 100,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> WorkspaceListResponse:
     """List all workspaces with pagination.
 
@@ -118,7 +118,7 @@ async def list_workspaces(
 )
 async def get_workspace(
     workspace_id: UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> WorkspaceResponse:
     """Get a single workspace by ID.
 
@@ -141,6 +141,44 @@ async def get_workspace(
         logger.info(f"Found workspace: {workspace.name}")
 
         return WorkspaceResponse.model_validate(workspace)
+
+    except NotFoundError as e:
+        logger.warning(f"Workspace not found: {workspace_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace not found: {workspace_id}",
+        ) from e
+
+
+@router.delete(
+    "/{workspace_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a workspace",
+    description="Delete a workspace and all its associated documents, chunks, and embeddings.",
+)
+async def delete_workspace(
+    workspace_id: UUID,
+    session: AsyncSession = Depends(get_async_session),
+) -> None:
+    """Delete a workspace and all associated data.
+
+    Args:
+        workspace_id: Workspace UUID
+        session: Database session (injected by FastAPI)
+
+    Returns:
+        None (204 No Content)
+
+    Raises:
+        HTTPException 404: If workspace not found
+    """
+    logger.info(f"Deleting workspace: {workspace_id}")
+
+    repo = WorkspaceRepository(session)
+
+    try:
+        await repo.delete_by_id(workspace_id)
+        logger.info(f"Successfully deleted workspace: {workspace_id}")
 
     except NotFoundError as e:
         logger.warning(f"Workspace not found: {workspace_id}")

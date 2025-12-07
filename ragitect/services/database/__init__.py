@@ -5,6 +5,7 @@ from ragitect.services.database.connection import (
     check_connection,
     get_engine,
     get_session,
+    get_async_session,
     get_session_factory,
     get_session_no_autocommit,
     create_table,
@@ -39,6 +40,7 @@ __all__ = [
     "get_engine",
     "get_session_factory",
     "get_session",
+    "get_async_session",
     "get_session_no_autocommit",
     # utilities
     "check_connection",

@@ -12,14 +12,31 @@ import { Button } from '@/components/ui/button';
 import { WorkspaceCard } from '@/components/WorkspaceCard';
 import { CreateWorkspaceModal } from '@/components/CreateWorkspaceModal';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useDeleteWorkspace } from '@/hooks/useWorkspaces';
 
 export default function Dashboard() {
-  const { workspaces, isLoading, error, refresh } = useWorkspaces();
+  const { workspaces, isLoading, error, refresh, removeWorkspace } = useWorkspaces();
+  const { deleteWorkspace } = useDeleteWorkspace();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleCreateSuccess = useCallback(() => {
     refresh();
   }, [refresh]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      const success = await deleteWorkspace(id);
+      if (success) {
+        // Optimistically update the UI immediately
+        removeWorkspace(id);
+      }
+    } catch (error) {
+      // Error handling is done in the deleteWorkspace hook
+      console.error('Delete failed:', error);
+      // Refresh to ensure UI is in sync with server on error
+      await refresh();
+    }
+  }, [deleteWorkspace, removeWorkspace, refresh]);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -78,7 +95,11 @@ export default function Dashboard() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {workspaces.map((workspace) => (
-              <WorkspaceCard key={workspace.id} workspace={workspace} />
+              <WorkspaceCard 
+                key={workspace.id} 
+                workspace={workspace}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         )}

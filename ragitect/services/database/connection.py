@@ -147,7 +147,7 @@ class DatabaseManager:
 
         try:
             self._engine = create_async_engine(
-                database_url, echo=False, pool_class=NullPool
+                database_url, echo=False, poolclass=NullPool
             )
 
             self._session_factory = async_sessionmaker(
@@ -247,6 +247,38 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
     Yields:
         AsyncSession: database session
+    """
+    factory = get_session_factory()
+    session = factory()
+
+    try:
+        async with session.begin():
+            yield session
+    except Exception:
+        logger.debug("Session rollback due to exception")
+        raise
+    finally:
+        await session.close()
+
+
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency for database session with automatic transaction handling
+
+    This is a plain async generator specifically designed for use with FastAPI's
+    Depends() dependency injection. Unlike get_session(), this is NOT decorated
+    with @asynccontextmanager.
+
+    Usage in FastAPI routes:
+    >>> @router.get("/workspaces")
+    >>> async def list_workspaces(
+    >>>     session: AsyncSession = Depends(get_async_session)
+    >>> ):
+    >>>     repo = WorkspaceRepository(session)
+    >>>     workspaces = await repo.get_all()
+    >>>     return workspaces
+
+    Yields:
+        AsyncSession: database session with automatic commit/rollback
     """
     factory = get_session_factory()
     session = factory()
