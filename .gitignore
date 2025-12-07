@@ -9,11 +9,5 @@ __pycache__/
 *.bak
 .env.test
 
-.bmad/
-.codex/
 .coverage
-.gemini/
-.github/agents/
-.qwen/
 docs/
-local/
