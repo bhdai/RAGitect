@@ -39,18 +39,10 @@ class TestCreateWorkspace:
         mock_workspace.created_at = now
         mock_workspace.updated_at = now
 
-        # Mock get_session to return a mock session
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.create.return_value = mock_workspace
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -91,17 +83,10 @@ class TestCreateWorkspace:
         mock_workspace.created_at = now
         mock_workspace.updated_at = now
 
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.create.return_value = mock_workspace
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -132,17 +117,10 @@ class TestCreateWorkspace:
         """Test that duplicate workspace name returns 409"""
         from ragitect.services.database.exceptions import DuplicateError
 
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.create.side_effect = DuplicateError("Workspace", "name", "Duplicate")
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -176,18 +154,11 @@ class TestListWorkspaces:
             ws.created_at = now
             ws.updated_at = now
 
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.get_all.return_value = mock_workspaces
         mock_repo.count.return_value = 2
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -213,18 +184,11 @@ class TestListWorkspaces:
     @pytest.mark.asyncio
     async def test_list_workspaces_empty(self, async_client, mocker):
         """Test listing workspaces when none exist"""
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.get_all.return_value = []
         mock_repo.count.return_value = 0
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -256,17 +220,10 @@ class TestGetWorkspace:
         mock_workspace.created_at = now
         mock_workspace.updated_at = now
 
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.get_by_id_or_raise.return_value = mock_workspace
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -290,19 +247,12 @@ class TestGetWorkspace:
 
         workspace_id = uuid.uuid4()
 
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.get_by_id_or_raise.side_effect = NotFoundError(
             "Workspace", workspace_id
         )
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -329,17 +279,10 @@ class TestDeleteWorkspace:
         """Test successful workspace deletion returns 204 No Content"""
         workspace_id = uuid.uuid4()
 
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.delete_by_id.return_value = True
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
@@ -360,17 +303,10 @@ class TestDeleteWorkspace:
 
         workspace_id = uuid.uuid4()
 
-        mock_session = mocker.AsyncMock()
+        # Mock repository - dependency override in conftest.py handles get_async_session
         mock_repo = mocker.AsyncMock()
         mock_repo.delete_by_id.side_effect = NotFoundError("Workspace", workspace_id)
 
-        mocker.patch(
-            "ragitect.api.v1.workspaces.get_async_session",
-            return_value=mocker.AsyncMock(
-                __aenter__=mocker.AsyncMock(return_value=mock_session),
-                __aexit__=mocker.AsyncMock(return_value=None),
-            ),
-        )
         mocker.patch(
             "ragitect.api.v1.workspaces.WorkspaceRepository",
             return_value=mock_repo,
