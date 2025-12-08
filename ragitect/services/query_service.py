@@ -132,12 +132,12 @@ def _extract_reformulated_query(llm_response: str) -> str:
     return response
 
 
-def reformulate_query_with_chat_history(
+async def reformulate_query_with_chat_history(
     llm_model: BaseChatModel,
     user_query: str,
     chat_history: list[dict[str, str]],
 ) -> str:
-    """Reformulate user query using chat history context for better retrieval
+    """Reformulate user query using chat history context for better retrieval (async)
 
     this function uses an LLM to analyze the conversation history and transform
     the current user query into a optimized query search history that capture
@@ -168,7 +168,7 @@ def reformulate_query_with_chat_history(
         # clal the llm
         logger.debug("Calling LLM for reformulation...")
         human_message = HumanMessage(content=prompt)
-        llm_response = generate_response(llm_model, messages=[human_message])
+        llm_response = await generate_response(llm_model, messages=[human_message])
 
         reformulated = _extract_reformulated_query(llm_response)
         logger.debug(f"Exacted query: '{reformulated}'")
