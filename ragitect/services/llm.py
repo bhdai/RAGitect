@@ -1,12 +1,12 @@
-from collections.abc import Sequence, AsyncGenerator
 import logging
+from collections.abc import AsyncGenerator, Sequence
 from enum import Enum
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_litellm import ChatLiteLLM
 
 from ragitect.services.config import LLMConfig, get_default_config
-from langchain_litellm import ChatLiteLLM
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class LLMProvider(str, Enum):
     GEMINI = "gemini"
 
 
-async def valididate_llm_config(config: LLMConfig) -> tuple[bool, str]:
+async def validate_llm_config(config: LLMConfig) -> tuple[bool, str]:
     """Validate llm model based on config (async)
 
     Args:

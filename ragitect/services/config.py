@@ -106,7 +106,7 @@ def load_config_from_env() -> LLMConfig:
         try:
             max_tokens = int(max_tokens_str)
         except ValueError:
-            logger.warning("Invalid LLM_MAX_TOKENS env var. Using defualt None")
+            logger.warning("Invalid LLM_MAX_TOKENS env var. Using default None")
 
     try:
         timeout = int(os.getenv("LLM_TIMEOUT", 60))

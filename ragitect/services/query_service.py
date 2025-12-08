@@ -139,8 +139,8 @@ async def reformulate_query_with_chat_history(
 ) -> str:
     """Reformulate user query using chat history context for better retrieval (async)
 
-    this function uses an LLM to analyze the conversation history and transform
-    the current user query into a optimized query search history that capture
+    This function uses an LLM to analyze the conversation history and transform
+    the current user query into an optimized query search history that capture
     the full intent, including the context from previous exchanges
 
     Args:
@@ -165,13 +165,13 @@ async def reformulate_query_with_chat_history(
         prompt = _build_reformulation_prompt(user_query, formatted_history)
         logger.debug(f"Prompt length: {len(prompt)} characters")
 
-        # clal the llm
+        # call the llm
         logger.debug("Calling LLM for reformulation...")
         human_message = HumanMessage(content=prompt)
         llm_response = await generate_response(llm_model, messages=[human_message])
 
         reformulated = _extract_reformulated_query(llm_response)
-        logger.debug(f"Exacted query: '{reformulated}'")
+        logger.debug(f"Extracted query: '{reformulated}'")
 
         if not reformulated and not reformulated.strip():
             logger.warning("LLM returned empty reformulated query - using original")
