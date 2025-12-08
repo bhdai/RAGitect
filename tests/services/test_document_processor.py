@@ -5,6 +5,7 @@ from langchain_core.documents import Document
 
 from ragitect.services.document_processor import (
     create_documents,
+    process_file_bytes,
     split_document,
 )
 
@@ -128,23 +129,66 @@ The final section with concluding remarks.
         # Verify chunks were created
         assert len(chunks) > 0
 
-        # Verify at least one chunk contains a header (structure preserved)
-        has_header = any("#" in chunk for chunk in chunks)
-        assert has_header
+        # Verify headers are preserved in chunks (markdown structure maintained)
+        chunks_with_headers = [c for c in chunks if "#" in c]
+        assert len(chunks_with_headers) > 0, "No headers found in chunks"
+
+        # Verify that section headers and their content stay together
+        # Look for "Section One" header with its content
+        section_one_chunks = [c for c in chunks if "## Section One" in c]
+        if section_one_chunks:
+            # The chunk containing the header should also contain related content
+            assert any("important information" in c for c in section_one_chunks), (
+                "Section header separated from its content"
+            )
+
+        # Verify subsection structure is preserved
+        subsection_chunks = [c for c in chunks if "### Subsection" in c]
+        if subsection_chunks:
+            # At least one subsection should have its content in the same chunk
+            assert any(
+                "Detailed information" in c or "More detailed" in c
+                for c in subsection_chunks
+            ), "Subsection headers separated from their content"
+
+        # Verify markdown splitting produces different results than plain splitting
+        plain_chunks = split_document(markdown_text, chunk_size=1000, overlap=150)
+        # Markdown splitting should respect structure, potentially creating different boundaries
+        # This is a soft check - at minimum, both should produce reasonable chunking
+        assert len(chunks) > 0 and len(plain_chunks) > 0
+
+    def test_markdown_splitting_handles_empty_text(self):
+        """Test that markdown splitting efficiently handles empty text"""
+        # Test completely empty string
+        chunks = split_document("", file_type=".md")
+        assert chunks == []
+
+        # Test whitespace-only string
+        chunks_whitespace = split_document("   \n\t  ", file_type=".md")
+        assert chunks_whitespace == []
 
     def test_markdown_splitting_respects_chunk_size(self):
         """Test that markdown splitting still enforces size limits"""
         # Create a large markdown section
         large_section = "# Big Section\n\n" + ("word " * 500)
+        chunk_size = 1000
+        overlap = 150
         chunks = split_document(
-            large_section, chunk_size=1000, overlap=150, file_type=".md"
+            large_section, chunk_size=chunk_size, overlap=overlap, file_type=".md"
         )
 
         # Should be split into multiple chunks due to size
         assert len(chunks) >= 2
-        # Each chunk should be roughly within size limits (with some tolerance)
+
+        # Each chunk should be roughly within size limits with tolerance for:
+        # - Overlap between chunks
+        # - RecursiveCharacterTextSplitter adding buffer
+        # - Markdown structure preservation may extend slightly
+        max_expected_size = chunk_size + overlap + 50  # 1000 + 150 + 50 = 1200
         for chunk in chunks:
-            assert len(chunk) <= 1200  # Allow tolerance for overlap
+            assert len(chunk) <= max_expected_size, (
+                f"Chunk size {len(chunk)} exceeds max expected {max_expected_size}"
+            )
 
     def test_plain_text_uses_recursive_splitter(self):
         """Test that non-markdown files use standard recursive splitting"""
@@ -158,17 +202,6 @@ The final section with concluding remarks.
         chunks_default = split_document(text, chunk_size=1000, overlap=150)
         assert len(chunks_default) >= 2
 
-    def test_txt_files_use_markdown_aware_splitting(self):
-        """Test that .txt files with markdown content benefit from structure awareness"""
-        markdown_like_text = """# Title
-Content here.
-
-## Section
-More content.
-"""
-        chunks = split_document(markdown_like_text, file_type=".txt")
-        assert len(chunks) > 0
-
     def test_markdown_splitting_fallback_on_error(self):
         """Test that markdown splitting falls back to recursive on parsing errors"""
         # Normal text without markdown structure should still work
@@ -179,3 +212,85 @@ More content.
 
         # Should still produce chunks via fallback
         assert len(chunks) > 0
+
+
+class TestProcessFileBytes:
+    """Test process_file_bytes functionality"""
+
+    def test_returns_tuple_structure(self):
+        """Test that process_file_bytes returns (text, metadata) tuple"""
+        # Create simple text file bytes
+        file_content = "Hello, this is a test document."
+        file_bytes = file_content.encode("utf-8")
+        file_name = "test.txt"
+
+        result = process_file_bytes(file_bytes, file_name)
+
+        # Should return a tuple
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+
+        text, metadata = result
+        assert isinstance(text, str)
+        assert isinstance(metadata, dict)
+
+    def test_metadata_contains_file_type(self):
+        """Test that metadata includes correct file extension"""
+        file_bytes = b"Sample content"
+
+        # Test various file extensions
+        test_cases = [
+            ("document.txt", ".txt"),
+            ("report.md", ".md"),
+            ("notes.markdown", ".markdown"),
+            ("uppercase.TXT", ".txt"),  # Should be lowercase
+        ]
+
+        for file_name, expected_ext in test_cases:
+            _, metadata = process_file_bytes(file_bytes, file_name)
+            assert "file_type" in metadata
+            assert metadata["file_type"] == expected_ext
+
+    def test_metadata_contains_file_name(self):
+        """Test that metadata includes original filename"""
+        file_bytes = b"Content"
+        file_name = "my_document.txt"
+
+        _, metadata = process_file_bytes(file_bytes, file_name)
+
+        assert "file_name" in metadata
+        assert metadata["file_name"] == file_name
+
+    def test_text_extraction_works(self):
+        """Test that text extraction still functions correctly"""
+        expected_content = "This is the document content with special chars: æøå"
+        file_bytes = expected_content.encode("utf-8")
+        file_name = "test.txt"
+
+        text, _ = process_file_bytes(file_bytes, file_name)
+
+        assert text == expected_content
+        assert isinstance(text, str)
+
+    def test_markdown_file_metadata(self):
+        """Test metadata for markdown files"""
+        markdown_content = "# Title\n\nContent here."
+        file_bytes = markdown_content.encode("utf-8")
+        file_name = "readme.md"
+
+        text, metadata = process_file_bytes(file_bytes, file_name)
+
+        assert text == markdown_content
+        assert metadata["file_type"] == ".md"
+        assert metadata["file_name"] == "readme.md"
+
+    def test_handles_file_without_extension(self):
+        """Test that files without extension raise UnsupportedFormatError"""
+        from ragitect.services.processor.factory import UnsupportedFormatError
+
+        file_bytes = b"No extension file"
+        file_name = "README"
+
+        # Should raise UnsupportedFormatError for files without extension
+        with pytest.raises(UnsupportedFormatError):
+            process_file_bytes(file_bytes, file_name)

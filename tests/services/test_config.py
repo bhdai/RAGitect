@@ -9,6 +9,7 @@ from ragitect.services.config import (
     DocumentConfig,
     load_config_from_env,
     get_default_config,
+    load_document_config,
 )
 
 
@@ -44,6 +45,27 @@ class TestDocumentConfig:
         assert config.enable_unstructure is False
         assert config.chunk_size == 1000
         assert config.chunk_overlap == 150
+
+    def test_loads_chunk_size_from_env(self):
+        """Test that CHUNK_SIZE env var overrides default"""
+        with patch.dict(os.environ, {"CHUNK_SIZE": "2000"}):
+            config = load_document_config()
+            assert config.chunk_size == 2000
+            assert config.chunk_overlap == 150  # Should still use default
+
+    def test_loads_chunk_overlap_from_env(self):
+        """Test that CHUNK_OVERLAP env var overrides default"""
+        with patch.dict(os.environ, {"CHUNK_OVERLAP": "300"}):
+            config = load_document_config()
+            assert config.chunk_size == 1000  # Should still use default
+            assert config.chunk_overlap == 300
+
+    def test_loads_both_chunk_params_from_env(self):
+        """Test that both chunk env vars can be set together"""
+        with patch.dict(os.environ, {"CHUNK_SIZE": "1500", "CHUNK_OVERLAP": "200"}):
+            config = load_document_config()
+            assert config.chunk_size == 1500
+            assert config.chunk_overlap == 200
 
 
 class TestGetDefaultConfig:

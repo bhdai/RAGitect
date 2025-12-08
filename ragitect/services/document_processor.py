@@ -1,12 +1,13 @@
 import logging
 from pathlib import Path
 
-from ragitect.services.processor.factory import ProcessorFactory
 from langchain_core.documents import Document
 from langchain_text_splitters import (
-    RecursiveCharacterTextSplitter,
     MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
 )
+
+from ragitect.services.processor.factory import ProcessorFactory
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,10 @@ def split_markdown_document(
     Returns:
         List of text chunks with preserved structure
     """
+    # Early return for empty text
+    if not raw_text or not raw_text.strip():
+        return []
+
     # Define headers to split on (h1, h2, h3)
     headers_to_split_on = [
         ("#", "h1"),
@@ -125,7 +130,7 @@ def split_document(
         list of text chunks
     """
     # Use markdown-aware splitting for markdown files
-    if file_type and file_type.lower() in [".md", ".markdown", ".txt"]:
+    if file_type and file_type.lower() in [".md", ".markdown"]:
         return split_markdown_document(raw_text, chunk_size, overlap)
 
     # Default: recursive character splitting
