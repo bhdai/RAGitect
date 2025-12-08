@@ -173,7 +173,7 @@ async def reformulate_query_with_chat_history(
         reformulated = _extract_reformulated_query(llm_response)
         logger.debug(f"Extracted query: '{reformulated}'")
 
-        if not reformulated and not reformulated.strip():
+        if not reformulated or not reformulated.strip():
             logger.warning("LLM returned empty reformulated query - using original")
             return user_query
 
