@@ -61,6 +61,25 @@ class DocumentConfig:
     chunk_overlap: int = 50
 
 
+@dataclass
+class EmbeddingConfig:
+    """Configuration for embedding model settings
+
+    Attributes:
+        provider: Embedding provider ('ollama', 'openai', etc.)
+        model: Model identifier (e.g., 'nomic-embed-text', 'text-embedding-3-small')
+        base_url: Base URL for API (used for Ollama/local deployments)
+        api_key: API key for cloud provider (optional)
+        dimension: Embedding vector dimension (default: 768 for nomic-embed-text)
+    """
+
+    provider: str = "ollama"
+    model: str = "nomic-embed-text"
+    base_url: str | None = "http://localhost:11434"
+    api_key: str | None = None
+    dimension: int = 768
+
+
 def load_config_from_env() -> LLMConfig:
     """Load LLM configuration from env variables
 

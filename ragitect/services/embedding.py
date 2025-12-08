@@ -1,21 +1,30 @@
 import numpy as np
 from langchain_ollama import OllamaEmbeddings
 
+from ragitect.services.config import EmbeddingConfig
 
-def create_embeddings_model() -> OllamaEmbeddings:
-    """initialize the embedding model
+
+def create_embeddings_model(config: EmbeddingConfig | None = None) -> OllamaEmbeddings:
+    """Initialize the embedding model (async-ready)
+
+    Args:
+        config: Optional embedding configuration. If None, uses defaults.
 
     Returns:
-        the embedding object
+        OllamaEmbeddings: the embedding object
     """
+    if config is None:
+        config = EmbeddingConfig()
+
     embedding_model = OllamaEmbeddings(
-        model="nomic-embed-text",
+        model=config.model,
+        base_url=config.base_url,
     )
     return embedding_model
 
 
-def embed_text(model: OllamaEmbeddings, text: str) -> list[float]:
-    """Embed a single text sttring
+async def embed_text(model: OllamaEmbeddings, text: str) -> list[float]:
+    """Embed a single text string (async)
 
     Args:
         model: embedding model
@@ -25,12 +34,14 @@ def embed_text(model: OllamaEmbeddings, text: str) -> list[float]:
         list of float (the vector)
     """
     print(f"Embedding text: {text[:100]}...")
-    vector = model.embed_query(text)
+    vector = await model.aembed_query(text)
     return vector
 
 
-def embed_documents(model: OllamaEmbeddings, texts: list[str]) -> list[list[float]]:
-    """Embeds multiple texts
+async def embed_documents(
+    model: OllamaEmbeddings, texts: list[str]
+) -> list[list[float]]:
+    """Embeds multiple texts (async)
 
     Args:
         model: embedding model
@@ -40,13 +51,18 @@ def embed_documents(model: OllamaEmbeddings, texts: list[str]) -> list[list[floa
         list of vectors
     """
     print(f"Embedding {len(texts)} documents in a batch...")
-    return model.embed_documents(texts)
+    return await model.aembed_documents(texts)
 
 
-def get_embedding_dimension() -> int:
-    """Embedding dimension size
+def get_embedding_dimension(config: EmbeddingConfig | None = None) -> int:
+    """Get embedding dimension size
+
+    Args:
+        config: Optional embedding configuration. If None, uses default dimension.
 
     Returns:
         int: dimension size
     """
-    return 768
+    if config is None:
+        return 768  # Default for nomic-embed-text
+    return config.dimension
