@@ -14,6 +14,7 @@ from ragitect.services.config import (
     LLMConfig,
     get_default_config,
     load_config_from_env,
+    load_document_config,
 )
 from ragitect.services.document_processor import (
     create_documents,
@@ -92,4 +93,5 @@ __all__ = [
     "LLMConfig",
     "get_default_config",
     "load_config_from_env",
+    "load_document_config",
 ]
