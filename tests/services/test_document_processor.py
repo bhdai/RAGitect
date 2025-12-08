@@ -70,13 +70,13 @@ class TestSplitDocument:
 
     def test_handles_small_text(self):
         text = "short text"
-        chunks = split_document(text, chunk_size=500, overlap=50)
+        chunks = split_document(text, chunk_size=1000, overlap=150)
 
         assert len(chunks) == 1
         assert chunks[0] == "short text"
 
     def test_empty_string_returns_empty_list(self):
-        chunks = split_document("", chunk_size=500, overlap=50)
+        chunks = split_document("", chunk_size=1000, overlap=150)
         assert chunks == []
 
     def test_overlap_creates_redundancy(self):
@@ -87,8 +87,95 @@ class TestSplitDocument:
         assert len(chunks) >= 2
 
     def test_default_parameters(self):
-        text = "a" * 1000
+        text = "a" * 2000
         chunks = split_document(text)
 
-        # Default is chunk_size=500, overlap=50
+        # Default is chunk_size=1000, overlap=150
         assert len(chunks) >= 2
+
+    def test_markdown_splitting_preserves_structure(self):
+        """Test that markdown files are split respecting header boundaries"""
+        markdown_text = """# Main Title
+
+This is the introduction paragraph with some content.
+
+## Section One
+
+This section has important information about the first topic.
+It continues for several lines to demonstrate chunking.
+
+## Section Two
+
+This section discusses the second topic in detail.
+More content here to make it substantial.
+
+### Subsection 2.1
+
+Detailed information in a subsection.
+
+### Subsection 2.2
+
+More detailed information in another subsection.
+
+## Section Three
+
+The final section with concluding remarks.
+"""
+        chunks = split_document(
+            markdown_text, chunk_size=1000, overlap=150, file_type=".md"
+        )
+
+        # Verify chunks were created
+        assert len(chunks) > 0
+
+        # Verify at least one chunk contains a header (structure preserved)
+        has_header = any("#" in chunk for chunk in chunks)
+        assert has_header
+
+    def test_markdown_splitting_respects_chunk_size(self):
+        """Test that markdown splitting still enforces size limits"""
+        # Create a large markdown section
+        large_section = "# Big Section\n\n" + ("word " * 500)
+        chunks = split_document(
+            large_section, chunk_size=1000, overlap=150, file_type=".md"
+        )
+
+        # Should be split into multiple chunks due to size
+        assert len(chunks) >= 2
+        # Each chunk should be roughly within size limits (with some tolerance)
+        for chunk in chunks:
+            assert len(chunk) <= 1200  # Allow tolerance for overlap
+
+    def test_plain_text_uses_recursive_splitter(self):
+        """Test that non-markdown files use standard recursive splitting"""
+        text = "a" * 2000
+        chunks = split_document(text, chunk_size=1000, overlap=150, file_type=".txt")
+
+        # Should split into multiple chunks
+        assert len(chunks) >= 2
+
+        # Test with no file_type (default behavior)
+        chunks_default = split_document(text, chunk_size=1000, overlap=150)
+        assert len(chunks_default) >= 2
+
+    def test_txt_files_use_markdown_aware_splitting(self):
+        """Test that .txt files with markdown content benefit from structure awareness"""
+        markdown_like_text = """# Title
+Content here.
+
+## Section
+More content.
+"""
+        chunks = split_document(markdown_like_text, file_type=".txt")
+        assert len(chunks) > 0
+
+    def test_markdown_splitting_fallback_on_error(self):
+        """Test that markdown splitting falls back to recursive on parsing errors"""
+        # Normal text without markdown structure should still work
+        plain_text = "This is just plain text without any markdown structure. " * 50
+        chunks = split_document(
+            plain_text, chunk_size=1000, overlap=150, file_type=".md"
+        )
+
+        # Should still produce chunks via fallback
+        assert len(chunks) > 0

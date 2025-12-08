@@ -42,8 +42,8 @@ class TestDocumentConfig:
         config = DocumentConfig()
         assert config.enable_docling is True
         assert config.enable_unstructure is False
-        assert config.chunk_size == 500
-        assert config.chunk_overlap == 50
+        assert config.chunk_size == 1000
+        assert config.chunk_overlap == 150
 
 
 class TestGetDefaultConfig:

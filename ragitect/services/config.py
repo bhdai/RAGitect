@@ -57,8 +57,8 @@ class DocumentConfig:
 
     enable_docling: bool = True
     enable_unstructure: bool = False
-    chunk_size: int = 500
-    chunk_overlap: int = 50
+    chunk_size: int = 1000
+    chunk_overlap: int = 150
 
 
 @dataclass
