@@ -1,13 +1,12 @@
-from collections.abc import Sequence
 import logging
+from collections.abc import AsyncGenerator, Sequence
 from enum import Enum
-from collections.abc import Generator
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_litellm import ChatLiteLLM
 
 from ragitect.services.config import LLMConfig, get_default_config
-from langchain_litellm import ChatLiteLLM
 
 logger = logging.getLogger(__name__)
 
@@ -15,12 +14,12 @@ logger = logging.getLogger(__name__)
 class LLMProvider(str, Enum):
     OLLAMA = "ollama"
     OPENAI = "openai"
-    AATHROPIC = "anthropic"
+    ANTHROPIC = "anthropic"
     GEMINI = "gemini"
 
 
-def valididate_llm_config(config: LLMConfig) -> tuple[bool, str]:
-    """Validate llm model based on config
+async def validate_llm_config(config: LLMConfig) -> tuple[bool, str]:
+    """Validate llm model based on config (async)
 
     Args:
         config: LLM configuration
@@ -53,7 +52,7 @@ def valididate_llm_config(config: LLMConfig) -> tuple[bool, str]:
 
         # make a test call
         test_message = HumanMessage(content="Hello there")
-        response = llm.invoke([test_message])
+        response = await llm.ainvoke([test_message])
         if response and response.content:
             logger.info(f"Successfully validated LLM model: {model_str}")
             return True, ""
@@ -66,15 +65,15 @@ def valididate_llm_config(config: LLMConfig) -> tuple[bool, str]:
         return False, error_msg
 
 
-def create_llm(config: LLMConfig) -> BaseChatModel:
-    """Create llm model based on config
+async def create_llm(config: LLMConfig) -> BaseChatModel:
+    """Create llm model based on config (async)
 
     Args:
         config: LLM configuration
     Returns:
-        BseChatModel: langchain compatible chat model instance
+        BaseChatModel: langchain compatible chat model instance
     """
-
+    # Future: await config loading from DB here (Story 1.4)
     if config.custom_provider:
         model_str = f"{config.custom_provider}/{config.model}"
     else:
@@ -100,8 +99,10 @@ def create_llm(config: LLMConfig) -> BaseChatModel:
     return llm
 
 
-def generate_response(llm_model: BaseChatModel, messages: Sequence[BaseMessage]) -> str:
-    """generate response from llm
+async def generate_response(
+    llm_model: BaseChatModel, messages: Sequence[BaseMessage]
+) -> str:
+    """Generate response from llm (async)
 
     Args:
         llm_model: llm model
@@ -111,14 +112,14 @@ def generate_response(llm_model: BaseChatModel, messages: Sequence[BaseMessage])
         response string
     """
     logger.debug(f"Sending {len(messages)} messages to LLM...")
-    ai_msg = llm_model.invoke(messages)
+    ai_msg = await llm_model.ainvoke(messages)
     return ai_msg.content  # pyright: ignore[reportReturnType]
 
 
-def generate_response_stream(
+async def generate_response_stream(
     llm_model: BaseChatModel, messages: Sequence[BaseMessage]
-) -> Generator[str]:
-    """generate streaming response from llm
+) -> AsyncGenerator[str, None]:
+    """Generate streaming response from llm (async generator)
 
     Args:
         llm_model: llm model
@@ -128,12 +129,12 @@ def generate_response_stream(
         response string chunks
     """
     print("Streaming response from LLM...")
-    for chunk in llm_model.stream(messages):
+    async for chunk in llm_model.astream(messages):
         yield chunk.content  # pyright: ignore[reportReturnType]
 
 
-def generate_response_with_prompt(llm_model: BaseChatModel, prompt: str) -> str:
-    """Generate response from LLM using simple prompt string
+async def generate_response_with_prompt(llm_model: BaseChatModel, prompt: str) -> str:
+    """Generate response from LLM using simple prompt string (async)
 
     Convenience function for backward compatibility with existing code.
     Converts string prompt to HumanMessage internally.
@@ -146,4 +147,4 @@ def generate_response_with_prompt(llm_model: BaseChatModel, prompt: str) -> str:
         str: Generated response content
     """
     messages = [HumanMessage(content=prompt)]
-    return generate_response(llm_model, messages)
+    return await generate_response(llm_model, messages)

@@ -1,4 +1,20 @@
 # Document processing
+# Configuration
+from ragitect.services.config import (
+    DATABASE_URL,
+    DB_ECHO,
+    DB_MAX_OVERFLOW,
+    DB_POOL_RECYCLE,
+    DB_POOL_SIZE,
+    DB_POOL_TIMEOUT,
+    DEFAULT_RETRIEVAL_K,
+    DEFAULT_SIMILARITY_THRESHOLD,
+    DocumentConfig,
+    EmbeddingConfig,
+    LLMConfig,
+    get_default_config,
+    load_config_from_env,
+)
 from ragitect.services.document_processor import (
     create_documents,
     load_document,
@@ -21,14 +37,7 @@ from ragitect.services.llm import (
     generate_response,
     generate_response_stream,
     generate_response_with_prompt,
-    valididate_llm_config,
-)
-
-# Vector store
-from ragitect.services.vector_store import (
-    add_vectors_to_index,
-    initialize_index,
-    search_index,
+    validate_llm_config,
 )
 
 # Query service
@@ -37,20 +46,11 @@ from ragitect.services.query_service import (
     reformulate_query_with_chat_history,
 )
 
-# Configuration
-from ragitect.services.config import (
-    DATABASE_URL,
-    DB_ECHO,
-    DB_MAX_OVERFLOW,
-    DB_POOL_RECYCLE,
-    DB_POOL_SIZE,
-    DB_POOL_TIMEOUT,
-    DEFAULT_RETRIEVAL_K,
-    DEFAULT_SIMILARITY_THRESHOLD,
-    DocumentConfig,
-    LLMConfig,
-    get_default_config,
-    load_config_from_env,
+# Vector store
+from ragitect.services.vector_store import (
+    add_vectors_to_index,
+    initialize_index,
+    search_index,
 )
 
 __all__ = [
@@ -70,7 +70,7 @@ __all__ = [
     "generate_response",
     "generate_response_stream",
     "generate_response_with_prompt",
-    "valididate_llm_config",
+    "validate_llm_config",
     # Vector store
     "add_vectors_to_index",
     "initialize_index",
@@ -88,6 +88,7 @@ __all__ = [
     "DEFAULT_RETRIEVAL_K",
     "DEFAULT_SIMILARITY_THRESHOLD",
     "DocumentConfig",
+    "EmbeddingConfig",
     "LLMConfig",
     "get_default_config",
     "load_config_from_env",
