@@ -5,6 +5,7 @@ import pytest
 from ragitect.services.query_service import (
     _should_reformulate,
     _extract_reformulated_query,
+    _validate_reformulated_query,
     format_chat_history,
     _build_reformulation_prompt,
 )
@@ -157,11 +158,137 @@ class TestBuildReformulationPrompt:
         )
 
         # Check for key instruction elements
-        assert "reformulation" in prompt.lower()
+        assert "reformulate" in prompt.lower() or "reformulated" in prompt.lower()
         assert "Rules:" in prompt or "rules:" in prompt.lower()
 
-    def test_includes_examples(self):
-        prompt = _build_reformulation_prompt("test", "<chat_history>\n</chat_history>")
+    def test_simplified_prompt_is_shorter(self):
+        """Phase 1: Verify prompt is significantly shorter than baseline"""
+        user_query = "How do I use it?"
+        formatted_history = """<chat_history>
+<message role="user">What is FastAPI?</message>
+<message role="assistant">FastAPI is a modern Python web framework.</message>
+</chat_history>"""
 
-        # Should contain few-shot examples
-        assert "Example" in prompt or "example" in prompt.lower()
+        prompt = _build_reformulation_prompt(user_query, formatted_history)
+
+        # New prompt should be ~400 chars (vs baseline ~2350 chars)
+        # Allow some variance for history content
+        assert len(prompt) < 600, f"Prompt too long: {len(prompt)} chars"
+        assert "Example" not in prompt, "Prompt should not contain few-shot examples"
+
+
+class TestValidateReformulatedQuery:
+    """Test output validation for reformulated queries (Phase 1 Hotfix)"""
+
+    # Valid queries (should return True)
+    def test_accepts_valid_question_with_question_mark(self):
+        assert _validate_reformulated_query("What is FastAPI?") is True
+
+    def test_accepts_valid_how_to_question(self):
+        assert _validate_reformulated_query("How do I install FastAPI?") is True
+
+    def test_accepts_valid_explain_query(self):
+        assert _validate_reformulated_query("Explain Python decorators") is True
+
+    def test_accepts_valid_when_should_query(self):
+        assert (
+            _validate_reformulated_query("When should I use async functions in Python?")
+            is True
+        )
+
+    def test_accepts_short_query_without_question_mark(self):
+        # Short queries without periods are acceptable
+        assert _validate_reformulated_query("Python async functions") is True
+
+    # Invalid queries (should return False - answer patterns)
+    def test_rejects_answer_with_because(self):
+        assert (
+            _validate_reformulated_query(
+                "You should use async functions because they are faster for I/O operations."
+            )
+            is False
+        )
+
+    def test_rejects_answer_with_this_means(self):
+        assert (
+            _validate_reformulated_query(
+                "This means that decorators modify function behavior using the @ syntax."
+            )
+            is False
+        )
+
+    def test_rejects_answer_with_it_is(self):
+        assert (
+            _validate_reformulated_query(
+                "It is a modern Python web framework for building APIs."
+            )
+            is False
+        )
+
+    def test_rejects_definitional_answer(self):
+        assert (
+            _validate_reformulated_query(
+                "FastAPI is a modern Python web framework for building APIs with automatic validation."
+            )
+            is False
+        )
+
+    def test_rejects_long_statement_without_question(self):
+        # Long statement (>80 chars), no question words, ends with period
+        assert (
+            _validate_reformulated_query(
+                "Decorators are special functions that wrap other functions to modify their behavior without changing the source code directly."
+            )
+            is False
+        )
+
+    def test_rejects_statement_form_answer(self):
+        # Capital start, >5 words, ends with period, no question words
+        assert (
+            _validate_reformulated_query(
+                "Python uses the async and await keywords for asynchronous programming."
+            )
+            is False
+        )
+
+    # Edge cases
+    def test_rejects_empty_string(self):
+        assert _validate_reformulated_query("") is False
+
+    def test_rejects_whitespace_only(self):
+        assert _validate_reformulated_query("   ") is False
+
+    def test_accepts_query_with_is_a_but_has_question_mark(self):
+        # "is a" is okay if it's part of a question
+        assert _validate_reformulated_query("What is a Python decorator?") is True
+
+    def test_accepts_long_query_with_question_words(self):
+        # Long text is okay if it has question words
+        assert (
+            _validate_reformulated_query(
+                "How do I configure FastAPI to use async database connections with SQLAlchemy and handle connection pooling?"
+            )
+            is True
+        )
+
+    def test_rejects_you_should_pattern(self):
+        assert (
+            _validate_reformulated_query(
+                "You should use Pydantic models for validation."
+            )
+            is False
+        )
+
+    def test_rejects_you_can_pattern(self):
+        assert (
+            _validate_reformulated_query(
+                "You can install it using pip install fastapi."
+            )
+            is False
+        )
+
+    def test_accepts_command_style_query(self):
+        # Imperative queries are valid
+        assert (
+            _validate_reformulated_query("Show examples of Python decorators") is True
+        )
