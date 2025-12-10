@@ -3,16 +3,15 @@
 from ragitect.services.database.connection import (
     DatabaseManager,
     check_connection,
-    get_engine,
-    get_session,
-    get_async_session,
-    get_session_factory,
-    get_session_no_autocommit,
     create_table,
     drop_table,
+    get_async_session,
+    get_engine,
+    get_session,
+    get_session_factory,
+    get_session_no_autocommit,
     reset_database,
 )
-
 from ragitect.services.database.exceptions import (
     ConnectionError,
     DatabaseError,
@@ -20,14 +19,14 @@ from ragitect.services.database.exceptions import (
     NotFoundError,
     ValidationError,
 )
-
 from ragitect.services.database.models import (
     Base,
     Document,
     DocumentChunk,
+    EmbeddingProviderConfig,
+    LLMProviderConfig,
     Workspace,
 )
-
 from ragitect.services.database.repositories import (
     DocumentRepository,
     VectorRepository,
@@ -62,4 +61,6 @@ __all__ = [
     "DocumentRepository",
     "VectorRepository",
     "WorkspaceRepository",
+    "LLMProviderConfig",
+    "EmbeddingProviderConfig",
 ]
