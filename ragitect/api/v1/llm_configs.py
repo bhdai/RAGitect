@@ -1,7 +1,7 @@
 """API router for LLM provider configuration endpoints."""
 
 import uuid
-from typing import Annotated, Any, Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,118 +106,6 @@ async def list_llm_configs(
         configs=config_responses,
         total=len(config_responses),
     )
-
-
-@router.get(
-    "/{provider_name}",
-    response_model=LLMProviderConfigResponse,
-    summary="Get specific provider configuration",
-    description="Retrieve configuration for a specific LLM provider (API key masked)",
-)
-async def get_llm_config(
-    provider_name: str,
-    session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> LLMProviderConfigResponse:
-    """Get configuration for specific provider."""
-    config = await get_config(session, provider_name)
-
-    if not config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Configuration for provider '{provider_name}' not found",
-        )
-
-    return LLMProviderConfigResponse(
-        id=str(config.id),
-        provider_name=config.provider_name,
-        base_url=config.config_data.get("base_url"),
-        model=config.config_data.get("model"),
-        is_active=config.is_active,
-        created_at=config.created_at.isoformat(),
-        updated_at=config.updated_at.isoformat(),
-    )
-
-
-@router.delete(
-    "/{provider_name}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete provider configuration",
-    description="Remove configuration for a specific LLM provider",
-)
-async def delete_llm_config(
-    provider_name: str,
-    session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> None:
-    """Delete configuration for specific provider."""
-    deleted = await delete_config(session, provider_name)
-
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Configuration for provider '{provider_name}' not found",
-        )
-
-
-@router.post(
-    "/validate",
-    response_model=LLMProviderConfigValidateResponse,
-    summary="Validate LLM provider configuration",
-    description="Test connectivity and validate API keys for LLM providers",
-)
-async def validate_llm_provider_config(
-    validation_data: LLMProviderConfigValidate,
-) -> LLMProviderConfigValidateResponse:
-    """Validate LLM provider configuration."""
-    provider = validation_data.provider_name.lower()
-
-    try:
-        if provider == "ollama":
-            if not validation_data.base_url:
-                return LLMProviderConfigValidateResponse(
-                    valid=False,
-                    message="Validation failed",
-                    error="base_url is required for Ollama provider",
-                )
-
-            is_valid, message = await validate_ollama_url(validation_data.base_url)
-            return LLMProviderConfigValidateResponse(
-                valid=is_valid,
-                message=message,
-                error=None if is_valid else message,
-            )
-
-        elif provider in {"openai", "anthropic"}:
-            if not validation_data.api_key:
-                return LLMProviderConfigValidateResponse(
-                    valid=False,
-                    message="Validation failed",
-                    error=f"api_key is required for {provider.title()} provider",
-                )
-
-            is_valid, message = await validate_api_key(
-                provider,
-                validation_data.api_key.get_secret_value(),
-                validation_data.model,
-            )
-            return LLMProviderConfigValidateResponse(
-                valid=is_valid,
-                message=message,
-                error=None if is_valid else message,
-            )
-
-        else:
-            return LLMProviderConfigValidateResponse(
-                valid=False,
-                message="Validation failed",
-                error=f"Unsupported provider: {provider}",
-            )
-
-    except Exception as e:
-        return LLMProviderConfigValidateResponse(
-            valid=False,
-            message="Validation error",
-            error=str(e),
-        )
 
 
 # Embedding config endpoints
@@ -344,6 +232,118 @@ async def validate_embedding_provider_config(
                 provider,
                 api_key=validation_data.api_key.get_secret_value(),
                 model=validation_data.model,
+            )
+            return LLMProviderConfigValidateResponse(
+                valid=is_valid,
+                message=message,
+                error=None if is_valid else message,
+            )
+
+        else:
+            return LLMProviderConfigValidateResponse(
+                valid=False,
+                message="Validation failed",
+                error=f"Unsupported provider: {provider}",
+            )
+
+    except Exception as e:
+        return LLMProviderConfigValidateResponse(
+            valid=False,
+            message="Validation error",
+            error=str(e),
+        )
+
+
+@router.get(
+    "/{provider_name}",
+    response_model=LLMProviderConfigResponse,
+    summary="Get specific provider configuration",
+    description="Retrieve configuration for a specific LLM provider (API key masked)",
+)
+async def get_llm_config(
+    provider_name: str,
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> LLMProviderConfigResponse:
+    """Get configuration for specific provider."""
+    config = await get_config(session, provider_name)
+
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Configuration for provider '{provider_name}' not found",
+        )
+
+    return LLMProviderConfigResponse(
+        id=str(config.id),
+        provider_name=config.provider_name,
+        base_url=config.config_data.get("base_url"),
+        model=config.config_data.get("model"),
+        is_active=config.is_active,
+        created_at=config.created_at.isoformat(),
+        updated_at=config.updated_at.isoformat(),
+    )
+
+
+@router.delete(
+    "/{provider_name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete provider configuration",
+    description="Remove configuration for a specific LLM provider",
+)
+async def delete_llm_config(
+    provider_name: str,
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> None:
+    """Delete configuration for specific provider."""
+    deleted = await delete_config(session, provider_name)
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Configuration for provider '{provider_name}' not found",
+        )
+
+
+@router.post(
+    "/validate",
+    response_model=LLMProviderConfigValidateResponse,
+    summary="Validate LLM provider configuration",
+    description="Test connectivity and validate API keys for LLM providers",
+)
+async def validate_llm_provider_config(
+    validation_data: LLMProviderConfigValidate,
+) -> LLMProviderConfigValidateResponse:
+    """Validate LLM provider configuration."""
+    provider = validation_data.provider_name.lower()
+
+    try:
+        if provider == "ollama":
+            if not validation_data.base_url:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error="base_url is required for Ollama provider",
+                )
+
+            is_valid, message = await validate_ollama_url(validation_data.base_url)
+            return LLMProviderConfigValidateResponse(
+                valid=is_valid,
+                message=message,
+                error=None if is_valid else message,
+            )
+
+        elif provider in {"openai", "anthropic"}:
+            if not validation_data.api_key:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error=f"api_key is required for {provider.title()} provider",
+                )
+
+            is_valid, message = await validate_api_key(
+                provider,
+                validation_data.api_key.get_secret_value(),
+                validation_data.model,
             )
             return LLMProviderConfigValidateResponse(
                 valid=is_valid,
