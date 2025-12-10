@@ -387,7 +387,7 @@ class LLMProviderConfig(Base):
 
     __table_args__ = (  # pyright: ignore[reportAny, reportUnannotatedClassAttribute]
         CheckConstraint(
-            "provider_name IN ('ollama', 'openai', 'anthropic', 'gemini')",
+            "provider_name IN ('ollama', 'openai', 'anthropic', 'gemini', 'openai_compatible')",
             name="valid_provider_name",
         ),
         {"comment": "LLM provider configurations with encrypted API keys"},
