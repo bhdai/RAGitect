@@ -7,7 +7,6 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.17.2",
     "asyncpg>=0.30.0",
-    "chainlit>=2.9.0",
     "cryptography>=46.0.3",
     "docling>=2.61.2",
     "fastapi>=0.121.2",
@@ -20,7 +19,6 @@ dependencies = [
     "pypdf>=6.2.0",
     "python-dotenv>=1.2.1",
     "sqlalchemy>=2.0.44",
-    "streamlit>=1.51.0",
     "uvicorn>=0.38.0",
 ]
 
