@@ -1,8 +1,8 @@
 /**
  * Embedding Configuration Form Component
- * 
+ *
  * Story 1.4: LLM Provider Configuration - Phase 3
- * 
+ *
  * Unified form with provider dropdown supporting:
  * - Ollama, OpenAI, Vertex AI, OpenAI Compatible
  * - Auto-fill base URL and dimension on provider/model selection
@@ -26,11 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  Server, 
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Server,
   Key,
   Eye,
   EyeOff,
@@ -92,10 +92,10 @@ export function EmbeddingConfigForm() {
       try {
         const response = await getEmbeddingConfigs();
         setSavedConfigs(response.configs);
-        
+
         // Load the first active config, or default to ollama
         const activeConfig = response.configs.find((c: EmbeddingConfig) => c.isActive) || response.configs[0];
-        
+
         if (activeConfig) {
           const provider = EMBEDDING_PROVIDER_REGISTRY[activeConfig.providerName];
           setFormState({
@@ -128,7 +128,7 @@ export function EmbeddingConfigForm() {
   const handleProviderChange = useCallback((providerId: string) => {
     const provider = EMBEDDING_PROVIDER_REGISTRY[providerId];
     const savedConfig = savedConfigs.find(c => c.providerName === providerId);
-    
+
     setFormState(prev => ({
       ...prev,
       selectedProvider: providerId,
@@ -157,9 +157,9 @@ export function EmbeddingConfigForm() {
 
   // Handler for testing connection
   const handleTestConnection = useCallback(async () => {
-    setFormState(prev => ({ 
-      ...prev, 
-      isValidating: true, 
+    setFormState(prev => ({
+      ...prev,
+      isValidating: true,
       validationStatus: 'idle',
       validationMessage: '',
     }));
@@ -214,14 +214,14 @@ export function EmbeddingConfigForm() {
 
       await saveEmbeddingConfig(saveData);
 
-      setFormState(prev => ({ 
-        ...prev, 
-        isSaving: false, 
+      setFormState(prev => ({
+        ...prev,
+        isSaving: false,
         hasChanges: false,
         apiKey: '', // Clear API key after save for security
       }));
       toast.success(`${currentProvider.displayName} embedding configuration saved`);
-      
+
       // Reload configs
       const response = await getEmbeddingConfigs();
       setSavedConfigs(response.configs);
@@ -256,7 +256,7 @@ export function EmbeddingConfigForm() {
     }
   };
 
-  const canTest = currentProvider.requiresApiKey 
+  const canTest = currentProvider.requiresApiKey
     ? formState.apiKey.trim() !== ''
     : formState.baseUrl.trim() !== '';
 
@@ -280,7 +280,7 @@ export function EmbeddingConfigForm() {
         <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
           <AlertTriangle className="h-4 w-4 text-amber-500" />
           <AlertDescription className="text-sm text-zinc-300">
-            ⚠️ Changing embedding model will invalidate all existing search indices. 
+            Changing embedding model will invalidate all existing search indices.
             You must re-process all documents in existing workspaces.
           </AlertDescription>
         </Alert>
@@ -321,8 +321,8 @@ export function EmbeddingConfigForm() {
                 type={formState.showApiKey ? 'text' : 'password'}
                 placeholder={currentProvider.apiKeyPlaceholder}
                 value={formState.apiKey}
-                onChange={(e) => setFormState(prev => ({ 
-                  ...prev, 
+                onChange={(e) => setFormState(prev => ({
+                  ...prev,
                   apiKey: e.target.value,
                   hasChanges: true,
                   validationStatus: 'idle',
@@ -349,8 +349,8 @@ export function EmbeddingConfigForm() {
               type="url"
               placeholder="http://localhost:11434"
               value={formState.baseUrl}
-              onChange={(e) => setFormState(prev => ({ 
-                ...prev, 
+              onChange={(e) => setFormState(prev => ({
+                ...prev,
                 baseUrl: e.target.value,
                 hasChanges: true,
                 validationStatus: 'idle',
@@ -387,8 +387,8 @@ export function EmbeddingConfigForm() {
               type="text"
               placeholder="Model name"
               value={formState.model}
-              onChange={(e) => setFormState(prev => ({ 
-                ...prev, 
+              onChange={(e) => setFormState(prev => ({
+                ...prev,
                 model: e.target.value,
                 hasChanges: true,
                 validationStatus: 'idle',
@@ -407,8 +407,8 @@ export function EmbeddingConfigForm() {
             id="embedding-dimension"
             type="number"
             value={formState.dimension}
-            onChange={(e) => setFormState(prev => ({ 
-              ...prev, 
+            onChange={(e) => setFormState(prev => ({
+              ...prev,
               dimension: parseInt(e.target.value, 10) || prev.dimension,
               hasChanges: true,
               validationStatus: 'idle',
