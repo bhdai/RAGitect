@@ -396,3 +396,79 @@ class LLMProviderConfig(Base):
     @override
     def __repr__(self) -> str:
         return f"<LLMProviderConfig(id={self.id}, provider_name='{self.provider_name}', is_active={self.is_active})>"
+
+
+class EmbeddingProviderConfig(Base):
+    """Embedding provider configuration model.
+
+    Attributes:
+        id: Unique identifier (UUID)
+        provider_name: Embedding provider name (ollama, openai, vertex_ai)
+        config_data: JSONB field for flexible configuration storage
+        is_active: Whether this configuration is currently active
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+
+    Constraints:
+        - provider_name must be unique
+        - provider_name must be one of: ollama, openai, vertex_ai, openai_compatible
+    """
+
+    __tablename__: str = "embedding_configs"
+
+    # pk
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        comment="Unique embedding config identifier",
+    )
+
+    # core fields
+    provider_name: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="Embedding provider name",
+    )
+
+    config_data: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        comment="Configuration data (base_url, api_key, model, dimension, etc.)",
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        nullable=False,
+        server_default="true",
+        comment="Whether this configuration is active",
+    )
+
+    # timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="Creation timestamp",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="Last update timestamp",
+    )
+
+    __table_args__ = (  # pyright: ignore[reportAny, reportUnannotatedClassAttribute]
+        CheckConstraint(
+            "provider_name IN ('ollama', 'openai', 'vertex_ai', 'openai_compatible')",
+            name="valid_embedding_provider_name",
+        ),
+        {"comment": "Embedding provider configurations"},
+    )
+
+    @override
+    def __repr__(self) -> str:
+        return f"<EmbeddingProviderConfig(id={self.id}, provider_name='{self.provider_name}', is_active={self.is_active})>"

@@ -13,7 +13,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LLMConfigForm } from '@/components/settings/LLMConfigForm';
-import { ArrowLeft, Bot, Settings2 } from 'lucide-react';
+import { EmbeddingConfigForm } from '@/components/settings/EmbeddingConfigForm';
+import { ArrowLeft, Bot, Settings2, Layers } from 'lucide-react';
 
 export default function SettingsPage() {
   return (
@@ -44,10 +45,14 @@ export default function SettingsPage() {
 
         {/* Settings Tabs */}
         <Tabs defaultValue="llm" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-2">
+          <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
             <TabsTrigger value="llm" className="flex items-center gap-2">
               <Bot className="h-4 w-4" />
-              LLM Providers
+              Chat Model
+            </TabsTrigger>
+            <TabsTrigger value="embedding" className="flex items-center gap-2">
+              <Layers className="h-4 w-4" />
+              Embedding Model
             </TabsTrigger>
             <TabsTrigger value="general" className="flex items-center gap-2" disabled>
               <Settings2 className="h-4 w-4" />
@@ -58,14 +63,27 @@ export default function SettingsPage() {
           <TabsContent value="llm" className="space-y-4">
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                LLM Provider Configuration
+                Chat Model Configuration
               </h2>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Configure your preferred AI models for RAG tasks. Enable one or more providers 
+                Configure your preferred AI models for chat and RAG tasks. Enable one or more providers 
                 and save your settings. Your API keys are encrypted and stored securely.
               </p>
             </div>
             <LLMConfigForm />
+          </TabsContent>
+
+          <TabsContent value="embedding" className="space-y-4">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                Embedding Model Configuration
+              </h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Configure your preferred embedding models for document processing and semantic search. 
+                Your API keys are encrypted and stored securely.
+              </p>
+            </div>
+            <EmbeddingConfigForm />
           </TabsContent>
 
           <TabsContent value="general">
