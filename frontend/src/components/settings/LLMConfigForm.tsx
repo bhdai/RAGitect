@@ -1,10 +1,12 @@
 /**
  * LLM Configuration Form Component
  * 
- * Story 1.4: LLM Provider Configuration (Ollama & API Keys)
+ * Story 1.4: LLM Provider Configuration - Phase 1
  * 
- * Allows users to configure LLM providers (Ollama, OpenAI, Anthropic)
- * with validation and test connection functionality.
+ * Unified form with provider dropdown supporting:
+ * - Ollama, OpenAI, Anthropic, Gemini
+ * - Auto-fill base URL on provider selection
+ * - Conditional API key field visibility
  */
 
 'use client';
@@ -17,6 +19,13 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -24,7 +33,8 @@ import {
   Server, 
   Key,
   Eye,
-  EyeOff
+  EyeOff,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -33,13 +43,15 @@ import {
   saveLLMConfig,
   validateLLMConfig,
 } from '@/lib/llmConfig';
+import { LLM_PROVIDER_REGISTRY, LLM_PROVIDER_OPTIONS } from '@/lib/providers';
 
-// Provider configuration state
-interface ProviderState {
-  enabled: boolean;
+// Unified form configuration state
+interface ConfigFormState {
+  selectedProvider: string;
   baseUrl: string;
   apiKey: string;
   model: string;
+  isEnabled: boolean;
   isValidating: boolean;
   validationStatus: 'idle' | 'success' | 'error';
   validationMessage: string;
@@ -48,37 +60,12 @@ interface ProviderState {
   showApiKey: boolean;
 }
 
-const defaultOllamaState: ProviderState = {
-  enabled: false,
+const defaultFormState: ConfigFormState = {
+  selectedProvider: 'ollama',
   baseUrl: 'http://localhost:11434',
   apiKey: '',
   model: 'llama3.1:8b',
-  isValidating: false,
-  validationStatus: 'idle',
-  validationMessage: '',
-  isSaving: false,
-  hasChanges: false,
-  showApiKey: false,
-};
-
-const defaultOpenAIState: ProviderState = {
-  enabled: false,
-  baseUrl: '',
-  apiKey: '',
-  model: 'gpt-4o',
-  isValidating: false,
-  validationStatus: 'idle',
-  validationMessage: '',
-  isSaving: false,
-  hasChanges: false,
-  showApiKey: false,
-};
-
-const defaultAnthropicState: ProviderState = {
-  enabled: false,
-  baseUrl: '',
-  apiKey: '',
-  model: 'claude-3-5-sonnet-20241022',
+  isEnabled: false,
   isValidating: false,
   validationStatus: 'idle',
   validationMessage: '',
@@ -89,47 +76,37 @@ const defaultAnthropicState: ProviderState = {
 
 export function LLMConfigForm() {
   const [isLoading, setIsLoading] = useState(true);
-  const [ollama, setOllama] = useState<ProviderState>(defaultOllamaState);
-  const [openai, setOpenai] = useState<ProviderState>(defaultOpenAIState);
-  const [anthropic, setAnthropic] = useState<ProviderState>(defaultAnthropicState);
+  const [formState, setFormState] = useState<ConfigFormState>(defaultFormState);
+  const [savedConfigs, setSavedConfigs] = useState<LLMProviderConfig[]>([]);
+
+  // Get current provider definition
+  const currentProvider = LLM_PROVIDER_REGISTRY[formState.selectedProvider];
 
   // Load existing configurations on mount
   useEffect(() => {
     const loadConfigs = async () => {
       try {
         const response = await getLLMConfigs();
+        setSavedConfigs(response.configs);
         
-        for (const config of response.configs) {
-          const baseState = {
-            enabled: config.isActive,
-            model: config.model || '',
-            baseUrl: config.baseUrl || '',
+        // Load the first active config, or default to ollama
+        const activeConfig = response.configs.find(c => c.isActive) || response.configs[0];
+        
+        if (activeConfig) {
+          const provider = LLM_PROVIDER_REGISTRY[activeConfig.providerName];
+          setFormState({
+            selectedProvider: activeConfig.providerName,
+            baseUrl: activeConfig.baseUrl || provider?.defaultBaseUrl || '',
+            model: activeConfig.model || provider?.defaultModel || '',
             apiKey: '', // Never expose API keys
-          };
-
-          switch (config.providerName) {
-            case 'ollama':
-              setOllama(prev => ({
-                ...prev,
-                ...baseState,
-                baseUrl: config.baseUrl || defaultOllamaState.baseUrl,
-              }));
-              break;
-            case 'openai':
-              setOpenai(prev => ({
-                ...prev,
-                ...baseState,
-                model: config.model || defaultOpenAIState.model,
-              }));
-              break;
-            case 'anthropic':
-              setAnthropic(prev => ({
-                ...prev,
-                ...baseState,
-                model: config.model || defaultAnthropicState.model,
-              }));
-              break;
-          }
+            isEnabled: activeConfig.isActive,
+            isValidating: false,
+            validationStatus: 'idle',
+            validationMessage: '',
+            isSaving: false,
+            hasChanges: false,
+            showApiKey: false,
+          });
         }
       } catch (error) {
         console.error('Failed to load LLM configs:', error);
@@ -142,13 +119,27 @@ export function LLMConfigForm() {
     loadConfigs();
   }, []);
 
-  // Generic handler for testing connection
-  const handleTestConnection = useCallback(async (
-    provider: 'ollama' | 'openai' | 'anthropic',
-    state: ProviderState,
-    setState: React.Dispatch<React.SetStateAction<ProviderState>>
-  ) => {
-    setState(prev => ({ 
+  // Handle provider change with auto-fill
+  const handleProviderChange = useCallback((providerId: string) => {
+    const provider = LLM_PROVIDER_REGISTRY[providerId];
+    const savedConfig = savedConfigs.find(c => c.providerName === providerId);
+    
+    setFormState(prev => ({
+      ...prev,
+      selectedProvider: providerId,
+      baseUrl: savedConfig?.baseUrl || provider.defaultBaseUrl || '',
+      model: savedConfig?.model || provider.defaultModel,
+      apiKey: '', // Reset for security
+      isEnabled: savedConfig?.isActive || false,
+      hasChanges: true,
+      validationStatus: 'idle',
+      validationMessage: '',
+    }));
+  }, [savedConfigs]);
+
+  // Handler for testing connection
+  const handleTestConnection = useCallback(async () => {
+    setFormState(prev => ({ 
       ...prev, 
       isValidating: true, 
       validationStatus: 'idle',
@@ -157,15 +148,15 @@ export function LLMConfigForm() {
 
     try {
       const validateData = {
-        providerName: provider,
-        baseUrl: provider === 'ollama' ? state.baseUrl : undefined,
-        apiKey: provider !== 'ollama' ? state.apiKey : undefined,
-        model: state.model || undefined,
+        providerName: formState.selectedProvider,
+        baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
+        apiKey: currentProvider.requiresApiKey ? formState.apiKey : undefined,
+        model: formState.model || undefined,
       };
 
       const result = await validateLLMConfig(validateData);
 
-      setState(prev => ({
+      setFormState(prev => ({
         ...prev,
         isValidating: false,
         validationStatus: result.valid ? 'success' : 'error',
@@ -179,7 +170,7 @@ export function LLMConfigForm() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Validation failed';
-      setState(prev => ({
+      setFormState(prev => ({
         ...prev,
         isValidating: false,
         validationStatus: 'error',
@@ -187,40 +178,40 @@ export function LLMConfigForm() {
       }));
       toast.error(message);
     }
-  }, []);
+  }, [formState.selectedProvider, formState.baseUrl, formState.apiKey, formState.model, currentProvider]);
 
-  // Generic handler for saving configuration
-  const handleSaveConfig = useCallback(async (
-    provider: 'ollama' | 'openai' | 'anthropic',
-    state: ProviderState,
-    setState: React.Dispatch<React.SetStateAction<ProviderState>>
-  ) => {
-    setState(prev => ({ ...prev, isSaving: true }));
+  // Handler for saving configuration
+  const handleSaveConfig = useCallback(async () => {
+    setFormState(prev => ({ ...prev, isSaving: true }));
 
     try {
       const saveData = {
-        providerName: provider,
-        isActive: state.enabled,
-        model: state.model || undefined,
-        baseUrl: provider === 'ollama' ? state.baseUrl : undefined,
-        apiKey: provider !== 'ollama' && state.apiKey ? state.apiKey : undefined,
+        providerName: formState.selectedProvider,
+        isActive: formState.isEnabled,
+        model: formState.model || undefined,
+        baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
+        apiKey: currentProvider.requiresApiKey && formState.apiKey ? formState.apiKey : undefined,
       };
 
       await saveLLMConfig(saveData);
 
-      setState(prev => ({ 
+      setFormState(prev => ({ 
         ...prev, 
         isSaving: false, 
         hasChanges: false,
         apiKey: '', // Clear API key after save for security
       }));
-      toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} configuration saved`);
+      toast.success(`${currentProvider.displayName} configuration saved`);
+      
+      // Reload configs
+      const response = await getLLMConfigs();
+      setSavedConfigs(response.configs);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save configuration';
-      setState(prev => ({ ...prev, isSaving: false }));
+      setFormState(prev => ({ ...prev, isSaving: false }));
       toast.error(message);
     }
-  }, []);
+  }, [formState.selectedProvider, formState.isEnabled, formState.model, formState.baseUrl, formState.apiKey, currentProvider]);
 
   if (isLoading) {
     return (
@@ -230,274 +221,179 @@ export function LLMConfigForm() {
     );
   }
 
+  // Get icon component
+  const getProviderIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'Server':
+        return <Server className="h-5 w-5" />;
+      case 'Key':
+        return <Key className="h-5 w-5" />;
+      case 'Sparkles':
+        return <Sparkles className="h-5 w-5" />;
+      default:
+        return <Server className="h-5 w-5" />;
+    }
+  };
+
+  const canTest = currentProvider.requiresApiKey 
+    ? formState.apiKey.trim() !== ''
+    : formState.baseUrl.trim() !== '';
+
   return (
-    <div className="space-y-6">
-      {/* Ollama Configuration */}
-      <ProviderCard
-        title="Ollama"
-        description="Connect to a local Ollama instance for privacy-first LLM inference"
-        icon={<Server className="h-5 w-5" />}
-        provider="ollama"
-        state={ollama}
-        setState={setOllama}
-        onTestConnection={() => handleTestConnection('ollama', ollama, setOllama)}
-        onSave={() => handleSaveConfig('ollama', ollama, setOllama)}
-      >
-        <div className="space-y-4">
+    <Card className={formState.isEnabled ? '' : 'opacity-75'}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          LLM Provider Configuration
+          {formState.isEnabled && (
+            <Badge variant="secondary" className="text-xs">
+              Active
+            </Badge>
+          )}
+        </CardTitle>
+        <CardDescription>
+          {currentProvider.description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Provider Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="provider">Provider</Label>
+          <Select
+            value={formState.selectedProvider}
+            onValueChange={handleProviderChange}
+          >
+            <SelectTrigger id="provider">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LLM_PROVIDER_OPTIONS.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  <div className="flex items-center gap-2">
+                    {getProviderIcon(provider.icon)}
+                    <span>{provider.displayName}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-zinc-500">
+            Choose your LLM provider
+          </p>
+        </div>
+
+        {/* Base URL or API Key */}
+        {currentProvider.requiresApiKey ? (
           <div className="space-y-2">
-            <Label htmlFor="ollama-url">Base URL</Label>
+            <Label htmlFor="api-key">API Key</Label>
+            <div className="relative">
+              <Input
+                id="api-key"
+                type={formState.showApiKey ? 'text' : 'password'}
+                placeholder={currentProvider.apiKeyPlaceholder}
+                value={formState.apiKey}
+                onChange={(e) => setFormState(prev => ({ 
+                  ...prev, 
+                  apiKey: e.target.value,
+                  hasChanges: true,
+                }))}
+                disabled={!formState.isEnabled}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setFormState(prev => ({ ...prev, showApiKey: !prev.showApiKey }))}
+                disabled={!formState.isEnabled}
+              >
+                {formState.showApiKey ? (
+                  <EyeOff className="h-4 w-4 text-zinc-500" />
+                ) : (
+                  <Eye className="h-4 w-4 text-zinc-500" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Your {currentProvider.displayName} API key
+              {currentProvider.apiKeyPrefix && ` starting with "${currentProvider.apiKeyPrefix}"`}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="base-url">Base URL</Label>
             <Input
-              id="ollama-url"
+              id="base-url"
               type="url"
-              placeholder="http://localhost:11434"
-              value={ollama.baseUrl}
-              onChange={(e) => setOllama(prev => ({ 
+              placeholder={currentProvider.defaultBaseUrl}
+              value={formState.baseUrl}
+              onChange={(e) => setFormState(prev => ({ 
                 ...prev, 
                 baseUrl: e.target.value,
                 hasChanges: true,
               }))}
-              disabled={!ollama.enabled}
+              disabled={!formState.isEnabled}
             />
             <p className="text-xs text-zinc-500">
-              The base URL of your Ollama instance. Default: http://localhost:11434
+              The base URL of your {currentProvider.displayName} instance
             </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="ollama-model">Model</Label>
-            <Input
-              id="ollama-model"
-              type="text"
-              placeholder="llama3.1:8b"
-              value={ollama.model}
-              onChange={(e) => setOllama(prev => ({ 
-                ...prev, 
-                model: e.target.value,
-                hasChanges: true,
-              }))}
-              disabled={!ollama.enabled}
-            />
-            <p className="text-xs text-zinc-500">
-              The model to use (e.g., llama3.1:8b, mistral, codellama)
-            </p>
-          </div>
+        )}
+
+        {/* Model */}
+        <div className="space-y-2">
+          <Label htmlFor="model">Model</Label>
+          <Input
+            id="model"
+            type="text"
+            placeholder={currentProvider.defaultModel}
+            value={formState.model}
+            onChange={(e) => setFormState(prev => ({ 
+              ...prev, 
+              model: e.target.value,
+              hasChanges: true,
+            }))}
+            disabled={!formState.isEnabled}
+          />
+          <p className="text-xs text-zinc-500">
+            The model to use for this provider
+          </p>
         </div>
-      </ProviderCard>
 
-      {/* OpenAI Configuration */}
-      <ProviderCard
-        title="OpenAI"
-        description="Connect to OpenAI's API for GPT models"
-        icon={<Key className="h-5 w-5" />}
-        provider="openai"
-        state={openai}
-        setState={setOpenai}
-        onTestConnection={() => handleTestConnection('openai', openai, setOpenai)}
-        onSave={() => handleSaveConfig('openai', openai, setOpenai)}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="openai-key">API Key</Label>
-            <div className="relative">
-              <Input
-                id="openai-key"
-                type={openai.showApiKey ? 'text' : 'password'}
-                placeholder="sk-..."
-                value={openai.apiKey}
-                onChange={(e) => setOpenai(prev => ({ 
-                  ...prev, 
-                  apiKey: e.target.value,
-                  hasChanges: true,
-                }))}
-                disabled={!openai.enabled}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setOpenai(prev => ({ ...prev, showApiKey: !prev.showApiKey }))}
-                disabled={!openai.enabled}
-              >
-                {openai.showApiKey ? (
-                  <EyeOff className="h-4 w-4 text-zinc-500" />
-                ) : (
-                  <Eye className="h-4 w-4 text-zinc-500" />
-                )}
-              </Button>
-            </div>
-            <p className="text-xs text-zinc-500">
-              Your OpenAI API key starting with &quot;sk-&quot;
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="openai-model">Model</Label>
-            <Input
-              id="openai-model"
-              type="text"
-              placeholder="gpt-4o"
-              value={openai.model}
-              onChange={(e) => setOpenai(prev => ({ 
-                ...prev, 
-                model: e.target.value,
-                hasChanges: true,
-              }))}
-              disabled={!openai.enabled}
-            />
-            <p className="text-xs text-zinc-500">
-              The model to use (e.g., gpt-4o, gpt-4-turbo, gpt-3.5-turbo)
-            </p>
-          </div>
-        </div>
-      </ProviderCard>
-
-      {/* Anthropic Configuration */}
-      <ProviderCard
-        title="Anthropic"
-        description="Connect to Anthropic's API for Claude models"
-        icon={<Key className="h-5 w-5" />}
-        provider="anthropic"
-        state={anthropic}
-        setState={setAnthropic}
-        onTestConnection={() => handleTestConnection('anthropic', anthropic, setAnthropic)}
-        onSave={() => handleSaveConfig('anthropic', anthropic, setAnthropic)}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="anthropic-key">API Key</Label>
-            <div className="relative">
-              <Input
-                id="anthropic-key"
-                type={anthropic.showApiKey ? 'text' : 'password'}
-                placeholder="sk-ant-..."
-                value={anthropic.apiKey}
-                onChange={(e) => setAnthropic(prev => ({ 
-                  ...prev, 
-                  apiKey: e.target.value,
-                  hasChanges: true,
-                }))}
-                disabled={!anthropic.enabled}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setAnthropic(prev => ({ ...prev, showApiKey: !prev.showApiKey }))}
-                disabled={!anthropic.enabled}
-              >
-                {anthropic.showApiKey ? (
-                  <EyeOff className="h-4 w-4 text-zinc-500" />
-                ) : (
-                  <Eye className="h-4 w-4 text-zinc-500" />
-                )}
-              </Button>
-            </div>
-            <p className="text-xs text-zinc-500">
-              Your Anthropic API key starting with &quot;sk-ant-&quot;
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="anthropic-model">Model</Label>
-            <Input
-              id="anthropic-model"
-              type="text"
-              placeholder="claude-3-5-sonnet-20241022"
-              value={anthropic.model}
-              onChange={(e) => setAnthropic(prev => ({ 
-                ...prev, 
-                model: e.target.value,
-                hasChanges: true,
-              }))}
-              disabled={!anthropic.enabled}
-            />
-            <p className="text-xs text-zinc-500">
-              The model to use (e.g., claude-3-5-sonnet-20241022, claude-3-opus-20240229)
-            </p>
-          </div>
-        </div>
-      </ProviderCard>
-    </div>
-  );
-}
-
-// Provider Card component
-interface ProviderCardProps {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  provider: 'ollama' | 'openai' | 'anthropic';
-  state: ProviderState;
-  setState: React.Dispatch<React.SetStateAction<ProviderState>>;
-  onTestConnection: () => void;
-  onSave: () => void;
-  children: React.ReactNode;
-}
-
-function ProviderCard({
-  title,
-  description,
-  icon,
-  provider,
-  state,
-  setState,
-  onTestConnection,
-  onSave,
-  children,
-}: ProviderCardProps) {
-  const canTest = provider === 'ollama' 
-    ? state.baseUrl.trim() !== ''
-    : state.apiKey.trim() !== '';
-
-  return (
-    <Card className={state.enabled ? '' : 'opacity-75'}>
-      <CardHeader>
+        {/* Active Toggle */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-              {icon}
-            </div>
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                {title}
-                {state.enabled && (
-                  <Badge variant="secondary" className="text-xs">
-                    Enabled
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>{description}</CardDescription>
-            </div>
+          <div className="space-y-0.5">
+            <Label htmlFor="is-active">Set as active</Label>
+            <p className="text-xs text-zinc-500">
+              Enable this provider for query processing
+            </p>
           </div>
           <Switch
-            checked={state.enabled}
-            onCheckedChange={(checked) => setState(prev => ({
+            id="is-active"
+            checked={formState.isEnabled}
+            onCheckedChange={(checked) => setFormState(prev => ({
               ...prev,
-              enabled: checked,
+              isEnabled: checked,
               hasChanges: true,
             }))}
           />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {children}
-        
+
         <Separator />
-        
+
         {/* Validation Status */}
-        {state.validationStatus !== 'idle' && (
+        {formState.validationStatus !== 'idle' && (
           <div className={`flex items-center gap-2 text-sm ${
-            state.validationStatus === 'success' 
+            formState.validationStatus === 'success' 
               ? 'text-green-600 dark:text-green-400' 
               : 'text-red-600 dark:text-red-400'
           }`}>
-            {state.validationStatus === 'success' ? (
+            {formState.validationStatus === 'success' ? (
               <CheckCircle2 className="h-4 w-4" />
             ) : (
               <XCircle className="h-4 w-4" />
             )}
-            {state.validationMessage}
+            {formState.validationMessage}
           </div>
         )}
 
@@ -506,10 +402,10 @@ function ProviderCard({
           <Button
             variant="outline"
             size="sm"
-            onClick={onTestConnection}
-            disabled={!state.enabled || !canTest || state.isValidating}
+            onClick={handleTestConnection}
+            disabled={!formState.isEnabled || !canTest || formState.isValidating}
           >
-            {state.isValidating ? (
+            {formState.isValidating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Testing...
@@ -520,10 +416,10 @@ function ProviderCard({
           </Button>
           <Button
             size="sm"
-            onClick={onSave}
-            disabled={!state.hasChanges || state.isSaving}
+            onClick={handleSaveConfig}
+            disabled={!formState.hasChanges || formState.isSaving}
           >
-            {state.isSaving ? (
+            {formState.isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...
@@ -537,3 +433,4 @@ function ProviderCard({
     </Card>
   );
 }
+

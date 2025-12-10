@@ -354,7 +354,7 @@ class LLMProviderConfig(Base):
         nullable=False,
         unique=True,
         index=True,
-        comment="Provider name (ollama, openai, anthropic)",
+        comment="Provider name (ollama, openai, anthropic, gemini)",
     )
 
     config_data: Mapped[dict[str, Any]] = mapped_column(
@@ -387,7 +387,7 @@ class LLMProviderConfig(Base):
 
     __table_args__ = (  # pyright: ignore[reportAny, reportUnannotatedClassAttribute]
         CheckConstraint(
-            "provider_name IN ('ollama', 'openai', 'anthropic')",
+            "provider_name IN ('ollama', 'openai', 'anthropic', 'gemini')",
             name="valid_provider_name",
         ),
         {"comment": "LLM provider configurations with encrypted API keys"},
