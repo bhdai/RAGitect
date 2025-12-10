@@ -53,7 +53,7 @@ async def save_config(
         # Update existing configuration
         existing_config.config_data = encrypted_data
         existing_config.is_active = config_data.get("is_active", True)
-        await session.commit()
+        await session.flush()
         await session.refresh(existing_config)
         return existing_config
     else:
@@ -64,7 +64,7 @@ async def save_config(
             is_active=config_data.get("is_active", True),
         )
         session.add(new_config)
-        await session.commit()
+        await session.flush()
         await session.refresh(new_config)
         return new_config
 
@@ -155,7 +155,7 @@ async def delete_config(session: AsyncSession, provider_name: str) -> bool:
 
     if config:
         await session.delete(config)
-        await session.commit()
+        await session.flush()
         return True
     return False
 

@@ -48,7 +48,7 @@ class TestLLMConfigService:
 
             # Assert
             mock_session.add.assert_called_once()
-            mock_session.commit.assert_awaited_once()
+            mock_session.flush.assert_awaited_once()
             mock_session.refresh.assert_awaited_once()
 
     async def test_save_config_update_existing(self):
@@ -85,7 +85,7 @@ class TestLLMConfigService:
 
             # Assert
             assert not existing_config.is_active
-            mock_session.commit.assert_awaited_once()
+            mock_session.flush.assert_awaited_once()
             mock_session.refresh.assert_awaited_once()
 
     async def test_save_config_invalid_provider(self):
@@ -188,7 +188,7 @@ class TestLLMConfigService:
         result = await delete_config(mock_session, "anthropic")
         assert result is True
         mock_session.delete.assert_awaited_once_with(config)
-        mock_session.commit.assert_awaited_once()
+        mock_session.flush.assert_awaited_once()
 
     async def test_delete_config_not_found(self):
         """Test deleting non-existent configuration."""
