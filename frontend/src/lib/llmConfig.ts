@@ -52,7 +52,7 @@ class LLMConfigApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -140,3 +140,53 @@ export const deleteLLMConfig = (providerName: string) =>
   llmConfigApiClient.deleteLLMConfig(providerName);
 export const validateLLMConfig = (data: LLMProviderConfigValidateRequest) => 
   llmConfigApiClient.validateLLMConfig(data);
+
+// ===== Embedding Configuration Types & Methods =====
+
+export interface EmbeddingConfig {
+  id: string;
+  providerName: string;
+  baseUrl?: string | null;
+  model?: string | null;
+  dimension?: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmbeddingConfigListResponse {
+  configs: EmbeddingConfig[];
+  total: number;
+}
+
+export interface EmbeddingConfigCreateRequest {
+  providerName: string;
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+  dimension?: number;
+  isActive?: boolean;
+}
+
+export interface EmbeddingConfigValidateRequest {
+  providerName: string;
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+}
+
+// Embedding API functions (reusing same client and response type)
+export const getEmbeddingConfigs = () => 
+  llmConfigApiClient.request<EmbeddingConfigListResponse>('/api/v1/llm-configs/embedding-configs');
+
+export const saveEmbeddingConfig = (data: EmbeddingConfigCreateRequest) =>
+  llmConfigApiClient.request<EmbeddingConfig>('/api/v1/llm-configs/embedding-configs', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const validateEmbeddingConfig = (data: EmbeddingConfigValidateRequest) =>
+  llmConfigApiClient.request<LLMProviderConfigValidateResponse>('/api/v1/llm-configs/embedding-configs/validate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });

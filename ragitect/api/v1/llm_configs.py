@@ -1,12 +1,16 @@
 """API router for LLM provider configuration endpoints."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragitect.api.schemas.llm_config import (
+    EmbeddingConfigCreate,
+    EmbeddingConfigListResponse,
+    EmbeddingConfigResponse,
+    EmbeddingConfigValidate,
     LLMProviderConfigCreate,
     LLMProviderConfigListResponse,
     LLMProviderConfigResponse,
@@ -16,10 +20,16 @@ from ragitect.api.schemas.llm_config import (
 from ragitect.services.database.connection import get_async_session
 from ragitect.services.llm_config_service import (
     delete_config,
+    delete_embedding_config,
+    get_active_embedding_config,
     get_all_configs,
+    get_all_embedding_configs,
     get_config,
+    get_embedding_config,
     save_config,
+    save_embedding_config,
     validate_api_key,
+    validate_embedding_config,
     validate_ollama_url,
 )
 
@@ -39,7 +49,7 @@ async def create_llm_config(
 ) -> LLMProviderConfigResponse:
     """Save or update LLM provider configuration."""
     # Prepare config data dictionary
-    config_dict = {
+    config_dict: dict[str, Any] = {
         "is_active": config_data.is_active,
     }
 
@@ -96,6 +106,152 @@ async def list_llm_configs(
         configs=config_responses,
         total=len(config_responses),
     )
+
+
+# Embedding config endpoints
+@router.get(
+    "/embedding-configs",
+    response_model=EmbeddingConfigListResponse,
+    summary="List all embedding provider configurations",
+    description="Retrieve all saved embedding provider configurations (API keys masked)",
+)
+async def list_embedding_configs(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> EmbeddingConfigListResponse:
+    """List all embedding provider configurations."""
+    configs = await get_all_embedding_configs(session)
+
+    config_responses = [
+        EmbeddingConfigResponse(
+            id=str(config.id),
+            provider_name=config.provider_name,
+            base_url=config.config_data.get("base_url"),
+            model=config.config_data.get("model"),
+            dimension=config.config_data.get("dimension"),
+            is_active=config.is_active,
+            created_at=config.created_at.isoformat(),
+            updated_at=config.updated_at.isoformat(),
+        )
+        for config in configs
+    ]
+
+    return EmbeddingConfigListResponse(
+        configs=config_responses,
+        total=len(config_responses),
+    )
+
+
+@router.post(
+    "/embedding-configs",
+    response_model=EmbeddingConfigResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Save embedding provider configuration",
+    description="Create or update embedding provider configuration",
+)
+async def create_embedding_config(
+    config_data: EmbeddingConfigCreate,
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> EmbeddingConfigResponse:
+    """Save or update embedding provider configuration."""
+    # Prepare config data dictionary
+    config_dict: dict[str, Any] = {
+        "is_active": config_data.is_active,
+    }
+
+    if config_data.base_url:
+        config_dict["base_url"] = config_data.base_url
+
+    if config_data.api_key:
+        config_dict["api_key"] = config_data.api_key.get_secret_value()
+
+    if config_data.model:
+        config_dict["model"] = config_data.model
+
+    if config_data.dimension:
+        config_dict["dimension"] = config_data.dimension
+
+    # Save configuration
+    saved_config = await save_embedding_config(
+        session, config_data.provider_name, config_dict
+    )
+
+    # Prepare response (never expose API key)
+    return EmbeddingConfigResponse(
+        id=str(saved_config.id),
+        provider_name=saved_config.provider_name,
+        base_url=saved_config.config_data.get("base_url"),
+        model=saved_config.config_data.get("model"),
+        dimension=saved_config.config_data.get("dimension"),
+        is_active=saved_config.is_active,
+        created_at=saved_config.created_at.isoformat(),
+        updated_at=saved_config.updated_at.isoformat(),
+    )
+
+
+@router.post(
+    "/embedding-configs/validate",
+    response_model=LLMProviderConfigValidateResponse,
+    summary="Validate embedding provider configuration",
+    description="Test connectivity and validate API keys for embedding providers",
+)
+async def validate_embedding_provider_config(
+    validation_data: EmbeddingConfigValidate,
+) -> LLMProviderConfigValidateResponse:
+    """Validate embedding provider configuration."""
+    provider = validation_data.provider_name.lower()
+
+    try:
+        if provider in {"ollama", "openai_compatible"}:
+            if not validation_data.base_url:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error=f"base_url is required for {provider} provider",
+                )
+
+            is_valid, message = await validate_embedding_config(
+                provider,
+                base_url=validation_data.base_url,
+                model=validation_data.model,
+            )
+            return LLMProviderConfigValidateResponse(
+                valid=is_valid,
+                message=message,
+                error=None if is_valid else message,
+            )
+
+        elif provider in {"openai", "vertex_ai"}:
+            if not validation_data.api_key:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error=f"api_key is required for {provider} provider",
+                )
+
+            is_valid, message = await validate_embedding_config(
+                provider,
+                api_key=validation_data.api_key.get_secret_value(),
+                model=validation_data.model,
+            )
+            return LLMProviderConfigValidateResponse(
+                valid=is_valid,
+                message=message,
+                error=None if is_valid else message,
+            )
+
+        else:
+            return LLMProviderConfigValidateResponse(
+                valid=False,
+                message="Validation failed",
+                error=f"Unsupported provider: {provider}",
+            )
+
+    except Exception as e:
+        return LLMProviderConfigValidateResponse(
+            valid=False,
+            message="Validation error",
+            error=str(e),
+        )
 
 
 @router.get(
