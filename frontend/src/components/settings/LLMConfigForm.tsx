@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ModelCombobox } from '@/components/ui/model-combobox';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -34,7 +35,8 @@ import {
   Key,
   Eye,
   EyeOff,
-  Sparkles
+  Sparkles,
+  Plug
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -230,6 +232,8 @@ export function LLMConfigForm() {
         return <Key className="h-5 w-5" />;
       case 'Sparkles':
         return <Sparkles className="h-5 w-5" />;
+      case 'Plug':
+        return <Plug className="h-5 w-5" />;
       default:
         return <Server className="h-5 w-5" />;
     }
@@ -343,20 +347,22 @@ export function LLMConfigForm() {
         {/* Model */}
         <div className="space-y-2">
           <Label htmlFor="model">Model</Label>
-          <Input
-            id="model"
-            type="text"
-            placeholder={currentProvider.defaultModel}
+          <ModelCombobox
             value={formState.model}
-            onChange={(e) => setFormState(prev => ({ 
+            onChange={(model) => setFormState(prev => ({ 
               ...prev, 
-              model: e.target.value,
+              model,
               hasChanges: true,
             }))}
+            options={currentProvider.popularModels}
+            placeholder={currentProvider.defaultModel || "Select or enter model..."}
             disabled={!formState.isEnabled}
           />
           <p className="text-xs text-zinc-500">
-            The model to use for this provider
+            {currentProvider.popularModels.length > 0 
+              ? "Select a popular model or type a custom name"
+              : "Enter a custom model name"
+            }
           </p>
         </div>
 
