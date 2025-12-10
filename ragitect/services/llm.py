@@ -1,12 +1,16 @@
 import logging
 from collections.abc import AsyncGenerator, Sequence
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_litellm import ChatLiteLLM
 
 from ragitect.services.config import LLMConfig, get_default_config
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -148,3 +152,73 @@ async def generate_response_with_prompt(llm_model: BaseChatModel, prompt: str) -
     """
     messages = [HumanMessage(content=prompt)]
     return await generate_response(llm_model, messages)
+
+
+async def get_active_llm_config(session: "AsyncSession") -> LLMConfig:
+    """Load active LLM configuration from database.
+
+    Queries the database for an active LLM provider configuration and
+    constructs an LLMConfig from it. Falls back to default Ollama config
+    if no active configuration exists.
+
+    Args:
+        session: Async database session
+
+    Returns:
+        LLMConfig: Configuration loaded from DB or default config
+
+    Note:
+        Story 1.4: Integrates LLM provider configuration into query service.
+        This function is the bridge between stored configs and LLM creation.
+    """
+    # Import here to avoid circular dependency
+    from ragitect.services.llm_config_service import get_active_config
+
+    try:
+        config = await get_active_config(session)
+
+        if config:
+            provider = config.provider_name
+            config_data = config.config_data
+
+            logger.info(f"Using active LLM provider configuration: {provider}")
+
+            return LLMConfig(
+                provider=provider,
+                model=config_data.get("model", "llama3.1:8b"),
+                temperature=config_data.get("temperature", 0.7),
+                base_url=config_data.get("base_url"),
+                api_key=config_data.get("api_key"),
+                max_tokens=config_data.get("max_tokens"),
+                timeout=config_data.get("timeout", 60),
+            )
+
+        logger.info("No active LLM configuration found, using default Ollama config")
+        return get_default_config()
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to load LLM config from database: {e}, using default config"
+        )
+        return get_default_config()
+
+
+async def create_llm_from_db(session: "AsyncSession") -> BaseChatModel:
+    """Create LLM model using active configuration from database.
+
+    Loads the active LLM provider configuration from the database and
+    creates a LangChain-compatible chat model. Falls back to default
+    Ollama configuration if no active config exists.
+
+    Args:
+        session: Async database session
+
+    Returns:
+        BaseChatModel: Configured LangChain chat model instance
+
+    Note:
+        Story 1.4: This is the primary entry point for services that need
+        an LLM configured based on user preferences stored in the database.
+    """
+    config = await get_active_llm_config(session)
+    return await create_llm(config)
