@@ -113,6 +113,29 @@ async def get_all_configs(session: AsyncSession) -> list[LLMProviderConfig]:
     return list(configs)
 
 
+async def get_active_config(session: AsyncSession) -> LLMProviderConfig | None:
+    """Retrieve the first active LLM provider configuration with decrypted API key.
+
+    Args:
+        session: Database session
+
+    Returns:
+        LLMProviderConfig | None: Active configuration with decrypted API key, or None
+    """
+    result = await session.execute(
+        select(LLMProviderConfig).where(LLMProviderConfig.is_active.is_(True))
+    )
+    config = result.scalars().first()
+
+    if config and "api_key" in config.config_data and config.config_data["api_key"]:
+        # Decrypt API key for use
+        config_data_copy = config.config_data.copy()
+        config_data_copy["api_key"] = decrypt_value(config.config_data["api_key"])
+        config.config_data = config_data_copy
+
+    return config
+
+
 async def delete_config(session: AsyncSession, provider_name: str) -> bool:
     """Delete LLM provider configuration.
 
@@ -186,11 +209,16 @@ async def validate_api_key(
     )
 
     try:
-        is_valid = await asyncio.wait_for(validate_llm_config(config), timeout=timeout)
+        is_valid, error_msg = await asyncio.wait_for(
+            validate_llm_config(config), timeout=timeout
+        )
         if is_valid:
             return True, f"{provider_name.title()} API key is valid"
         else:
-            return False, f"{provider_name.title()} API key validation failed"
+            return (
+                False,
+                error_msg or f"{provider_name.title()} API key validation failed",
+            )
     except asyncio.TimeoutError:
         return False, f"Validation timed out after {timeout} seconds"
     except Exception as e:

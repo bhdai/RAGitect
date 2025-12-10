@@ -8,11 +8,13 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { WorkspaceCard } from '@/components/WorkspaceCard';
 import { CreateWorkspaceModal } from '@/components/CreateWorkspaceModal';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useDeleteWorkspace } from '@/hooks/useWorkspaces';
+import { Settings } from 'lucide-react';
 
 export default function Dashboard() {
   const { workspaces, isLoading, error, refresh, removeWorkspace } = useWorkspaces();
@@ -51,9 +53,16 @@ export default function Dashboard() {
               Manage your document workspaces
             </p>
           </div>
-          <Button onClick={() => setIsModalOpen(true)}>
-            New Workspace
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href="/settings">
+              <Button variant="outline" size="icon" title="Settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Button onClick={() => setIsModalOpen(true)}>
+              New Workspace
+            </Button>
+          </div>
         </div>
 
         {/* Content */}

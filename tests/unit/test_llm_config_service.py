@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragitect.services.llm_config_service import (
     delete_config,
+    get_active_config,
     get_all_configs,
     get_config,
     save_config,
@@ -43,7 +44,7 @@ class TestLLMConfigService:
             mock_encrypt.side_effect = lambda x: f"encrypted_{x}"
 
             # Act
-            result = await save_config(mock_session, "ollama", config_data)
+            await save_config(mock_session, "ollama", config_data)
 
             # Assert
             mock_session.add.assert_called_once()
@@ -80,10 +81,10 @@ class TestLLMConfigService:
             mock_encrypt.side_effect = lambda x: f"encrypted_{x}"
 
             # Act
-            result = await save_config(mock_session, "openai", config_data)
+            await save_config(mock_session, "openai", config_data)
 
             # Assert
-            assert existing_config.is_active == False
+            assert not existing_config.is_active
             mock_session.commit.assert_awaited_once()
             mock_session.refresh.assert_awaited_once()
 
@@ -236,7 +237,7 @@ class TestLLMConfigService:
         with patch(
             "ragitect.services.llm_config_service.validate_llm_config"
         ) as mock_validate:
-            mock_validate.return_value = True
+            mock_validate.return_value = (True, "")
 
             is_valid, message = await validate_api_key("openai", "sk-test123")
             assert is_valid is True
@@ -247,8 +248,75 @@ class TestLLMConfigService:
         with patch(
             "ragitect.services.llm_config_service.validate_llm_config"
         ) as mock_validate:
-            mock_validate.return_value = False
+            mock_validate.return_value = (False, "Authentication failed")
 
             is_valid, message = await validate_api_key("anthropic", "sk-ant-invalid")
             assert is_valid is False
-            assert "failed" in message.lower()
+            assert "Authentication failed" in message
+
+    async def test_get_active_config_found(self):
+        """Test retrieving active configuration with decrypted API key."""
+        # Arrange
+        mock_session = AsyncMock(spec=AsyncSession)
+        config = LLMProviderConfig(
+            id=uuid.uuid4(),
+            provider_name="openai",
+            config_data={"api_key": "encrypted_key", "model": "gpt-4"},
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = config
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        # Mock decryption
+        with patch(
+            "ragitect.services.llm_config_service.decrypt_value"
+        ) as mock_decrypt:
+            mock_decrypt.return_value = "sk-decrypted"
+
+            # Act
+            result = await get_active_config(mock_session)
+
+            # Assert
+            assert result is not None
+            assert result.provider_name == "openai"
+            assert result.config_data["api_key"] == "sk-decrypted"
+            mock_decrypt.assert_called_once_with("encrypted_key")
+
+    async def test_get_active_config_not_found(self):
+        """Test retrieving active configuration when none exists."""
+        mock_session = AsyncMock(spec=AsyncSession)
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        result = await get_active_config(mock_session)
+        assert result is None
+
+    async def test_get_active_config_no_api_key(self):
+        """Test retrieving active Ollama config without API key."""
+        # Arrange
+        mock_session = AsyncMock(spec=AsyncSession)
+        config = LLMProviderConfig(
+            id=uuid.uuid4(),
+            provider_name="ollama",
+            config_data={"base_url": "http://localhost:11434", "model": "llama3.2"},
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = config
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        # Act
+        result = await get_active_config(mock_session)
+
+        # Assert
+        assert result is not None
+        assert result.provider_name == "ollama"
+        assert result.config_data["base_url"] == "http://localhost:11434"
