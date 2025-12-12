@@ -19,7 +19,7 @@ from ragitect.services.database.repositories.document_repo import DocumentReposi
 
 @pytest.mark.integration
 async def test_document_upload_triggers_background_processing(
-    async_client: AsyncClient, test_workspace
+    shared_integration_client: AsyncClient, test_workspace
 ):
     """Test that uploading a document triggers background processing"""
     # Arrange - create a simple text file
@@ -27,7 +27,7 @@ async def test_document_upload_triggers_background_processing(
     file_name = "test.txt"
 
     # Act - upload document
-    response = await async_client.post(
+    response = await shared_integration_client.post(
         f"/api/v1/workspaces/{test_workspace.id}/documents",
         files={"files": (file_name, file_content, "text/plain")},
     )
@@ -45,7 +45,7 @@ async def test_document_upload_triggers_background_processing(
     await asyncio.sleep(0.5)
 
     # Check status - should be processing or ready
-    status_response = await async_client.get(
+    status_response = await shared_integration_client.get(
         f"/api/v1/workspaces/documents/{document_id}/status"
     )
     assert status_response.status_code == 200
@@ -55,11 +55,11 @@ async def test_document_upload_triggers_background_processing(
 
 @pytest.mark.integration
 async def test_document_status_endpoint(
-    async_client: AsyncClient, test_workspace, uploaded_document
+    shared_integration_client: AsyncClient, test_workspace, uploaded_document
 ):
     """Test status endpoint returns correct document state"""
     # Act - get document status
-    response = await async_client.get(
+    response = await shared_integration_client.get(
         f"/api/v1/workspaces/documents/{uploaded_document.id}/status"
     )
 
@@ -73,25 +73,31 @@ async def test_document_status_endpoint(
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_document_status_endpoint_not_found(async_client: AsyncClient):
+async def test_document_status_endpoint_not_found(
+    shared_integration_client: AsyncClient,
+):
     """Test status endpoint returns 404 for non-existent document"""
     # Act
     fake_id = uuid4()
-    response = await async_client.get(f"/api/v1/workspaces/documents/{fake_id}/status")
+    response = await shared_integration_client.get(
+        f"/api/v1/workspaces/documents/{fake_id}/status"
+    )
 
     # Assert
     assert response.status_code == 404
 
 
 @pytest.mark.integration
-async def test_complete_processing_flow(async_client: AsyncClient, test_workspace):
+async def test_complete_processing_flow(
+    shared_integration_client: AsyncClient, test_workspace
+):
     """Test complete flow: upload → processing → ready"""
     # Arrange
     file_content = b"Sample document content for end-to-end testing."
     file_name = "sample.txt"
 
     # Act 1 - Upload
-    upload_response = await async_client.post(
+    upload_response = await shared_integration_client.post(
         f"/api/v1/workspaces/{test_workspace.id}/documents",
         files={"files": (file_name, file_content, "text/plain")},
     )
@@ -105,7 +111,7 @@ async def test_complete_processing_flow(async_client: AsyncClient, test_workspac
     for attempt in range(max_attempts):
         await asyncio.sleep(0.5)  # Wait between polls
 
-        status_response = await async_client.get(
+        status_response = await shared_integration_client.get(
             f"/api/v1/workspaces/documents/{document_id}/status"
         )
         assert status_response.status_code == 200
@@ -134,7 +140,9 @@ async def test_complete_processing_flow(async_client: AsyncClient, test_workspac
 
 
 @pytest.mark.integration
-async def test_processing_with_pdf_file(async_client: AsyncClient, test_workspace):
+async def test_processing_with_pdf_file(
+    shared_integration_client: AsyncClient, test_workspace
+):
     """Test processing with a PDF file (using docling processor)"""
     # Arrange - minimal PDF structure
     # This is a minimal valid PDF for testing
@@ -149,7 +157,7 @@ async def test_processing_with_pdf_file(async_client: AsyncClient, test_workspac
     )
 
     # Act - upload PDF
-    response = await async_client.post(
+    response = await shared_integration_client.post(
         f"/api/v1/workspaces/{test_workspace.id}/documents",
         files={"files": ("test.pdf", pdf_content, "application/pdf")},
     )
@@ -164,7 +172,7 @@ async def test_processing_with_pdf_file(async_client: AsyncClient, test_workspac
     for _ in range(max_attempts):
         await asyncio.sleep(1.0)
 
-        status_response = await async_client.get(
+        status_response = await shared_integration_client.get(
             f"/api/v1/workspaces/documents/{document_id}/status"
         )
         status = status_response.json()["status"]
@@ -177,13 +185,15 @@ async def test_processing_with_pdf_file(async_client: AsyncClient, test_workspac
 
 
 @pytest.mark.integration
-async def test_error_handling_corrupted_file(async_client: AsyncClient, test_workspace):
+async def test_error_handling_corrupted_file(
+    shared_integration_client: AsyncClient, test_workspace
+):
     """Test error handling for corrupted/invalid files"""
     # Arrange - upload corrupted PDF (invalid content)
     corrupted_content = b"This is not a valid PDF file"
 
     # Act - upload
-    response = await async_client.post(
+    response = await shared_integration_client.post(
         f"/api/v1/workspaces/{test_workspace.id}/documents",
         files={"files": ("corrupted.pdf", corrupted_content, "application/pdf")},
     )
@@ -195,7 +205,7 @@ async def test_error_handling_corrupted_file(async_client: AsyncClient, test_wor
         # Wait for processing to fail
         await asyncio.sleep(2.0)
 
-        status_response = await async_client.get(
+        status_response = await shared_integration_client.get(
             f"/api/v1/workspaces/documents/{document_id}/status"
         )
 
@@ -206,7 +216,9 @@ async def test_error_handling_corrupted_file(async_client: AsyncClient, test_wor
 
 
 @pytest.mark.integration
-async def test_multiple_documents_processing(async_client: AsyncClient, test_workspace):
+async def test_multiple_documents_processing(
+    shared_integration_client: AsyncClient, test_workspace
+):
     """Test processing multiple documents simultaneously"""
     # Arrange - multiple files
     files = [
@@ -216,7 +228,7 @@ async def test_multiple_documents_processing(async_client: AsyncClient, test_wor
     ]
 
     # Act - upload all files
-    response = await async_client.post(
+    response = await shared_integration_client.post(
         f"/api/v1/workspaces/{test_workspace.id}/documents",
         files=[("files", file_data) for file_data in files],
     )
@@ -230,7 +242,7 @@ async def test_multiple_documents_processing(async_client: AsyncClient, test_wor
     await asyncio.sleep(2.0)
 
     for doc in documents:
-        status_response = await async_client.get(
+        status_response = await shared_integration_client.get(
             f"/api/v1/workspaces/documents/{doc['id']}/status"
         )
         status = status_response.json()["status"]

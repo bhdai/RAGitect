@@ -63,7 +63,7 @@ async def uploaded_document(test_workspace):
 
 
 @pytest_asyncio.fixture
-async def async_client() -> AsyncGenerator[AsyncClient, None]:
+async def shared_integration_client() -> AsyncGenerator[AsyncClient, None]:
     """Create async test client for integration tests with REAL database
 
     This is different from tests/api/conftest.py which mocks the database.
