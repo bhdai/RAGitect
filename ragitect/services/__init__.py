@@ -47,13 +47,6 @@ from ragitect.services.query_service import (
     reformulate_query_with_chat_history,
 )
 
-# Vector store
-from ragitect.services.vector_store import (
-    add_vectors_to_index,
-    initialize_index,
-    search_index,
-)
-
 __all__ = [
     # Document processing
     "create_documents",
@@ -72,10 +65,6 @@ __all__ = [
     "generate_response_stream",
     "generate_response_with_prompt",
     "validate_llm_config",
-    # Vector store
-    "add_vectors_to_index",
-    "initialize_index",
-    "search_index",
     # Query service
     "format_chat_history",
     "reformulate_query_with_chat_history",
