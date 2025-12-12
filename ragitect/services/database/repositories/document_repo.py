@@ -387,7 +387,9 @@ class DocumentRepository(BaseRepository[Document]):
             NotFoundError: If document doesn't exist
         """
         document = await self.get_by_id_or_raise(document_id)
-        metadata = document.metadata_ or {}
+        # Create a NEW dict to ensure SQLAlchemy detects the change
+        # (in-place mutation of JSONB dicts may not be tracked)
+        metadata = dict(document.metadata_) if document.metadata_ else {}
         metadata["status"] = status
         return await self.update_metadata(document_id, metadata)
 
@@ -448,6 +450,8 @@ class DocumentRepository(BaseRepository[Document]):
         """Clear file bytes from metadata after successful processing
 
         This frees storage by removing the base64-encoded bytes.
+        Note: Re-fetches document to get current metadata state to avoid
+        overwriting status changes made by other methods.
 
         Args:
             document_id: Document UUID
@@ -458,8 +462,10 @@ class DocumentRepository(BaseRepository[Document]):
         Raises:
             NotFoundError: If document doesn't exist
         """
+        # Re-fetch to get current metadata state (status may have changed)
         document = await self.get_by_id_or_raise(document_id)
-        metadata = document.metadata_ or {}
+        # Make a copy of current metadata to avoid mutation issues
+        metadata = dict(document.metadata_) if document.metadata_ else {}
 
         # Remove file bytes if present
         if "file_bytes_b64" in metadata:

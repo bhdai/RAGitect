@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,8 @@ export default function WorkspacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
-  const [pollingIntervals, setPollingIntervals] = useState<Map<string, NodeJS.Timeout>>(new Map());
+  // Use ref for polling intervals to avoid stale closure issues
+  const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     async function fetchWorkspace() {
@@ -50,12 +51,14 @@ export default function WorkspacePage() {
 
   // Cleanup polling intervals on unmount
   useEffect(() => {
+    const intervalsRef = pollingIntervalsRef;
     return () => {
-      pollingIntervals.forEach(interval => clearInterval(interval));
+      intervalsRef.current.forEach(interval => clearInterval(interval));
+      intervalsRef.current.clear();
     };
-  }, [pollingIntervals]);
+  }, []);
 
-  const pollDocumentStatus = async (documentId: string, fileName: string) => {
+  const pollDocumentStatus = useCallback(async (documentId: string, fileName: string) => {
     try {
       const status = await getDocumentStatus(documentId);
       
@@ -77,14 +80,10 @@ export default function WorkspacePage() {
 
       // Stop polling if status is terminal
       if (status.status === 'ready' || status.status === 'error') {
-        const interval = pollingIntervals.get(documentId);
+        const interval = pollingIntervalsRef.current.get(documentId);
         if (interval) {
           clearInterval(interval);
-          setPollingIntervals(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(documentId);
-            return newMap;
-          });
+          pollingIntervalsRef.current.delete(documentId);
         }
 
         if (status.status === 'ready') {
@@ -96,9 +95,9 @@ export default function WorkspacePage() {
     } catch (err) {
       console.error(`Failed to poll status for ${documentId}:`, err);
     }
-  };
+  }, []);
 
-  const handleUploadComplete = (documents: Document[]) => {
+  const handleUploadComplete = useCallback((documents: Document[]) => {
     // Update uploads to show upload complete (100%)
     setUploads(prev => 
       prev.map(upload => ({
@@ -116,14 +115,14 @@ export default function WorkspacePage() {
         pollDocumentStatus(doc.id, doc.fileName);
       }, 2000); // Poll every 2 seconds
 
-      setPollingIntervals(prev => new Map(prev).set(doc.id, interval));
+      pollingIntervalsRef.current.set(doc.id, interval);
 
       // Initial poll
       pollDocumentStatus(doc.id, doc.fileName);
     });
     
     // Don't auto-clear uploads anymore - wait for processing to complete
-  };
+  }, [pollDocumentStatus]);
 
   const handleUploadError = (error: Error) => {
     // Mark all uploads as error
