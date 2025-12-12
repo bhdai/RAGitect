@@ -3,6 +3,7 @@
 Handles background document processing including text extraction and status management.
 """
 
+import asyncio
 import logging
 from uuid import UUID
 
@@ -78,7 +79,10 @@ class DocumentProcessingService:
             file_bytes = await self.repo.get_file_bytes(document_id)
 
             # Extract text using existing processor
-            text, metadata = process_file_bytes(file_bytes, document.file_name)
+            # Run in thread pool to avoid blocking event loop (process_file_bytes is CPU-intensive)
+            text, metadata = await asyncio.to_thread(
+                process_file_bytes, file_bytes, document.file_name
+            )
 
             logger.info(
                 f"Extracted {len(text)} characters from {document.file_name} "

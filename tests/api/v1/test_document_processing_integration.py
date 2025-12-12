@@ -71,6 +71,7 @@ async def test_document_status_endpoint(
     assert data["fileName"] == uploaded_document.file_name
 
 
+@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_document_status_endpoint_not_found(async_client: AsyncClient):
     """Test status endpoint returns 404 for non-existent document"""
