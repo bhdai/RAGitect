@@ -12,12 +12,13 @@ import { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import type { Document } from '@/lib/documents';
 
 type DropzoneState = 'idle' | 'drag-over' | 'uploading' | 'error';
 
 interface IngestionDropzoneProps {
   workspaceId: string;
-  onUploadComplete: (documents: any[]) => void;
+  onUploadComplete: (documents: Document[]) => void;
   onUploadError: (error: Error) => void;
   onFilesSelected?: (files: File[]) => void; // Callback when files are validated
   maxFileSize?: number; // bytes, default 50MB (matches backend MAX_FILE_SIZE)
@@ -40,19 +41,9 @@ const DEFAULT_ACCEPTED_TYPES = [
   '.htm',
 ];
 
-const SUPPORTED_MIME_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-  'text/markdown',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/html',
-];
-
 export function IngestionDropzone({
-  workspaceId,
-  onUploadComplete,
+  workspaceId: _workspaceId, // eslint-disable-line @typescript-eslint/no-unused-vars
+  onUploadComplete: _onUploadComplete, // eslint-disable-line @typescript-eslint/no-unused-vars
   onUploadError,
   onFilesSelected,
   maxFileSize = DEFAULT_MAX_SIZE,

@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { IngestionDropzone } from '@/components/IngestionDropzone';
 import { UploadProgress, type Upload } from '@/components/UploadProgress';
 import { getWorkspace } from '@/lib/api';
-import { uploadDocuments } from '@/lib/documents';
+import { uploadDocuments, type Document } from '@/lib/documents';
 import { toast } from 'sonner';
 import type { Workspace } from '@/lib/types';
 
@@ -27,7 +27,6 @@ export default function WorkspacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     async function fetchWorkspace() {
@@ -48,7 +47,7 @@ export default function WorkspacePage() {
     fetchWorkspace();
   }, [id]);
 
-  const handleUploadComplete = (documents: any[]) => {
+  const handleUploadComplete = (documents: Document[]) => {
     // Update uploads to show success
     setUploads(prev => 
       prev.map(upload => ({
@@ -63,7 +62,6 @@ export default function WorkspacePage() {
     // Clear uploads after 3 seconds
     setTimeout(() => {
       setUploads([]);
-      setIsUploading(false);
     }, 3000);
   };
 
@@ -85,7 +83,7 @@ export default function WorkspacePage() {
     toast.info(`Cancelled upload of ${fileName}`);
   };
 
-  const handleRetry = async (fileName: string) => {
+  const handleRetry = async (_fileName: string) => { // eslint-disable-line @typescript-eslint/no-unused-vars
     // For now, just show a message - full retry logic would need file reference
     toast.info('Retry functionality will be available in the next iteration');
   };
@@ -103,7 +101,6 @@ export default function WorkspacePage() {
     }));
     
     setUploads(newUploads);
-    setIsUploading(true);
 
     try {
       // Simulate progress (since we don't have real progress tracking yet)
