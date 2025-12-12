@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LLMConfigForm } from '../settings/LLMConfigForm';
 import * as llmConfigApi from '@/lib/llmConfig';
@@ -122,7 +122,6 @@ describe('LLMConfigForm - Phase 1: Unified Form + Gemini', () => {
 
   describe('Provider Selection & Auto-fill (Phase 1 Core Feature)', () => {
     it('auto-fills base URL when selecting Ollama', async () => {
-      const user = userEvent.setup();
       render(<LLMConfigForm />);
 
       await waitFor(() => {

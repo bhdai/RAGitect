@@ -183,6 +183,73 @@ class TestDocumentRepository:
         count = await repo.get_by_workspace_count(uuid4())
         assert count == 5
 
+    @pytest.mark.asyncio
+    async def test_create_from_upload(self, repo, mock_session):
+        """Test create_from_upload method"""
+        workspace_id = uuid4()
+        file_name = "test.pdf"
+        file_type = ".pdf"
+        file_bytes = b"test content bytes"
+
+        doc = await repo.create_from_upload(
+            workspace_id, file_name, file_type, file_bytes
+        )
+
+        assert doc.workspace_id == workspace_id
+        assert doc.file_name == file_name
+        assert doc.file_type == file_type
+        assert doc.processed_content is None
+        assert doc.metadata_["status"] == "uploaded"
+        assert doc.metadata_["original_size"] == len(file_bytes)
+
+        mock_session.add.assert_called_once()
+        mock_session.flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_status(self, repo, mock_session):
+        """Test update_status method"""
+        document_id = uuid4()
+        document = Document(id=document_id, metadata_={"status": "uploaded"})
+        mock_session.get.return_value = document
+
+        updated = await repo.update_status(document_id, "processing")
+
+        assert updated.metadata_["status"] == "processing"
+        mock_session.flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_processed_content(self, repo, mock_session):
+        """Test update_processed_content method"""
+        document_id = uuid4()
+        document = Document(id=document_id, processed_content=None)
+        mock_session.get.return_value = document
+
+        new_content = "Extracted text content"
+        updated = await repo.update_processed_content(document_id, new_content)
+
+        assert updated.processed_content == new_content
+        mock_session.flush.assert_called_once()
+        mock_session.refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_with_optional_processed_content(self, repo, mock_session):
+        """Test create method with processed_content=None"""
+        workspace_id = uuid4()
+        file_name = "test.pdf"
+
+        doc = await repo.create(
+            workspace_id=workspace_id,
+            file_name=file_name,
+            processed_content=None,
+            content_hash="explicit_hash",
+        )
+
+        assert doc.workspace_id == workspace_id
+        assert doc.file_name == file_name
+        assert doc.processed_content is None
+
+        mock_session.add.assert_called_once()
+
 
 class TestDocumentRepositoryIntegration:
     """Integration tests for DocumentRepository"""
