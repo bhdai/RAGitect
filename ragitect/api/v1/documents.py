@@ -16,6 +16,7 @@ from ragitect.services.database.connection import get_async_session
 from ragitect.services.database.exceptions import NotFoundError
 from ragitect.services.database.repositories.workspace_repo import WorkspaceRepository
 from ragitect.services.document_upload_service import DocumentUploadService
+from ragitect.services.exceptions import FileSizeExceededError
 from ragitect.services.processor.factory import UnsupportedFormatError
 
 logger = logging.getLogger(__name__)
@@ -98,5 +99,12 @@ async def upload_documents(
         logger.warning(f"Unsupported file format: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    except FileSizeExceededError as e:
+        logger.warning(f"File size exceeded: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=str(e),
         ) from e

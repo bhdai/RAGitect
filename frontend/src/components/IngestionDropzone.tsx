@@ -20,10 +20,13 @@ interface IngestionDropzoneProps {
   onUploadComplete: (documents: any[]) => void;
   onUploadError: (error: Error) => void;
   onFilesSelected?: (files: File[]) => void; // Callback when files are validated
-  maxFileSize?: number; // bytes, default 50MB
+  maxFileSize?: number; // bytes, default 50MB (matches backend MAX_FILE_SIZE)
   acceptedTypes?: string[];
 }
 
+// Default max file size: 50MB
+// NOTE: This should match backend MAX_FILE_SIZE in ragitect/services/document_upload_service.py
+// Both frontend and backend enforce this limit independently
 const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50MB
 const DEFAULT_ACCEPTED_TYPES = [
   '.pdf',
