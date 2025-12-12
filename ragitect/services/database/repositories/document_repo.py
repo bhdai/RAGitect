@@ -48,7 +48,7 @@ class DocumentRepository(BaseRepository[Document]):
         self,
         workspace_id: UUID,
         file_name: str,
-        processed_content: str,
+        processed_content: str | None = None,
         content_hash: str | None = None,
         unique_identifier_hash: str | None = None,
         file_type: str | None = None,
@@ -61,7 +61,7 @@ class DocumentRepository(BaseRepository[Document]):
         Args:
             workspace_id: parent workspace id
             file_name: original file name
-            processed_content: full text after ETL processing
+            processed_content: full text after ETL processing (optional for upload)
             content_hash: content hash for duplicate detection
             unique_identifier_hash: unique identifier hash
             file_type: file type / extension
@@ -75,7 +75,7 @@ class DocumentRepository(BaseRepository[Document]):
         Raises:
             DuplicateError: if a document with the same unique identifier hash already exists
         """
-        if content_hash is None:
+        if content_hash is None and processed_content is not None:
             content_hash = hashlib.sha256(processed_content.encode()).hexdigest()
 
         if unique_identifier_hash is None:
@@ -326,3 +326,89 @@ class DocumentRepository(BaseRepository[Document]):
         count = result.scalar()
 
         return count or 0
+
+    async def create_from_upload(
+        self,
+        workspace_id: UUID,
+        file_name: str,
+        file_type: str,
+        file_bytes: bytes,
+    ) -> Document:
+        """Create document from file upload (before processing)
+
+        Args:
+            workspace_id: Parent workspace UUID
+            file_name: Original file name
+            file_type: File extension/type
+            file_bytes: Raw file bytes
+
+        Returns:
+            Document: Created document instance with status="uploaded"
+
+        Raises:
+            DuplicateError: If document with same unique identifier exists
+        """
+        from datetime import UTC, datetime
+
+        content_hash = hashlib.sha256(file_bytes).hexdigest()
+        unique_hash = hashlib.sha256(
+            f"{workspace_id}:{file_name}:{datetime.now(UTC).isoformat()}".encode()
+        ).hexdigest()
+
+        return await self.create(
+            workspace_id=workspace_id,
+            file_name=file_name,
+            file_type=file_type,
+            content_hash=content_hash,
+            unique_identifier_hash=unique_hash,
+            processed_content=None,  # Not processed yet
+            metadata={
+                "status": "uploaded",
+                "original_size": len(file_bytes),
+            },
+        )
+
+    async def update_status(self, document_id: UUID, status: str) -> Document:
+        """Update document processing status
+
+        Args:
+            document_id: Document UUID
+            status: New status (uploaded, processing, ready, error)
+
+        Returns:
+            Updated Document instance
+
+        Raises:
+            NotFoundError: If document doesn't exist
+        """
+        document = await self.get_by_id_or_raise(document_id)
+        metadata = document.metadata_ or {}
+        metadata["status"] = status
+        return await self.update_metadata(document_id, metadata)
+
+    async def update_processed_content(
+        self, document_id: UUID, content: str
+    ) -> Document:
+        """Update document with processed text content
+
+        This method will be called by  document processor
+        after text extraction.
+
+        Args:
+            document_id: Document UUID
+            content: Extracted text content
+
+        Returns:
+            Updated Document instance
+
+        Raises:
+            NotFoundError: If document doesn't exist
+        """
+        document = await self.get_by_id_or_raise(document_id)
+        document.processed_content = content
+
+        await self.session.flush()
+        await self.session.refresh(document)
+
+        self._log_operation("update_processed_content", f"document_id={document_id}")
+        return document

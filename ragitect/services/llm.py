@@ -168,7 +168,6 @@ async def get_active_llm_config(session: "AsyncSession") -> LLMConfig:
         LLMConfig: Configuration loaded from DB or default config
 
     Note:
-        Story 1.4: Integrates LLM provider configuration into query service.
         This function is the bridge between stored configs and LLM creation.
     """
     # Import here to avoid circular dependency
@@ -217,7 +216,6 @@ async def create_llm_from_db(session: "AsyncSession") -> BaseChatModel:
         BaseChatModel: Configured LangChain chat model instance
 
     Note:
-        Story 1.4: This is the primary entry point for services that need
         an LLM configured based on user preferences stored in the database.
     """
     config = await get_active_llm_config(session)
