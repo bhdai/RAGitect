@@ -52,3 +52,23 @@ class DocumentListResponse(BaseModel):
         default_factory=list, description="List of documents"
     )
     total: int = Field(..., description="Total count of documents")
+
+
+class DocumentStatusResponse(BaseModel):
+    """Schema for document status response
+
+    Attributes:
+        id: Unique document identifier (UUID)
+        status: Processing status (uploaded, processing, ready, error)
+        file_name: Original file name
+    """
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=to_camel,
+        from_attributes=True,
+    )
+
+    id: uuid.UUID = Field(..., description="Unique document identifier")
+    status: str = Field(..., description="Document processing status")
+    file_name: str = Field(..., description="Original file name")

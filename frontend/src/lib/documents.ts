@@ -21,6 +21,12 @@ export interface DocumentUploadResponse {
   total: number;
 }
 
+export interface DocumentStatus {
+  id: string;
+  status: string;
+  fileName: string;
+}
+
 /**
  * Upload multiple documents to a workspace
  * 
@@ -49,6 +55,32 @@ export async function uploadDocuments(
   if (!response.ok) {
     const error: ApiError = await response.json().catch(() => ({
       detail: `Upload failed with status ${response.status}`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get document processing status
+ * 
+ * @param documentId - Document ID to check
+ * @returns Promise with document status
+ * @throws Error if request fails
+ */
+export async function getDocumentStatus(
+  documentId: string
+): Promise<DocumentStatus> {
+  const url = `${API_BASE}/api/v1/workspaces/documents/${documentId}/status`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Status fetch failed with status ${response.status}`,
     }));
     throw new Error(error.detail);
   }

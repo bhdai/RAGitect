@@ -99,6 +99,11 @@ export function UploadProgress({ uploads, onCancel, onRetry }: UploadProgressPro
                       {formatBytes(upload.size)}
                     </p>
                   )}
+                  {upload.status === 'uploading' && upload.progress >= 95 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Parsing document...
+                    </p>
+                  )}
                   {upload.error && (
                     <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                       {upload.error}
