@@ -74,7 +74,6 @@ export default function WorkspacePage() {
         error: error.message,
       }))
     );
-    setIsUploading(false);
   };
 
   const handleCancel = (fileName: string) => {
