@@ -141,7 +141,7 @@ def split_document(
     return all_splits
 
 
-def process_file_bytes(file_bytes: bytes, file_name: str) -> tuple[str, dict]:
+def process_file_bytes(file_bytes: bytes, file_name: str) -> tuple[str, dict[str, str]]:
     """Process file bytes and extract text with metadata
 
     Args:
