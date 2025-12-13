@@ -77,3 +77,33 @@ class DocumentStatusResponse(BaseModel):
         None,
         description="Current processing phase: 'parsing', 'embedding', or null when complete",
     )
+
+
+class DocumentDetailResponse(BaseModel):
+    """Schema for document detail response with full content
+
+    Attributes:
+        id: Unique document identifier (UUID)
+        file_name: Original file name
+        file_type: File extension or type
+        status: Processing status (uploaded, processing, embedding, ready, error)
+        processed_content: Extracted text content (markdown format from docling)
+        summary: Optional document summary
+        created_at: Upload timestamp
+    """
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=to_camel,
+        from_attributes=True,
+    )
+
+    id: uuid.UUID = Field(..., description="Unique document identifier")
+    file_name: str = Field(..., description="Original file name")
+    file_type: str | None = Field(None, description="File extension or type")
+    status: str = Field(default="uploaded", description="Document processing status")
+    processed_content: str | None = Field(
+        None, description="Extracted text content in markdown format"
+    )
+    summary: str | None = Field(None, description="Optional document summary")
+    created_at: datetime = Field(..., description="Upload timestamp")

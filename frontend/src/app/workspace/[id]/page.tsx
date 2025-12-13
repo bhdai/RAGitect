@@ -1,8 +1,9 @@
 /**
  * Workspace detail page
  * 
- * Displays a single workspace with document upload functionality.
- * Users can drag-and-drop or select files to upload to the workspace.
+ * Displays a single workspace with document upload, listing, viewing,
+ * and delete functionality. Implements a side-by-side layout with
+ * document viewer panel (FR9).
  */
 
 'use client';
@@ -14,8 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { IngestionDropzone } from '@/components/IngestionDropzone';
 import { UploadProgress, type Upload } from '@/components/UploadProgress';
+import { DocumentList } from '@/components/DocumentList';
+import { DocumentViewer } from '@/components/DocumentViewer';
+import { DeleteDocumentDialog } from '@/components/DeleteDocumentDialog';
 import { getWorkspace } from '@/lib/api';
-import { uploadDocuments, getDocumentStatus, type Document } from '@/lib/documents';
+import { uploadDocuments, getDocumentStatus, deleteDocument, type Document } from '@/lib/documents';
 import { toast } from 'sonner';
 import type { Workspace } from '@/lib/types';
 
@@ -29,6 +33,12 @@ export default function WorkspacePage() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   // Use ref for polling intervals to avoid stale closure issues
   const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  
+  // Document viewing and deletion state
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [documentListRefresh, setDocumentListRefresh] = useState(0);
 
   useEffect(() => {
     async function fetchWorkspace() {
@@ -110,6 +120,9 @@ export default function WorkspacePage() {
 
     toast.success(`Uploaded ${documents.length} ${documents.length === 1 ? 'file' : 'files'} - parsing...`);
     
+    // Refresh document list after upload
+    setDocumentListRefresh(prev => prev + 1);
+    
     // Start polling for each document
     documents.forEach(doc => {
       const interval = setInterval(() => {
@@ -184,18 +197,59 @@ export default function WorkspacePage() {
     }
   };
 
+  // Handle document selection for viewing
+  const handleSelectDocument = (doc: Document) => {
+    setSelectedDocumentId(doc.id);
+  };
+
+  // Handle document deletion request (opens dialog)
+  const handleDeleteDocument = (doc: Document) => {
+    setDocumentToDelete(doc);
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!documentToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteDocument(documentToDelete.id);
+      toast.success(`Deleted ${documentToDelete.fileName}`);
+      
+      // Close viewer if deleted document was being viewed
+      if (selectedDocumentId === documentToDelete.id) {
+        setSelectedDocumentId(null);
+      }
+      
+      // Refresh document list
+      setDocumentListRefresh(prev => prev + 1);
+      setDocumentToDelete(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete document';
+      toast.error(message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Handle delete cancellation
+  const handleDeleteCancel = () => {
+    setDocumentToDelete(null);
+  };
+
+  // Handle document viewer close
+  const handleCloseViewer = () => {
+    setSelectedDocumentId(null);
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-600 dark:border-t-zinc-100" />
-              <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
-                Loading workspace...
-              </p>
-            </div>
-          </div>
+      <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-600 dark:border-t-zinc-100" />
+          <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+            Loading workspace...
+          </p>
         </div>
       </div>
     );
@@ -203,8 +257,8 @@ export default function WorkspacePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="mx-auto max-w-2xl px-4">
           <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-950">
             <p className="text-red-600 dark:text-red-400">{error}</p>
             <Link href="/">
@@ -223,10 +277,10 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header with back navigation */}
-        <div className="mb-6">
+    <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
+      {/* Fixed header */}
+      <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+        <div className="px-4 py-4 sm:px-6 lg:px-8">
           <Link 
             href="/"
             className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -234,54 +288,84 @@ export default function WorkspacePage() {
             ← Back to Dashboard
           </Link>
         </div>
-
-        {/* Workspace info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">{workspace.name}</CardTitle>
-            {workspace.description && (
-              <CardDescription className="text-base">
-                {workspace.description}
-              </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-sm text-muted-foreground">
-              <p>Created: {new Date(workspace.createdAt).toLocaleDateString()}</p>
-              <p>Last updated: {new Date(workspace.updatedAt).toLocaleDateString()}</p>
-            </div>
-            
-            {/* Document upload section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Documents</h3>
-              
-              {/* Upload progress */}
-              {uploads.length > 0 && (
-                <UploadProgress
-                  uploads={uploads}
-                  onCancel={handleCancel}
-                  onRetry={handleRetry}
-                />
-              )}
-
-              {/* Dropzone */}
-              <IngestionDropzone
-                workspaceId={workspace.id}
-                onFilesSelected={handleFilesSelected}
-                onUploadComplete={handleUploadComplete}
-                onUploadError={handleUploadError}
-              />
-
-              {/* Document list placeholder */}
-              <div className="mt-8 rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Document list coming in Story 2.4...
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Main content: flex row with scrollable sections */}
+      <div className="flex-1 flex min-h-0">
+        {/* Main content area - scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+            {/* Workspace info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl">{workspace.name}</CardTitle>
+                {workspace.description && (
+                  <CardDescription className="text-base">
+                    {workspace.description}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="text-sm text-muted-foreground">
+                  <p>Created: {new Date(workspace.createdAt).toLocaleDateString()}</p>
+                  <p>Last updated: {new Date(workspace.updatedAt).toLocaleDateString()}</p>
+                </div>
+                
+                {/* Document upload section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Documents</h3>
+                  
+                  {/* Upload progress */}
+                  {uploads.length > 0 && (
+                    <UploadProgress
+                      uploads={uploads}
+                      onCancel={handleCancel}
+                      onRetry={handleRetry}
+                    />
+                  )}
+
+                  {/* Dropzone */}
+                  <IngestionDropzone
+                    workspaceId={workspace.id}
+                    onFilesSelected={handleFilesSelected}
+                    onUploadComplete={handleUploadComplete}
+                    onUploadError={handleUploadError}
+                  />
+
+                  {/* Document list */}
+                  <div className="mt-6">
+                    <DocumentList
+                      workspaceId={workspace.id}
+                      onSelectDocument={handleSelectDocument}
+                      onDeleteDocument={handleDeleteDocument}
+                      refreshTrigger={documentListRefresh}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Document viewer panel (conditionally rendered) - has its own scrolling */}
+        {selectedDocumentId && (
+          <div className="w-[700px] flex-shrink-0">
+            <DocumentViewer
+              documentId={selectedDocumentId}
+              onClose={handleCloseViewer}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirmation dialog */}
+      <DeleteDocumentDialog
+        document={documentToDelete}
+        open={documentToDelete !== null}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }
