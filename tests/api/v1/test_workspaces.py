@@ -15,13 +15,15 @@ import uuid
 
 import pytest
 
+# Apply asyncio marker to all tests in this module
+pytestmark = pytest.mark.asyncio
+
 # async_client fixture is provided by tests/api/conftest.py
 
 
 class TestCreateWorkspace:
     """Tests for POST /api/v1/workspaces"""
 
-    @pytest.mark.asyncio
     async def test_create_workspace_success(self, async_client, mocker):
         """Test successful workspace creation returns 201 and camelCase response"""
         # Mock the session and repository
@@ -70,7 +72,6 @@ class TestCreateWorkspace:
         assert data["name"] == "Test Workspace"
         assert data["description"] == "Test description"
 
-    @pytest.mark.asyncio
     async def test_create_workspace_name_only(self, async_client, mocker):
         """Test creating workspace with only name (no description)"""
         from ragitect.services.database.models import Workspace
@@ -102,7 +103,6 @@ class TestCreateWorkspace:
         assert data["name"] == "Name Only"
         assert data["description"] is None
 
-    @pytest.mark.asyncio
     async def test_create_workspace_empty_name_returns_422(self, async_client):
         """Test that empty name returns 422 Pydantic validation error"""
         response = await async_client.post(
@@ -112,7 +112,6 @@ class TestCreateWorkspace:
 
         assert response.status_code == 422  # Pydantic validation error
 
-    @pytest.mark.asyncio
     async def test_create_workspace_duplicate_returns_409(self, async_client, mocker):
         """Test that duplicate workspace name returns 409"""
         from ragitect.services.database.exceptions import DuplicateError
@@ -138,7 +137,6 @@ class TestCreateWorkspace:
 class TestListWorkspaces:
     """Tests for GET /api/v1/workspaces"""
 
-    @pytest.mark.asyncio
     async def test_list_workspaces_success(self, async_client, mocker):
         """Test listing workspaces returns 200 with camelCase response"""
         from ragitect.services.database.models import Workspace
@@ -181,7 +179,6 @@ class TestListWorkspaces:
         assert "created_at" not in ws
         assert "updated_at" not in ws
 
-    @pytest.mark.asyncio
     async def test_list_workspaces_empty(self, async_client, mocker):
         """Test listing workspaces when none exist"""
         # Mock repository - dependency override in conftest.py handles get_async_session
@@ -205,7 +202,6 @@ class TestListWorkspaces:
 class TestGetWorkspace:
     """Tests for GET /api/v1/workspaces/{id}"""
 
-    @pytest.mark.asyncio
     async def test_get_workspace_success(self, async_client, mocker):
         """Test getting workspace by ID returns 200 with camelCase response"""
         from ragitect.services.database.models import Workspace
@@ -240,7 +236,6 @@ class TestGetWorkspace:
         assert "createdAt" in data
         assert "updatedAt" in data
 
-    @pytest.mark.asyncio
     async def test_get_workspace_not_found(self, async_client, mocker):
         """Test getting non-existent workspace returns 404"""
         from ragitect.services.database.exceptions import NotFoundError
@@ -263,7 +258,6 @@ class TestGetWorkspace:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.asyncio
     async def test_get_workspace_invalid_uuid(self, async_client):
         """Test getting workspace with invalid UUID returns 422"""
         response = await async_client.get("/api/v1/workspaces/invalid-uuid")
@@ -274,7 +268,6 @@ class TestGetWorkspace:
 class TestDeleteWorkspace:
     """Tests for DELETE /api/v1/workspaces/{id}"""
 
-    @pytest.mark.asyncio
     async def test_delete_workspace_success(self, async_client, mocker):
         """Test successful workspace deletion returns 204 No Content"""
         workspace_id = uuid.uuid4()
@@ -296,7 +289,6 @@ class TestDeleteWorkspace:
         # Verify delete_by_id was called with correct workspace_id
         mock_repo.delete_by_id.assert_called_once_with(workspace_id)
 
-    @pytest.mark.asyncio
     async def test_delete_workspace_not_found(self, async_client, mocker):
         """Test deleting non-existent workspace returns 404"""
         from ragitect.services.database.exceptions import NotFoundError
@@ -317,7 +309,6 @@ class TestDeleteWorkspace:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.asyncio
     async def test_delete_workspace_invalid_uuid(self, async_client):
         """Test deleting workspace with invalid UUID returns 422"""
         response = await async_client.delete("/api/v1/workspaces/invalid-uuid")
