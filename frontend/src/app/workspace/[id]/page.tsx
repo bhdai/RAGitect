@@ -351,7 +351,7 @@ export default function WorkspacePage() {
 
         {/* Document viewer panel (conditionally rendered) */}
         {selectedDocumentId && (
-          <div className="w-[400px] flex-shrink-0 border-l border-zinc-200 dark:border-zinc-800">
+          <div className="w-[700px] flex-shrink-0 border-l border-zinc-200 dark:border-zinc-800">
             <DocumentViewer
               documentId={selectedDocumentId}
               onClose={handleCloseViewer}
