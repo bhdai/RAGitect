@@ -244,16 +244,12 @@ export default function WorkspacePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-600 dark:border-t-zinc-100" />
-              <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
-                Loading workspace...
-              </p>
-            </div>
-          </div>
+      <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-600 dark:border-t-zinc-100" />
+          <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+            Loading workspace...
+          </p>
         </div>
       </div>
     );
@@ -261,8 +257,8 @@ export default function WorkspacePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="mx-auto max-w-2xl px-4">
           <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-950">
             <p className="text-red-600 dark:text-red-400">{error}</p>
             <Link href="/">
@@ -281,22 +277,24 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      {/* Main layout: flex container with optional document viewer panel */}
-      <div className={`flex min-h-screen ${selectedDocumentId ? '' : ''}`}>
-        {/* Main content area */}
-        <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-            {/* Header with back navigation */}
-            <div className="mb-6">
-              <Link 
-                href="/"
-                className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-              >
-                ← Back to Dashboard
-              </Link>
-            </div>
+    <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
+      {/* Fixed header */}
+      <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+        <div className="px-4 py-4 sm:px-6 lg:px-8">
+          <Link 
+            href="/"
+            className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
 
+      {/* Main content: flex row with scrollable sections */}
+      <div className="flex-1 flex min-h-0">
+        {/* Main content area - scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
             {/* Workspace info */}
             <Card>
               <CardHeader>
@@ -349,9 +347,9 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Document viewer panel (conditionally rendered) */}
+        {/* Document viewer panel (conditionally rendered) - has its own scrolling */}
         {selectedDocumentId && (
-          <div className="w-[700px] flex-shrink-0 border-l border-zinc-200 dark:border-zinc-800">
+          <div className="w-[700px] flex-shrink-0">
             <DocumentViewer
               documentId={selectedDocumentId}
               onClose={handleCloseViewer}
