@@ -130,7 +130,7 @@ class TestListDocuments:
         assert response.status_code == 200
         data = response.json()
         assert len(data["documents"]) == 2
-        assert data["total"] == 2  # Total reflects returned count
+        assert data["total"] == 5  # Total reflects total documents in workspace
 
         # Get second page
         response = await shared_integration_client.get(

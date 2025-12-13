@@ -269,6 +269,7 @@ async def list_workspace_documents(
         skip=skip,
         limit=limit,
     )
+    total_count = await document_repo.get_by_workspace_count(workspace_id)
 
     # Convert to response format
     document_responses = [
@@ -288,7 +289,7 @@ async def list_workspace_documents(
 
     return DocumentListResponse(
         documents=document_responses,
-        total=len(document_responses),
+        total=total_count,
     )
 
 
