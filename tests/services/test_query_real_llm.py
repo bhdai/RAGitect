@@ -12,8 +12,6 @@ Prerequisites:
 Run with: uv run pytest tests/services/test_query_real_llm.py -v -s
 """
 
-import asyncio
-import json
 import time
 
 import pytest
@@ -25,6 +23,10 @@ from ragitect.services.query_service import (
     format_chat_history,
     reformulate_query_with_chat_history,
 )
+
+# Apply asyncio and integration markers to all tests in this module
+# Tests require Ollama to be running, so they are integration tests
+pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 # Test queries for real LLM evaluation (subset from baseline)
 REAL_LLM_TEST_QUERIES = [
@@ -121,7 +123,6 @@ def ollama_llm():
 class TestRealLLMComparison:
     """Real LLM performance comparison for Phase 1 hotfix"""
 
-    @pytest.mark.asyncio
     async def test_real_llm_reformulation_sample(self, ollama_llm):
         """Test reformulation with real LLM on sample queries
 
@@ -207,7 +208,6 @@ class TestRealLLMComparison:
         )
         print("\n✅ Phase 1 Hotfix: Output validation working correctly")
 
-    @pytest.mark.asyncio
     async def test_prompt_reduction_measurement(self, ollama_llm):
         """Measure prompt token reduction achieved in Phase 1"""
         # Baseline prompt length (from test_query_baseline.py)
