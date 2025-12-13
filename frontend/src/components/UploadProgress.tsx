@@ -13,12 +13,18 @@ import { cn } from '@/lib/utils';
 
 export type UploadStatus = 'uploading' | 'success' | 'error';
 
+/**
+ * Processing phase for detailed progress indication
+ */
+export type ProcessingPhase = 'parsing' | 'embedding' | null;
+
 export interface Upload {
   fileName: string;
   progress: number; // 0-100
   status: UploadStatus;
   size?: number; // bytes
   error?: string;
+  phase?: ProcessingPhase; // Current processing phase
 }
 
 interface UploadProgressProps {
@@ -100,8 +106,10 @@ export function UploadProgress({ uploads, onCancel, onRetry }: UploadProgressPro
                     </p>
                   )}
                   {upload.status === 'uploading' && upload.progress >= 95 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Parsing document...
+                    <p className="text-xs text-muted-foreground mt-1" data-testid="processing-message">
+                      {upload.phase === 'embedding' 
+                        ? 'Generating Embeddings...'
+                        : 'Parsing document...'}
                     </p>
                   )}
                   {upload.error && (

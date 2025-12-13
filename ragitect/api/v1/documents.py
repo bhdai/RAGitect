@@ -169,7 +169,7 @@ async def get_document_status(
         session: Database session (injected by FastAPI)
 
     Returns:
-        DocumentStatusResponse with current status
+        DocumentStatusResponse with current status and phase
 
     Raises:
         HTTPException 404: If document not found
@@ -187,10 +187,19 @@ async def get_document_status(
             else "uploaded"
         )
 
+        # Determine current phase for progress indication
+        phase: str | None = None
+        if doc_status == "processing":
+            phase = "parsing"
+        elif doc_status == "embedding":
+            phase = "embedding"
+        # ready, error, uploaded have no active phase
+
         return DocumentStatusResponse(
             id=document.id,
             status=doc_status,
             file_name=document.file_name,
+            phase=phase,
         )
 
     except NotFoundError as e:

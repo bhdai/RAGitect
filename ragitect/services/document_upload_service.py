@@ -4,7 +4,6 @@ Handles document upload operations including file validation and storage.
 Separated from document_processor.py which handles text extraction (Story 2.2).
 """
 
-import asyncio
 import logging
 from pathlib import Path
 from uuid import UUID
@@ -15,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ragitect.services.database.models import Document
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 from ragitect.services.exceptions import FileSizeExceededError
-from ragitect.services.processor.factory import ProcessorFactory, UnsupportedFormatError
+from ragitect.services.processor.factory import ProcessorFactory
 
 logger = logging.getLogger(__name__)
 

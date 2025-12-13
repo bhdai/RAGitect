@@ -104,7 +104,7 @@ class DocumentRepository(BaseRepository[Document]):
                 "create", f"workspace_id={workspace_id}, file_name={file_name}"
             )
             return document
-        except IntegrityError as e:
+        except IntegrityError:
             await self.session.rollback()
             logger.warning(
                 f"Duplicate document: {file_name} in workspace {workspace_id}"

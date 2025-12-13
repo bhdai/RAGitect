@@ -25,6 +25,7 @@ def mock_document_repo(mocker):
     repo.get_file_bytes = mocker.AsyncMock()
     repo.update_processed_content = mocker.AsyncMock()
     repo.clear_file_bytes = mocker.AsyncMock()
+    repo.add_chunks = mocker.AsyncMock(return_value=[])
     return repo
 
 
@@ -80,10 +81,11 @@ class TestDocumentProcessingService:
         mock_session,
         sample_document,
     ):
-        """Test successful document processing flow"""
+        """Test successful document processing flow including embedding generation"""
         # Arrange
         mock_document_repo.get_by_id_or_raise.return_value = sample_document
         mock_document_repo.get_file_bytes.return_value = b"Sample PDF content"
+        mock_document_repo.add_chunks = AsyncMock(return_value=[])
 
         # Mock process_file_bytes to return extracted text
         with patch(
@@ -94,13 +96,33 @@ class TestDocumentProcessingService:
                 {"file_type": ".pdf", "file_name": "test.pdf"},
             )
 
-            # Act
-            await document_processing_service.process_document(sample_document.id)
+            # Mock embedding functions
+            with patch(
+                "ragitect.services.document_processing_service.split_document",
+                return_value=["Chunk 1"],
+            ):
+                mock_model = MagicMock()
+                mock_model.aembed_documents = AsyncMock(return_value=[[0.1] * 768])
+                with patch(
+                    "ragitect.services.document_processing_service.create_embeddings_model",
+                    return_value=mock_model,
+                ):
+                    with patch(
+                        "ragitect.services.document_processing_service.embed_documents",
+                        new=AsyncMock(return_value=[[0.1] * 768]),
+                    ):
+                        # Act
+                        await document_processing_service.process_document(
+                            sample_document.id
+                        )
 
-        # Assert - verify status transitions
-        assert mock_document_repo.update_status.call_count == 2
+        # Assert - verify status transitions (now 3: processing, embedding, ready)
+        assert mock_document_repo.update_status.call_count == 3
         mock_document_repo.update_status.assert_any_call(
             sample_document.id, "processing"
+        )
+        mock_document_repo.update_status.assert_any_call(
+            sample_document.id, "embedding"
         )
         mock_document_repo.update_status.assert_any_call(sample_document.id, "ready")
 
@@ -112,11 +134,14 @@ class TestDocumentProcessingService:
             sample_document.id, "Extracted text content"
         )
 
+        # Assert - verify chunks stored
+        mock_document_repo.add_chunks.assert_called_once()
+
         # Assert - verify file bytes cleared
         mock_document_repo.clear_file_bytes.assert_called_once_with(sample_document.id)
 
-        # Assert - verify session commits
-        assert mock_session.commit.call_count == 2
+        # Assert - verify session commits (now 4: processing, processed_content, embedding, ready)
+        assert mock_session.commit.call_count == 4
 
     @pytest.mark.asyncio
     async def test_process_document_not_uploaded_status(
@@ -217,8 +242,22 @@ class TestDocumentProcessingService:
         ) as mock_process:
             mock_process.return_value = ("Extracted text", {"file_type": ".pdf"})
 
-            # Act
-            await document_processing_service.process_document(sample_document.id)
+            # Mock embedding functions
+            with patch(
+                "ragitect.services.document_processing_service.split_document",
+                return_value=["Chunk"],
+            ):
+                with patch(
+                    "ragitect.services.document_processing_service.create_embeddings_model"
+                ):
+                    with patch(
+                        "ragitect.services.document_processing_service.embed_documents",
+                        new=AsyncMock(return_value=[[0.1] * 768]),
+                    ):
+                        # Act
+                        await document_processing_service.process_document(
+                            sample_document.id
+                        )
 
         # Assert - verify call sequence
         mock_document_repo.get_by_id_or_raise.assert_called_once_with(

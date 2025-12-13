@@ -25,6 +25,7 @@ export interface DocumentStatus {
   id: string;
   status: string;
   fileName: string;
+  phase: 'parsing' | 'embedding' | null; // Current processing phase
 }
 
 /**

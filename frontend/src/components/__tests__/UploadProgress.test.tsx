@@ -120,4 +120,49 @@ describe('UploadProgress', () => {
 
     expect(mockOnRetry).toHaveBeenCalledWith('error.txt');
   });
+
+  it('shows "Parsing document..." when in parsing phase', () => {
+    const uploads = [
+      {
+        fileName: 'document.txt',
+        progress: 95,
+        status: 'uploading' as const,
+        phase: 'parsing' as const,
+      },
+    ];
+
+    render(<UploadProgress uploads={uploads} onCancel={mockOnCancel} />);
+
+    expect(screen.getByText('Parsing document...')).toBeInTheDocument();
+  });
+
+  it('shows "Generating Embeddings..." when in embedding phase', () => {
+    const uploads = [
+      {
+        fileName: 'document.txt',
+        progress: 95,
+        status: 'uploading' as const,
+        phase: 'embedding' as const,
+      },
+    ];
+
+    render(<UploadProgress uploads={uploads} onCancel={mockOnCancel} />);
+
+    expect(screen.getByText('Generating Embeddings...')).toBeInTheDocument();
+  });
+
+  it('defaults to parsing message when phase is null and progress >= 95', () => {
+    const uploads = [
+      {
+        fileName: 'document.txt',
+        progress: 95,
+        status: 'uploading' as const,
+        phase: null,
+      },
+    ];
+
+    render(<UploadProgress uploads={uploads} onCancel={mockOnCancel} />);
+
+    expect(screen.getByText('Parsing document...')).toBeInTheDocument();
+  });
 });

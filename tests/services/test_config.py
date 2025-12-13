@@ -1,7 +1,6 @@
 """Tests for config.py"""
 
 import os
-import pytest
 from unittest.mock import patch
 
 from ragitect.services.config import (

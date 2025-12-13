@@ -1,7 +1,5 @@
 """Tests for simple processor"""
 
-import pytest
-
 from ragitect.services.processor.simple import SimpleProcessor
 
 

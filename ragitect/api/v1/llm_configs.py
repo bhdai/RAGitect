@@ -1,6 +1,5 @@
 """API router for LLM provider configuration endpoints."""
 
-import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,12 +19,9 @@ from ragitect.api.schemas.llm_config import (
 from ragitect.services.database.connection import get_async_session
 from ragitect.services.llm_config_service import (
     delete_config,
-    delete_embedding_config,
-    get_active_embedding_config,
     get_all_configs,
     get_all_embedding_configs,
     get_config,
-    get_embedding_config,
     save_config,
     save_embedding_config,
     validate_api_key,

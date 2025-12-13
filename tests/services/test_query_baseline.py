@@ -27,7 +27,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage
 
 from ragitect.services.query_service import (
     _build_reformulation_prompt,
@@ -440,7 +439,7 @@ class TestQueryReformulationBaseline:
         print("\nPOST-PHASE 1 (Simplified):")
         print(f"  Average prompt length: {avg_prompt_length} characters")
         print(f"  Average estimated tokens: {avg_estimated_tokens} tokens")
-        print(f"  Approach: Direct instructions only")
+        print("  Approach: Direct instructions only")
         print("\nIMPROVEMENT:")
         print(f"  Reduction: {((2354 - avg_prompt_length) / 2354 * 100):.1f}%")
         print("=" * 60)

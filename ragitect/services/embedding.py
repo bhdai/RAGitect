@@ -1,8 +1,11 @@
-import numpy as np
+import logging
+
 from langchain_core.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 
 from ragitect.services.config import EmbeddingConfig
+
+logger = logging.getLogger(__name__)
 
 
 def create_embeddings_model(config: EmbeddingConfig | None = None) -> Embeddings:
@@ -35,13 +38,14 @@ def create_embeddings_model(config: EmbeddingConfig | None = None) -> Embeddings
             raise ValueError("api_key is required for OpenAI provider")
         try:
             from langchain_openai import OpenAIEmbeddings
+            from pydantic import SecretStr
         except ImportError:
             raise ImportError(
                 "langchain-openai is required for OpenAI embeddings. Install with: uv add langchain-openai"
             )
         return OpenAIEmbeddings(
             model=config.model,
-            api_key=config.api_key,
+            api_key=SecretStr(config.api_key),
         )
 
     elif provider == "vertex_ai":
@@ -54,7 +58,7 @@ def create_embeddings_model(config: EmbeddingConfig | None = None) -> Embeddings
                 "langchain-google-vertexai is required for Vertex AI. Install with: uv add langchain-google-vertexai"
             )
         return VertexAIEmbeddings(
-            model_name=config.model,
+            model=config.model,
         )
 
     elif provider == "openai_compatible":
@@ -82,7 +86,7 @@ async def embed_text(model: Embeddings, text: str) -> list[float]:
     Returns:
         list of float (the vector)
     """
-    print(f"Embedding text: {text[:100]}...")
+    logger.debug(f"Embedding text: {text[:100]}...")
     vector = await model.aembed_query(text)
     return vector
 
@@ -97,7 +101,7 @@ async def embed_documents(model: Embeddings, texts: list[str]) -> list[list[floa
     Returns:
         list of vectors
     """
-    print(f"Embedding {len(texts)} documents in a batch...")
+    logger.info(f"Embedding {len(texts)} documents in a batch...")
     return await model.aembed_documents(texts)
 
 

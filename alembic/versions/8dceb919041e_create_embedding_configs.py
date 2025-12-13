@@ -10,7 +10,6 @@ from typing import Sequence, Union
 import uuid
 
 from alembic import op
-import sqlalchemy as sa
 from sqlalchemy import Column, String, Boolean, DateTime, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
