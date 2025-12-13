@@ -5,7 +5,6 @@ Contains:
 - Mock fixtures for unit tests (mock_session, mock_async_engine)
 """
 
-import asyncio
 import os
 from unittest.mock import AsyncMock, MagicMock
 

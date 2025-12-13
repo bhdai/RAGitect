@@ -59,8 +59,9 @@ class DocumentStatusResponse(BaseModel):
 
     Attributes:
         id: Unique document identifier (UUID)
-        status: Processing status (uploaded, processing, ready, error)
+        status: Processing status (uploaded, processing, embedding, ready, error)
         file_name: Original file name
+        phase: Current processing phase for detailed progress (parsing, embedding, null)
     """
 
     model_config = ConfigDict(
@@ -72,3 +73,7 @@ class DocumentStatusResponse(BaseModel):
     id: uuid.UUID = Field(..., description="Unique document identifier")
     status: str = Field(..., description="Document processing status")
     file_name: str = Field(..., description="Original file name")
+    phase: str | None = Field(
+        None,
+        description="Current processing phase: 'parsing', 'embedding', or null when complete",
+    )

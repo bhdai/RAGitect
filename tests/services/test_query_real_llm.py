@@ -196,7 +196,7 @@ class TestRealLLMComparison:
         print("\nPrompt Metrics:")
         print(f"  New prompt length: {len(sample_prompt)} chars")
         print(f"  Estimated tokens: {len(sample_prompt) // 4}")
-        print(f"  Baseline was: 2354 chars (588 tokens)")
+        print("  Baseline was: 2354 chars (588 tokens)")
         print(
             f"  Reduction: {((2354 - len(sample_prompt)) / 2354 * 100):.1f}% fewer chars"
         )
@@ -234,13 +234,13 @@ class TestRealLLMComparison:
         print("\n" + "=" * 80)
         print("PROMPT REDUCTION ANALYSIS")
         print("=" * 80)
-        print(f"Baseline (Pre-Phase 1):")
+        print("Baseline (Pre-Phase 1):")
         print(f"  Average length: {BASELINE_AVG_LENGTH} chars")
         print(f"  Estimated tokens: {BASELINE_AVG_TOKENS}")
-        print(f"\nNew (Phase 1 Simplified):")
+        print("\nNew (Phase 1 Simplified):")
         print(f"  Length: {new_length} chars")
         print(f"  Estimated tokens: {new_tokens}")
-        print(f"\nReduction:")
+        print("\nReduction:")
         print(f"  Characters: {reduction_pct:.1f}%")
         print(
             f"  Tokens: {((BASELINE_AVG_TOKENS - new_tokens) / BASELINE_AVG_TOKENS) * 100:.1f}%"

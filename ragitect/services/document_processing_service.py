@@ -1,16 +1,30 @@
 """Document Processing Service
 
-Handles background document processing including text extraction and status management.
+Handles background document processing including text extraction,
+embedding generation, and status management.
+
+Flow:
+    1. Fetch document from DB
+    2. Update status to "processing"
+    3. Extract text using docling/processors
+    4. Update status to "embedding"
+    5. Split text into chunks
+    6. Generate embeddings for chunks
+    7. Store chunks with embeddings
+    8. Update status to "ready"
 """
 
 import asyncio
 import logging
+import os
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragitect.services.database.repositories.document_repo import DocumentRepository
-from ragitect.services.document_processor import process_file_bytes
+from ragitect.services.document_processor import process_file_bytes, split_document
+from ragitect.services.embedding import create_embeddings_model, embed_documents
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +38,12 @@ class DocumentProcessingService:
     3. Get file bytes from metadata
     4. Extract text using process_file_bytes()
     5. Store processed content in DB
-    6. Update status to "ready" (or "error" on failure)
-    7. Clear file bytes from metadata
+    6. Update status to "embedding"
+    7. Split text into chunks
+    8. Generate embeddings for all chunks
+    9. Store chunks with embeddings via add_chunks()
+    10. Update status to "ready" (or "error" on failure)
+    11. Clear file bytes from metadata
 
     Usage:
         >>> async with get_session() as session:
@@ -43,7 +61,7 @@ class DocumentProcessingService:
         self.repo = DocumentRepository(session)
 
     async def process_document(self, document_id: UUID) -> None:
-        """Process document: extract text and update status
+        """Process document: extract text, generate embeddings, and update status
 
         Args:
             document_id: Document UUID to process
@@ -91,6 +109,52 @@ class DocumentProcessingService:
 
             # Store processed content
             await self.repo.update_processed_content(document_id, text)
+            await self.session.commit()
+
+            # === NEW: Embedding Generation Phase ===
+
+            # Update status to embedding
+            await self.repo.update_status(document_id, "embedding")
+            await self.session.commit()
+
+            # Split text into chunks
+            file_type = metadata.get("file_type")
+            chunks = split_document(
+                text, chunk_size=1000, overlap=150, file_type=file_type
+            )
+            logger.info(f"Split into {len(chunks)} chunks for document {document_id}")
+
+            # Generate embeddings if there are chunks
+            if chunks:
+                try:
+                    embedding_model = create_embeddings_model()
+                    embeddings = await embed_documents(embedding_model, chunks)
+                    logger.info(
+                        f"Generated {len(embeddings)} embeddings for document {document_id}"
+                    )
+
+                    # Prepare chunk data for storage: (content, embedding, metadata)
+                    chunk_data: list[tuple[str, list[float], dict[str, Any] | None]] = [
+                        (chunk, embedding, {"chunk_index": i})
+                        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+                    ]
+
+                    # Store chunks with embeddings
+                    await self.repo.add_chunks(document_id, chunk_data)
+                    logger.info(
+                        f"Stored {len(chunk_data)} chunks for document {document_id}"
+                    )
+
+                except Exception as embed_error:
+                    logger.error(
+                        f"Embedding generation failed for document {document_id}: {embed_error}",
+                        exc_info=True,
+                    )
+                    raise
+            else:
+                logger.warning(
+                    f"No chunks generated for document {document_id} (empty text)"
+                )
 
             # Update status to ready
             await self.repo.update_status(document_id, "ready")

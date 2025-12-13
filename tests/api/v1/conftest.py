@@ -1,6 +1,5 @@
 """Shared fixtures for API v1 integration tests"""
 
-import pytest
 import pytest_asyncio
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator

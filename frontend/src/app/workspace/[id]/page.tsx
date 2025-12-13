@@ -68,11 +68,12 @@ export default function WorkspacePage() {
           upload.fileName === fileName
             ? {
                 ...upload,
-                status: status.status === 'processing' ? 'uploading' : 
+                status: (status.status === 'processing' || status.status === 'embedding') ? 'uploading' : 
                         status.status === 'ready' ? 'success' :
                         status.status === 'error' ? 'error' : upload.status,
-                progress: status.status === 'processing' ? 95 : 
+                progress: (status.status === 'processing' || status.status === 'embedding') ? 95 : 
                          status.status === 'ready' ? 100 : upload.progress,
+                phase: status.phase ?? undefined, // Pass phase for detailed progress indicator
               }
             : upload
         )
@@ -87,7 +88,7 @@ export default function WorkspacePage() {
         }
 
         if (status.status === 'ready') {
-          toast.success(`Document parsed: ${fileName}`);
+          toast.success(`Document ready: ${fileName}`);
         } else if (status.status === 'error') {
           toast.error(`Processing failed: ${fileName}`);
         }
