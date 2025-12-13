@@ -16,8 +16,10 @@ from httpx import AsyncClient
 from ragitect.services.database.connection import get_session_factory
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 
+# Apply asyncio and integration markers to all tests in this module
+pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
-@pytest.mark.integration
+
 async def test_document_upload_triggers_background_processing(
     shared_integration_client: AsyncClient, test_workspace
 ):
@@ -53,7 +55,6 @@ async def test_document_upload_triggers_background_processing(
     assert status_data["status"] in ["processing", "ready"]
 
 
-@pytest.mark.integration
 async def test_document_status_endpoint(
     shared_integration_client: AsyncClient, test_workspace, uploaded_document
 ):
@@ -71,8 +72,6 @@ async def test_document_status_endpoint(
     assert data["fileName"] == uploaded_document.file_name
 
 
-@pytest.mark.asyncio
-@pytest.mark.integration
 async def test_document_status_endpoint_not_found(
     shared_integration_client: AsyncClient,
 ):
@@ -87,7 +86,6 @@ async def test_document_status_endpoint_not_found(
     assert response.status_code == 404
 
 
-@pytest.mark.integration
 async def test_complete_processing_flow(
     shared_integration_client: AsyncClient, test_workspace
 ):
@@ -139,7 +137,6 @@ async def test_complete_processing_flow(
         assert "file_bytes_b64" not in doc.metadata_
 
 
-@pytest.mark.integration
 async def test_processing_with_pdf_file(
     shared_integration_client: AsyncClient, test_workspace
 ):
@@ -184,7 +181,6 @@ async def test_processing_with_pdf_file(
     assert status in ["ready", "error"]
 
 
-@pytest.mark.integration
 async def test_error_handling_corrupted_file(
     shared_integration_client: AsyncClient, test_workspace
 ):
@@ -215,7 +211,6 @@ async def test_error_handling_corrupted_file(
         # Note: Actual error detection depends on docling behavior
 
 
-@pytest.mark.integration
 async def test_multiple_documents_processing(
     shared_integration_client: AsyncClient, test_workspace
 ):
