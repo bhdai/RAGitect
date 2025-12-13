@@ -99,33 +99,33 @@ export function DocumentList({
       {documents.map((doc) => (
         <Card
           key={doc.id}
-          className="flex items-center justify-between p-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors"
+          className="flex flex-row items-center gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors"
           onClick={() => onSelectDocument(doc)}
         >
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <FileText className="h-5 w-5 flex-shrink-0 text-zinc-500" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{doc.fileName}</p>
-              <p className="text-xs text-zinc-500">
-                {new Date(doc.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={getStatusVariant(doc.status)}>{doc.status}</Badge>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-zinc-400 hover:text-red-500"
-              aria-label={`Delete ${doc.fileName}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteDocument(doc);
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Icon */}
+          <FileText className="h-5 w-5 flex-shrink-0 text-zinc-500" />
+          
+          {/* File name - takes available space but truncates */}
+          <p className="text-sm font-medium truncate flex-1 min-w-0">{doc.fileName}</p>
+          
+          {/* Status badge */}
+          <Badge variant={getStatusVariant(doc.status)} className="flex-shrink-0">
+            {doc.status}
+          </Badge>
+          
+          {/* Delete button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0 text-zinc-400 hover:text-red-500"
+            aria-label={`Delete ${doc.fileName}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteDocument(doc);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </Card>
       ))}
     </div>
