@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { IngestionDropzone } from '@/components/IngestionDropzone';
 import { UploadProgress, type Upload } from '@/components/UploadProgress';
 import { getWorkspace } from '@/lib/api';
-import { uploadDocuments, type Document } from '@/lib/documents';
+import { uploadDocuments, getDocumentStatus, type Document } from '@/lib/documents';
 import { toast } from 'sonner';
 import type { Workspace } from '@/lib/types';
 
@@ -27,6 +27,8 @@ export default function WorkspacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
+  // Use ref for polling intervals to avoid stale closure issues
+  const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     async function fetchWorkspace() {
@@ -47,8 +49,56 @@ export default function WorkspacePage() {
     fetchWorkspace();
   }, [id]);
 
-  const handleUploadComplete = (documents: Document[]) => {
-    // Update uploads to show success
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    const intervalsRef = pollingIntervalsRef;
+    return () => {
+      intervalsRef.current.forEach(interval => clearInterval(interval));
+      intervalsRef.current.clear();
+    };
+  }, []);
+
+  const pollDocumentStatus = useCallback(async (documentId: string, fileName: string) => {
+    try {
+      const status = await getDocumentStatus(documentId);
+      
+      // Update upload status based on processing state
+      setUploads(prev =>
+        prev.map(upload =>
+          upload.fileName === fileName
+            ? {
+                ...upload,
+                status: status.status === 'processing' ? 'uploading' : 
+                        status.status === 'ready' ? 'success' :
+                        status.status === 'error' ? 'error' : upload.status,
+                progress: status.status === 'processing' ? 95 : 
+                         status.status === 'ready' ? 100 : upload.progress,
+              }
+            : upload
+        )
+      );
+
+      // Stop polling if status is terminal
+      if (status.status === 'ready' || status.status === 'error') {
+        const interval = pollingIntervalsRef.current.get(documentId);
+        if (interval) {
+          clearInterval(interval);
+          pollingIntervalsRef.current.delete(documentId);
+        }
+
+        if (status.status === 'ready') {
+          toast.success(`Document parsed: ${fileName}`);
+        } else if (status.status === 'error') {
+          toast.error(`Processing failed: ${fileName}`);
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to poll status for ${documentId}:`, err);
+    }
+  }, []);
+
+  const handleUploadComplete = useCallback((documents: Document[]) => {
+    // Update uploads to show upload complete (100%)
     setUploads(prev => 
       prev.map(upload => ({
         ...upload,
@@ -57,13 +107,22 @@ export default function WorkspacePage() {
       }))
     );
 
-    toast.success(`Successfully uploaded ${documents.length} ${documents.length === 1 ? 'file' : 'files'}`);
+    toast.success(`Uploaded ${documents.length} ${documents.length === 1 ? 'file' : 'files'} - parsing...`);
     
-    // Clear uploads after 3 seconds
-    setTimeout(() => {
-      setUploads([]);
-    }, 3000);
-  };
+    // Start polling for each document
+    documents.forEach(doc => {
+      const interval = setInterval(() => {
+        pollDocumentStatus(doc.id, doc.fileName);
+      }, 2000); // Poll every 2 seconds
+
+      pollingIntervalsRef.current.set(doc.id, interval);
+
+      // Initial poll
+      pollDocumentStatus(doc.id, doc.fileName);
+    });
+    
+    // Don't auto-clear uploads anymore - wait for processing to complete
+  }, [pollDocumentStatus]);
 
   const handleUploadError = (error: Error) => {
     // Mark all uploads as error

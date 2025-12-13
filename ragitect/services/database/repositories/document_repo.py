@@ -348,12 +348,16 @@ class DocumentRepository(BaseRepository[Document]):
         Raises:
             DuplicateError: If document with same unique identifier exists
         """
+        import base64
         from datetime import UTC, datetime
 
         content_hash = hashlib.sha256(file_bytes).hexdigest()
         unique_hash = hashlib.sha256(
             f"{workspace_id}:{file_name}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()
+
+        # Store base64-encoded bytes for later processing
+        file_bytes_b64 = base64.b64encode(file_bytes).decode("utf-8")
 
         return await self.create(
             workspace_id=workspace_id,
@@ -365,6 +369,7 @@ class DocumentRepository(BaseRepository[Document]):
             metadata={
                 "status": "uploaded",
                 "original_size": len(file_bytes),
+                "file_bytes_b64": file_bytes_b64,  # Store for processing
             },
         )
 
@@ -382,7 +387,9 @@ class DocumentRepository(BaseRepository[Document]):
             NotFoundError: If document doesn't exist
         """
         document = await self.get_by_id_or_raise(document_id)
-        metadata = document.metadata_ or {}
+        # Create a NEW dict to ensure SQLAlchemy detects the change
+        # (in-place mutation of JSONB dicts may not be tracked)
+        metadata = dict(document.metadata_) if document.metadata_ else {}
         metadata["status"] = status
         return await self.update_metadata(document_id, metadata)
 
@@ -411,4 +418,59 @@ class DocumentRepository(BaseRepository[Document]):
         await self.session.refresh(document)
 
         self._log_operation("update_processed_content", f"document_id={document_id}")
+        return document
+
+    async def get_file_bytes(self, document_id: UUID) -> bytes:
+        """Get file bytes from metadata for processing
+
+        Args:
+            document_id: Document UUID
+
+        Returns:
+            Raw file bytes decoded from base64
+
+        Raises:
+            NotFoundError: If document doesn't exist
+            ValueError: If file_bytes_b64 not found in metadata
+        """
+        import base64
+
+        document = await self.get_by_id_or_raise(document_id)
+        metadata = document.metadata_ or {}
+
+        if "file_bytes_b64" not in metadata:
+            raise ValueError(
+                f"Document {document_id} has no stored file bytes in metadata"
+            )
+
+        file_bytes_b64 = metadata["file_bytes_b64"]
+        return base64.b64decode(file_bytes_b64)
+
+    async def clear_file_bytes(self, document_id: UUID) -> Document:
+        """Clear file bytes from metadata after successful processing
+
+        This frees storage by removing the base64-encoded bytes.
+        Note: Re-fetches document to get current metadata state to avoid
+        overwriting status changes made by other methods.
+
+        Args:
+            document_id: Document UUID
+
+        Returns:
+            Updated Document instance
+
+        Raises:
+            NotFoundError: If document doesn't exist
+        """
+        # Re-fetch to get current metadata state (status may have changed)
+        document = await self.get_by_id_or_raise(document_id)
+        # Make a copy of current metadata to avoid mutation issues
+        metadata = dict(document.metadata_) if document.metadata_ else {}
+
+        # Remove file bytes if present
+        if "file_bytes_b64" in metadata:
+            del metadata["file_bytes_b64"]
+            await self.update_metadata(document_id, metadata)
+            logger.info(f"Cleared file bytes for document {document_id}")
+
         return document

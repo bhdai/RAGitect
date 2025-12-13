@@ -21,6 +21,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql.functions import func
 
@@ -192,7 +193,7 @@ class Document(Base):
 
     metadata_: Mapped[dict[str, Any] | None] = mapped_column(
         __name_pos="metadata",
-        __type_pos=JSONB,
+        __type_pos=MutableDict.as_mutable(JSONB),
         nullable=True,
         default=dict,
         comment="Additional metadata (embedding model, page count, etc.)",
@@ -284,7 +285,7 @@ class DocumentChunk(Base):
 
     metadata_: Mapped[dict[str, Any] | None] = mapped_column(
         __name_pos="metadata",
-        __type_pos=JSONB,
+        __type_pos=MutableDict.as_mutable(JSONB),
         nullable=True,
         default=dict,
         comment="Additional metadata (page_number, section, etc.)",
