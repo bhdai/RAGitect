@@ -87,11 +87,15 @@ async def clean_database(setup_integration_database):
         await conn.execute(text("DELETE FROM documents"))
         await conn.execute(text("DELETE FROM workspaces"))
         try:
-            await conn.execute(text("DELETE FROM llm_configs"))
+            await conn.execute(text("DELETE FROM llm_provider_configs"))
         except Exception:
             pass
         # Commit is automatic with engine.begin() context manager
     yield
+
+
+# Alias for backward compatibility
+clean_workspaces = clean_database
 
 
 @pytest_asyncio.fixture
