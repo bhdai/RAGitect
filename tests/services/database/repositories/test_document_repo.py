@@ -1,26 +1,14 @@
 """Unit tests for DocumentRepository."""
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 from ragitect.services.database.models import Document, DocumentChunk
 from ragitect.services.database.exceptions import NotFoundError, DuplicateError
 from sqlalchemy.exc import IntegrityError
 
-
-@pytest.fixture
-def mock_session():
-    session = AsyncMock()
-    session.execute = AsyncMock()
-    session.add = MagicMock()
-    session.add_all = MagicMock()
-    session.flush = AsyncMock()
-    session.refresh = AsyncMock()
-    session.rollback = AsyncMock()
-    session.delete = AsyncMock()
-    session.get = AsyncMock()
-    return session
+pytestmark = [pytest.mark.asyncio]
 
 
 class TestDocumentRepository:
@@ -28,7 +16,6 @@ class TestDocumentRepository:
     def repo(self, mock_session):
         return DocumentRepository(mock_session)
 
-    @pytest.mark.asyncio
     async def test_create_document(self, repo, mock_session):
         workspace_id = uuid4()
         file_name = "test.pdf"
@@ -46,7 +33,6 @@ class TestDocumentRepository:
         mock_session.flush.assert_called_once()
         mock_session.refresh.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_create_duplicate_document(self, repo, mock_session):
         mock_session.flush.side_effect = IntegrityError(
             None, None, Exception("Duplicate")
@@ -57,7 +43,6 @@ class TestDocumentRepository:
 
         mock_session.rollback.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_by_workspace(self, repo, mock_session):
         docs = [Document(file_name="doc1"), Document(file_name="doc2")]
 
@@ -70,7 +55,6 @@ class TestDocumentRepository:
         assert len(result) == 2
         assert result == docs
 
-    @pytest.mark.asyncio
     async def test_check_duplicate(self, repo, mock_session):
         doc = Document(file_name="exists.pdf")
 
@@ -83,7 +67,6 @@ class TestDocumentRepository:
         assert is_dup is True
         assert found_doc == doc
 
-    @pytest.mark.asyncio
     async def test_check_duplicate_false(self, repo, mock_session):
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -94,7 +77,6 @@ class TestDocumentRepository:
         assert is_dup is False
         assert found_doc is None
 
-    @pytest.mark.asyncio
     async def test_add_chunks(self, repo, mock_session):
         document_id = uuid4()
         workspace_id = uuid4()
@@ -117,14 +99,12 @@ class TestDocumentRepository:
         mock_session.flush.assert_called_once()
         assert mock_session.refresh.call_count == 2
 
-    @pytest.mark.asyncio
     async def test_add_chunks_document_not_found(self, repo, mock_session):
         mock_session.get.return_value = None
 
         with pytest.raises(NotFoundError):
             await repo.add_chunks(uuid4(), [])
 
-    @pytest.mark.asyncio
     async def test_get_chunks(self, repo, mock_session):
         document_id = uuid4()
         mock_session.get.return_value = Document(id=document_id)
@@ -138,7 +118,6 @@ class TestDocumentRepository:
 
         assert result == chunks
 
-    @pytest.mark.asyncio
     async def test_count_chunks(self, repo, mock_session):
         document_id = uuid4()
         mock_session.get.return_value = Document(id=document_id)
@@ -150,7 +129,6 @@ class TestDocumentRepository:
         count = await repo.count_chunks(document_id)
         assert count == 10
 
-    @pytest.mark.asyncio
     async def test_update_embedding(self, repo, mock_session):
         document_id = uuid4()
         document = Document(id=document_id)
@@ -163,7 +141,6 @@ class TestDocumentRepository:
         mock_session.flush.assert_called_once()
         mock_session.refresh.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_update_metadata(self, repo, mock_session):
         document_id = uuid4()
         document = Document(id=document_id, metadata_={})
@@ -176,7 +153,6 @@ class TestDocumentRepository:
         mock_session.flush.assert_called_once()
         mock_session.refresh.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_by_workspace_count(self, repo, mock_session):
         mock_result = MagicMock()
         mock_result.scalar.return_value = 5
@@ -185,7 +161,6 @@ class TestDocumentRepository:
         count = await repo.get_by_workspace_count(uuid4())
         assert count == 5
 
-    @pytest.mark.asyncio
     async def test_create_from_upload(self, repo, mock_session):
         """Test create_from_upload method"""
         workspace_id = uuid4()
@@ -207,7 +182,6 @@ class TestDocumentRepository:
         mock_session.add.assert_called_once()
         mock_session.flush.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_update_status(self, repo, mock_session):
         """Test update_status method"""
         document_id = uuid4()
@@ -219,7 +193,6 @@ class TestDocumentRepository:
         assert updated.metadata_["status"] == "processing"
         mock_session.flush.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_update_processed_content(self, repo, mock_session):
         """Test update_processed_content method"""
         document_id = uuid4()
@@ -233,7 +206,6 @@ class TestDocumentRepository:
         mock_session.flush.assert_called_once()
         mock_session.refresh.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_create_with_optional_processed_content(self, repo, mock_session):
         """Test create method with processed_content=None"""
         workspace_id = uuid4()

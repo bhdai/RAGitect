@@ -14,6 +14,8 @@ from ragitect.services.database import (
 )
 from ragitect.services.database.exceptions import ConnectionError as DBConnectionError
 
+pytestmark = [pytest.mark.asyncio]
+
 
 class TestDatabaseManager:
     """Test DatabaseManager singleton class"""
@@ -34,8 +36,9 @@ class TestDatabaseManager:
             "DatabaseManager __new__ should return same instance"
         )
 
-    @pytest.mark.asyncio
-    async def test_initialize_creates_engine(self, clean_db_manager, mock_async_engine):
+    async def test_initialize_creates_engine(
+        self, clean_db_manager_singleton, mock_async_engine
+    ):
         """Test that initialize creates engine and session factory"""
         with patch(
             "ragitect.services.database.connection.create_async_engine"
@@ -43,18 +46,17 @@ class TestDatabaseManager:
             mock_create_engine.return_value = mock_async_engine
 
             # Initialize
-            result = await clean_db_manager.initialize(
+            result = await clean_db_manager_singleton.initialize(
                 database_url="postgresql+asyncpg://test:test@localhost/test"
             )
 
             assert result is mock_async_engine
-            assert clean_db_manager._engine is mock_async_engine
-            assert clean_db_manager._session_factory is not None
+            assert clean_db_manager_singleton._engine is mock_async_engine
+            assert clean_db_manager_singleton._session_factory is not None
             mock_create_engine.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_initialize_already_initialized(
-        self, clean_db_manager, mock_async_engine
+        self, clean_db_manager_singleton, mock_async_engine
     ):
         """Test that calling initialize when already initialized returns existing engine"""
         with patch(
@@ -63,20 +65,19 @@ class TestDatabaseManager:
             mock_create_engine.return_value = mock_async_engine
 
             # First initialization
-            first_result = await clean_db_manager.initialize(
+            first_result = await clean_db_manager_singleton.initialize(
                 database_url="postgresql+asyncpg://test:test@localhost/test"
             )
 
             # Second initialization should not create new engine
-            second_result = await clean_db_manager.initialize(
+            second_result = await clean_db_manager_singleton.initialize(
                 database_url="postgresql+asyncpg://test:test@localhost/test"
             )
 
             assert first_result is second_result
             assert mock_create_engine.call_count == 1, "Should not create engine twice"
 
-    @pytest.mark.asyncio
-    async def test_initialize_connection_failure(self, clean_db_manager):
+    async def test_initialize_connection_failure(self, clean_db_manager_singleton):
         """Test that initialize raises DBConnectionError on connection failure"""
         with patch(
             "ragitect.services.database.connection.create_async_engine"
@@ -84,15 +85,14 @@ class TestDatabaseManager:
             mock_create_engine.side_effect = Exception("Connection failed")
 
             with pytest.raises(DBConnectionError) as exc_info:
-                await clean_db_manager.initialize(
+                await clean_db_manager_singleton.initialize(
                     database_url="postgresql+asyncpg://bad:bad@localhost/bad"
                 )
 
             assert "Connection failed" in str(exc_info.value.original_error)
 
-    @pytest.mark.asyncio
     async def test_initialize_uses_config_defaults(
-        self, clean_db_manager, mock_async_engine
+        self, clean_db_manager_singleton, mock_async_engine
     ):
         """Test that initialize uses config values when parameters not provided"""
         with (
@@ -108,14 +108,15 @@ class TestDatabaseManager:
         ):
             mock_create_engine.return_value = mock_async_engine
 
-            await clean_db_manager.initialize()
+            await clean_db_manager_singleton.initialize()
 
             call_kwargs = mock_create_engine.call_args[1]
             assert call_kwargs["echo"] is True
             assert call_kwargs["pool_size"] == 10
 
-    @pytest.mark.asyncio
-    async def test_initialize_for_testing(self, clean_db_manager, mock_async_engine):
+    async def test_initialize_for_testing(
+        self, clean_db_manager_singleton, mock_async_engine
+    ):
         """Test that initialize_for_testing uses NullPool"""
         with patch(
             "ragitect.services.database.connection.create_async_engine"
@@ -124,7 +125,7 @@ class TestDatabaseManager:
 
             mock_create_engine.return_value = mock_async_engine
 
-            await clean_db_manager.initialize_for_testing(
+            await clean_db_manager_singleton.initialize_for_testing(
                 database_url="postgresql+asyncpg://test:test@localhost/test"
             )
 
@@ -132,9 +133,8 @@ class TestDatabaseManager:
             assert call_kwargs["poolclass"] is NullPool
             assert call_kwargs["echo"] is False
 
-    @pytest.mark.asyncio
     async def test_initialize_for_testing_closes_existing_engine(
-        self, clean_db_manager
+        self, clean_db_manager_singleton
     ):
         """Test that initialize_for_testing closes existing engine first"""
         with patch(
@@ -156,22 +156,22 @@ class TestDatabaseManager:
             mock_create_engine.side_effect = [mock_engine1, mock_engine2]
 
             # Initialize regular engine
-            await clean_db_manager.initialize(
+            await clean_db_manager_singleton.initialize(
                 database_url="postgresql+asyncpg://test:test@localhost/test"
             )
 
             # Verify engine 1 was set
-            assert clean_db_manager._engine is mock_engine1
+            assert clean_db_manager_singleton._engine is mock_engine1
 
             # Initialize for testing should close first
-            await clean_db_manager.initialize_for_testing(
+            await clean_db_manager_singleton.initialize_for_testing(
                 database_url="postgresql+asyncpg://test2:test2@localhost/test2"
             )
 
             # Verify engine 1 was disposed
             mock_engine1.dispose.assert_called()
             # Verify engine 2 is now set
-            assert clean_db_manager._engine is mock_engine2
+            assert clean_db_manager_singleton._engine is mock_engine2
 
     def test_get_engine_when_initialized(self):
         """Test get_engine returns engine when initialized"""
@@ -213,7 +213,6 @@ class TestDatabaseManager:
 
         assert "not initialized" in str(exc_info.value).lower()
 
-    @pytest.mark.asyncio
     async def test_close_disposes_engine(self):
         """Test close properly disposes engine"""
         db_manager = DatabaseManager.get_instance()
@@ -228,7 +227,6 @@ class TestDatabaseManager:
         assert db_manager._engine is None
         assert db_manager._session_factory is None
 
-    @pytest.mark.asyncio
     async def test_close_when_no_engine(self):
         """Test close does nothing when no engine exists"""
         db_manager = DatabaseManager.get_instance()
@@ -281,24 +279,24 @@ class TestConvenienceFunctions:
 class TestSessionContextManagers:
     """Test session context managers"""
 
-    @pytest.mark.asyncio
-    async def test_get_session_yields_session(self, clean_db_manager, mock_session):
+    async def test_get_session_yields_session(
+        self, clean_db_manager_singleton, mock_session
+    ):
         """Test get_session yields a session"""
         mock_factory = MagicMock(return_value=mock_session)
-        clean_db_manager._session_factory = mock_factory
+        clean_db_manager_singleton._session_factory = mock_factory
 
         async with get_session() as session:
             assert session is mock_session
 
         mock_session.close.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_session_rolls_back_on_exception(
-        self, clean_db_manager, mock_session
+        self, clean_db_manager_singleton, mock_session
     ):
         """Test get_session rolls back on exception"""
         mock_factory = MagicMock(return_value=mock_session)
-        clean_db_manager._session_factory = mock_factory
+        clean_db_manager_singleton._session_factory = mock_factory
 
         with pytest.raises(Exception) as exc_info:
             async with get_session() as session:
@@ -307,13 +305,12 @@ class TestSessionContextManagers:
         assert "Test error" in str(exc_info.value)
         mock_session.close.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_session_closes_session_finally(
-        self, clean_db_manager, mock_session
+        self, clean_db_manager_singleton, mock_session
     ):
         """Test get_session always closes session in finally block"""
         mock_factory = MagicMock(return_value=mock_session)
-        clean_db_manager._session_factory = mock_factory
+        clean_db_manager_singleton._session_factory = mock_factory
 
         try:
             async with get_session() as session:
@@ -323,13 +320,12 @@ class TestSessionContextManagers:
 
         mock_session.close.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_session_no_autocommit_yields_session(
-        self, clean_db_manager, mock_session
+        self, clean_db_manager_singleton, mock_session
     ):
         """Test get_session_no_autocommit yields session without auto-begin"""
         mock_factory = MagicMock(return_value=mock_session)
-        clean_db_manager._session_factory = mock_factory
+        clean_db_manager_singleton._session_factory = mock_factory
 
         async with get_session_no_autocommit() as session:
             assert session is mock_session
@@ -338,13 +334,12 @@ class TestSessionContextManagers:
 
         mock_session.close.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_session_no_autocommit_closes_on_exception(
-        self, clean_db_manager, mock_session
+        self, clean_db_manager_singleton, mock_session
     ):
         """Test get_session_no_autocommit closes session on exception"""
         mock_factory = MagicMock(return_value=mock_session)
-        clean_db_manager._session_factory = mock_factory
+        clean_db_manager_singleton._session_factory = mock_factory
 
         with pytest.raises(Exception):
             async with get_session_no_autocommit() as session:
@@ -356,16 +351,16 @@ class TestSessionContextManagers:
 class TestCheckConnection:
     """Test check_connection utility function"""
 
-    @pytest.mark.asyncio
-    async def test_check_connection_success(self, clean_db_manager, mock_async_engine):
+    async def test_check_connection_success(
+        self, clean_db_manager_singleton, mock_async_engine
+    ):
         """Test check_connection returns True when connection succeeds"""
-        clean_db_manager._engine = mock_async_engine
+        clean_db_manager_singleton._engine = mock_async_engine
 
         result = await check_connection()
 
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_check_connection_failure(self):
         """Test check_connection returns False when connection fails"""
         db_manager = DatabaseManager.get_instance()
@@ -379,7 +374,6 @@ class TestCheckConnection:
 
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_check_connection_no_engine(self):
         """Test check_connection returns False when engine not initialized"""
         db_manager = DatabaseManager.get_instance()
