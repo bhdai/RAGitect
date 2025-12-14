@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 
@@ -8,36 +9,270 @@ from langchain_core.messages import HumanMessage
 
 from ragitect.services.llm import generate_response
 
-# from llm import generate_response, create_llm
-
 logger = logging.getLogger(__name__)
 
 
-def _should_reformulate(user_query: str, chat_history: list[dict[str, str]]) -> bool:
-    """Determine if query reformulation is necessary
+def _classify_query_complexity(
+    user_query: str,
+    chat_history: list[dict[str, str]],
+) -> str:
+    """Classify query as 'simple', 'ambiguous', or 'complex'.
+
+    Uses heuristic-based classification to determine optimal processing path:
+    - 'simple': Direct search, no reformulation needed
+    - 'ambiguous': Contains pronouns or context refs, needs reformulation
+    - 'complex': Requires decomposition into sub-queries (comparison queries)
 
     Args:
-        user_query: the current user query
-        chat_history: list of previous message
+        user_query: The current user query string
+        chat_history: List of previous messages with 'role' and 'content' keys
 
     Returns:
-        bool: True if the reformulation should be perform
+        str: One of 'simple', 'ambiguous', or 'complex'
+
+    Examples:
+        >>> _classify_query_complexity("What is Python?", [])
+        'simple'
+        >>> _classify_query_complexity("How do I install it?", [{"role": "user", "content": "Tell me about FastAPI"}])
+        'ambiguous'
+        >>> _classify_query_complexity("Compare FastAPI vs Flask", [])
+        'complex'
     """
+    query_lower = user_query.lower()
+
+    # Check for complex patterns FIRST (highest priority)
+    # Complex queries require decomposition into sub-queries
+    complex_patterns = [
+        "compare",
+        "difference between",
+        " vs ",
+        " versus ",
+        "both",
+        "all of",
+        "each of",
+    ]
+    is_complex = any(pattern in query_lower for pattern in complex_patterns)
+
+    if is_complex:
+        logger.debug(f"Query classified as complex: '{user_query[:50]}...'")
+        return "complex"
+
+    # No chat history = simple query (no context to resolve)
     if not chat_history:
-        logger.debug("Skipping reformulation: empty chat history")
-        return False
+        logger.debug(f"Query classified as simple (no history): '{user_query[:50]}...'")
+        return "simple"
 
-    # very short query like a single word
-    if len(user_query.split()) <= 1:
-        logger.debug("Skipping reformulation: user query too short")
-        return False
+    # Check for pronouns that need resolution (ambiguous)
+    # Normalize query for word boundary detection
+    query_normalized = re.sub(
+        r"[^\w\s]", " ", query_lower
+    )  # Replace punctuation with spaces
+    query_words = set(query_normalized.split())
+    pronouns = {"it", "that", "this", "those", "these", "they", "them"}
+    has_pronouns = bool(query_words & pronouns)
 
-    # query is already very long and specific
-    if len(user_query.split()) > 50:
-        logger.debug("Skipping reformulation: query already very specific")
-        return False
+    # Check for context references (ambiguous)
+    context_refs = ["the previous", "earlier", "before", "above", "again"]
+    has_context_ref = any(ref in query_lower for ref in context_refs)
 
-    return True
+    if has_pronouns or has_context_ref:
+        logger.debug(f"Query classified as ambiguous: '{user_query[:50]}...'")
+        return "ambiguous"
+
+    # Default to simple if no ambiguous markers found
+    logger.debug(f"Query classified as simple: '{user_query[:50]}...'")
+    return "simple"
+
+
+async def adaptive_query_processing(
+    llm_model: BaseChatModel,
+    user_query: str,
+    chat_history: list[dict[str, str]],
+) -> str:
+    """Process query adaptively based on complexity classification.
+
+    Routes queries to appropriate processing path:
+    - 'simple': Return original query (skip reformulation)
+    - 'ambiguous': Reformulate with chat history context
+    - 'complex': Reformulate (future: decompose into sub-queries)
+
+    Args:
+        llm_model: The LLM model instance for reformulation
+        user_query: The current user query string
+        chat_history: List of previous messages with 'role' and 'content' keys
+
+    Returns:
+        str: The processed query (original or reformulated)
+    """
+    complexity = _classify_query_complexity(user_query, chat_history)
+    logger.info(f"Query classified as: {complexity}")
+
+    if complexity == "simple":
+        logger.info("Using original query (simple)")
+        return user_query
+
+    elif complexity == "ambiguous":
+        logger.info("Reformulating query (ambiguous)")
+        return await reformulate_query_with_chat_history(
+            llm_model, user_query, chat_history
+        )
+
+    else:  # complex
+        logger.info("Complex query detected - using reformulation for now")
+        return await reformulate_query_with_chat_history(
+            llm_model, user_query, chat_history
+        )
+
+
+async def _grade_retrieval_relevance(
+    llm_model: BaseChatModel,
+    query: str,
+    retrieved_docs: list[str],
+) -> bool:
+    """Grade if retrieved documents are relevant to the query.
+
+    Uses LLM to assess whether the top retrieved document contains
+    information relevant to answering the user's query.
+
+    Implements fail-open pattern: returns True on any error to avoid
+    blocking the user's query due to grading failures.
+
+    Args:
+        llm_model: The LLM model instance for grading
+        query: The user's query string
+        retrieved_docs: List of retrieved document content strings
+
+    Returns:
+        bool: True if relevant (or on error), False if irrelevant
+    """
+    # Empty docs = fail open (assume relevant to proceed)
+    if not retrieved_docs:
+        logger.warning("No documents to grade - failing open")
+        return True
+
+    # Take first doc (top result) - first 500 chars
+    doc_sample = retrieved_docs[0][:500]
+
+    prompt = f"""You are a relevance grader. Assess if the retrieved document contains information related to the user's query.
+
+Query: {query}
+
+Retrieved Document:
+{doc_sample}
+
+Is this document relevant to answering the query?
+Answer only 'yes' or 'no'.
+
+Relevant:"""
+
+    try:
+        response = await generate_response(
+            llm_model, messages=[HumanMessage(content=prompt)]
+        )
+
+        grade = response.strip().lower()
+        is_relevant = grade == "yes" or grade.startswith("yes")
+
+        logger.info(f"Relevance grade: {grade} for query: '{query[:50]}...'")
+        return is_relevant
+
+    except Exception as e:
+        logger.error(f"Grading failed: {e}")
+        return True  # Fail open - assume relevant
+
+
+def log_query_metrics(metadata: dict) -> None:
+    """Log query metrics in structured JSON format for analysis.
+
+    Args:
+        metadata: Dictionary containing query processing metrics
+    """
+    logger.info(f"QUERY_METRICS: {json.dumps(metadata)}")
+
+
+async def query_with_iterative_fallback(
+    llm_model: BaseChatModel,
+    user_query: str,
+    chat_history: list[dict[str, str]],
+    vector_search_fn: callable,
+) -> tuple[list[str], dict]:
+    """Query with automatic fallback to reformulation if needed.
+
+    Implements the router pattern with iterative fallback:
+    1. Classify query complexity
+    2. For simple queries: try direct search, check relevance, fallback if poor
+    3. For ambiguous/complex: reformulate directly
+
+    Args:
+        llm_model: The LLM model instance for reformulation and grading
+        user_query: The user's original query string
+        chat_history: List of previous messages with 'role' and 'content' keys
+        vector_search_fn: Async callable that performs vector search
+
+    Returns:
+        tuple: (retrieved_docs: list[str], metadata: dict)
+        metadata keys: used_reformulation, original_query, final_query,
+                      classification, grade, latency_ms
+    """
+    metadata = {
+        "used_reformulation": False,
+        "original_query": user_query,
+        "final_query": user_query,
+        "classification": None,
+        "grade": None,
+        "latency_ms": 0,
+    }
+
+    start_time = time.time()
+
+    # Step 1: Classify query
+    classification = _classify_query_complexity(user_query, chat_history)
+    metadata["classification"] = classification
+
+    # Step 2: For simple queries, try direct search first
+    if classification == "simple":
+        logger.info("Attempt 1: Direct search (simple query)")
+        results = await vector_search_fn(user_query)
+
+        # Grade the results
+        is_relevant = await _grade_retrieval_relevance(llm_model, user_query, results)
+        metadata["grade"] = "yes" if is_relevant else "no"
+
+        if is_relevant:
+            logger.info("Direct search successful - good relevance")
+            metadata["latency_ms"] = (time.time() - start_time) * 1000
+            log_query_metrics(metadata)
+            return results, metadata
+
+        # Fallback to reformulation
+        logger.info("Attempt 2: Reformulation triggered by low relevance")
+        reformulated_query = await reformulate_query_with_chat_history(
+            llm_model, user_query, chat_history
+        )
+
+        metadata["used_reformulation"] = True
+        metadata["final_query"] = reformulated_query
+
+        results = await vector_search_fn(reformulated_query)
+        metadata["latency_ms"] = (time.time() - start_time) * 1000
+        log_query_metrics(metadata)
+
+        return results, metadata
+
+    else:  # ambiguous or complex - reformulate first
+        logger.info("Direct reformulation (ambiguous/complex query)")
+        reformulated_query = await reformulate_query_with_chat_history(
+            llm_model, user_query, chat_history
+        )
+
+        metadata["used_reformulation"] = True
+        metadata["final_query"] = reformulated_query
+
+        results = await vector_search_fn(reformulated_query)
+        metadata["latency_ms"] = (time.time() - start_time) * 1000
+        log_query_metrics(metadata)
+
+        return results, metadata
 
 
 def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
@@ -188,10 +423,11 @@ async def reformulate_query_with_chat_history(
     """Reformulate user query using chat history context for better retrieval (async)
 
     This function uses an LLM to analyze the conversation history and transform
-    the current user query into an optimized query search history that capture
-    the full intent, including the context from previous exchanges
+    the current user query into an optimized query for semantic search that captures
+    the full intent, including context from previous exchanges.
 
-    Phase 1 Hotfix: Added validation and metrics logging.
+    Note: Callers should use _classify_query_complexity() or adaptive_query_processing()
+    to decide WHEN to call this function. This function always attempts reformulation.
 
     Args:
         llm_model: the LLM model instance
@@ -199,23 +435,10 @@ async def reformulate_query_with_chat_history(
         chat_history: list of previous messages
 
     Returns:
-        str: the reformulated query string
+        str: the reformulated query string (or original on failure)
     """
     start_time = time.time()
     logger.info(f"Reformulating query: {user_query}")
-
-    if not _should_reformulate(user_query, chat_history):
-        # Log metrics for skipped reformulation
-        metrics = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "query_length": len(user_query),
-            "reformulated": False,
-            "reason": "skipped_by_should_reformulate",
-            "latency_ms": (time.time() - start_time) * 1000,
-        }
-        logger.info(f"QueryMetrics: {json.dumps(metrics)}")
-        logger.info("Reformulation skipped - returning original query")
-        return user_query
 
     try:
         # limit the history to last 10 messages for token efficiency

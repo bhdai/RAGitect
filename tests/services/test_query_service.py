@@ -3,39 +3,11 @@
 import pytest
 
 from ragitect.services.query_service import (
-    _should_reformulate,
     _extract_reformulated_query,
     _validate_reformulated_query,
     format_chat_history,
     _build_reformulation_prompt,
 )
-
-
-class TestShouldReformulate:
-    """Test query reformulation decision logic"""
-
-    def test_returns_false_for_empty_history(self):
-        assert _should_reformulate("What is FastAPI?", []) is False
-
-    def test_returns_false_for_single_word_query(self):
-        history = [{"role": "user", "content": "Tell me about Python"}]
-        assert _should_reformulate("explain", history) is False
-
-    def test_returns_false_for_very_long_query(self):
-        history = [{"role": "user", "content": "Previous question"}]
-        long_query = " ".join(["word"] * 51)
-        assert _should_reformulate(long_query, history) is False
-
-    def test_returns_true_for_normal_query_with_history(self):
-        history = [
-            {"role": "user", "content": "What is Python?"},
-            {"role": "assistant", "content": "Python is a programming language."},
-        ]
-        assert _should_reformulate("How do I install it?", history) is True
-
-    def test_returns_true_for_multi_word_short_query(self):
-        history = [{"role": "user", "content": "Previous context"}]
-        assert _should_reformulate("tell me more", history) is True
 
 
 class TestExtractReformulatedQuery:
