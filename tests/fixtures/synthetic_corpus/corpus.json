@@ -1,0 +1,1518 @@
+{
+  "corpus": [
+    {
+      "id": "simple-001",
+      "query": "How do I configure the database connection string?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Direct how-to question regarding configuration."
+    },
+    {
+      "id": "simple-002",
+      "query": "What are the privacy features of RAGitect?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Domain-specific feature inquiry."
+    },
+    {
+      "id": "simple-003",
+      "query": "List the supported API authentication methods.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Command-style query asking for an enumeration."
+    },
+    {
+      "id": "simple-004",
+      "query": "Show me an example of a Dockerfile for a Python app.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Request for a specific code snippet."
+    },
+    {
+      "id": "simple-005",
+      "query": "Explain the difference between TCP and UDP.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Standard technical concept explanation."
+    },
+    {
+      "id": "simple-006",
+      "query": "Where can I find the system logs on Linux?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Location-based technical query."
+    },
+    {
+      "id": "simple-007",
+      "query": "How to install Neovim plugins using packer.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Specific tool usage instruction."
+    },
+    {
+      "id": "simple-008",
+      "query": "What is the maximum file upload size?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Factual constraint query."
+    },
+    {
+      "id": "simple-009",
+      "query": "Debug error 500 on the payment gateway webhook.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Problem-solving query with specific error context."
+    },
+    {
+      "id": "simple-010",
+      "query": "PyTorch tensor reshaping syntax.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Keyword-heavy search query for library syntax."
+    },
+    {
+      "id": "simple-011",
+      "query": "When does the session token expire?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Time-based configuration query."
+    },
+    {
+      "id": "simple-012",
+      "query": "How to set up a Hyprland config file.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Configuration guide for a specific window manager."
+    },
+    {
+      "id": "simple-013",
+      "query": "Define RESTful API architecture.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Definition request for a core concept."
+    },
+    {
+      "id": "simple-014",
+      "query": "Command to list all active systemd services.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Request for a specific CLI command."
+    },
+    {
+      "id": "simple-015",
+      "query": "Why is my CI pipeline failing on the linting step?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Diagnostic query seeking a reason/cause."
+    },
+    {
+      "id": "simple-016",
+      "query": "Best practices for securing an S3 bucket.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Request for qualitative guidelines."
+    },
+    {
+      "id": "simple-017",
+      "query": "Generate a JSON schema for a user profile.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Generative task command."
+    },
+    {
+      "id": "simple-018",
+      "query": "How to implement gradient descent in Python from scratch.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Detailed implementation guide request."
+    },
+    {
+      "id": "simple-019",
+      "query": "What dependencies are required for the frontend build?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Dependency listing inquiry."
+    },
+    {
+      "id": "simple-020",
+      "query": "Arch Linux pacman update command.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Short keyword search for a specific OS command."
+    },
+    {
+      "id": "simple-021",
+      "query": "Explain the concept of overfitting in deep learning.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Concept explanation in a specific AI sub-field."
+    },
+    {
+      "id": "simple-022",
+      "query": "Show the API response format for the GET /users endpoint.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Specific API documentation lookup."
+    },
+    {
+      "id": "simple-023",
+      "query": "How to revert a commit in Git.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Common version control task."
+    },
+    {
+      "id": "simple-024",
+      "query": "What is the function of the Nginx reverse proxy?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Functional explanation of infrastructure component."
+    },
+    {
+      "id": "simple-025",
+      "query": "List all tables in the inventory database.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Database schema retrieval."
+    },
+    {
+      "id": "simple-026",
+      "query": "How to enable dark mode in the UI.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "UI/UX configuration instruction."
+    },
+    {
+      "id": "simple-027",
+      "query": "Python script to parse CSV files.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Code generation request for a standard task."
+    },
+    {
+      "id": "simple-028",
+      "query": "What are the hardware requirements for the search node?",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "System requirements lookup."
+    },
+    {
+      "id": "simple-029",
+      "query": "How to rotate SSL certificates.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Security maintenance procedure."
+    },
+    {
+      "id": "simple-030",
+      "query": "Explain the project directory structure.",
+      "chat_history": [],
+      "classification": "simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "notes": "Onboarding/Architectural overview request."
+    },
+    {
+      "id": "ambiguous-001",
+      "query": "How do I configure it for production?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What's the best way to set up Redis caching in our API?"
+        },
+        {
+          "role": "assistant",
+          "content": "Redis caching can be configured using the CacheManager class with connection pooling and TTL settings. You'll need to set REDIS_URL in your environment variables."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How do I configure Redis caching for production?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to Redis caching from previous context"
+    },
+    {
+      "id": "ambiguous-002",
+      "query": "Does it support TypeScript decorators?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "I'm looking at the validation library documentation"
+        },
+        {
+          "role": "assistant",
+          "content": "Our validation library provides schema-based validation with support for custom validators and async rules."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Does the validation library support TypeScript decorators?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to validation library mentioned earlier"
+    },
+    {
+      "id": "ambiguous-003",
+      "query": "What are the performance implications of that approach?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Should I use eager loading or lazy loading for related entities?"
+        },
+        {
+          "role": "assistant",
+          "content": "Lazy loading fetches related data only when accessed, which can reduce initial query overhead but may cause N+1 query problems."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What are the performance implications of lazy loading for related entities?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'that approach' refers to lazy loading discussed in assistant's response"
+    },
+    {
+      "id": "ambiguous-004",
+      "query": "Can I use this with Docker Compose?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "How does the microservices deployment architecture work?"
+        },
+        {
+          "role": "assistant",
+          "content": "Our microservices architecture uses Kubernetes for orchestration with separate services for auth, API gateway, and data processing."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Can I use the microservices deployment architecture with Docker Compose?",
+      "reformulation_trigger": "pronoun_this",
+      "notes": "Pronoun 'this' refers to the microservices architecture"
+    },
+    {
+      "id": "ambiguous-005",
+      "query": "Are they thread-safe?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What connection pooling libraries do you recommend?"
+        },
+        {
+          "role": "assistant",
+          "content": "We recommend using HikariCP for Java or asyncpg for Python, both offering excellent performance for database connection pooling."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Are HikariCP and asyncpg connection pooling libraries thread-safe?",
+      "reformulation_trigger": "pronoun_they",
+      "notes": "Pronoun 'they' refers to the recommended libraries HikariCP and asyncpg"
+    },
+    {
+      "id": "ambiguous-006",
+      "query": "Show me the implementation details for it",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Does RAGitect support OAuth2 authentication?"
+        },
+        {
+          "role": "assistant",
+          "content": "Yes, RAGitect supports OAuth2 with PKCE flow for enhanced security in single-page applications."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Show me the implementation details for OAuth2 authentication with PKCE flow",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to OAuth2 with PKCE flow"
+    },
+    {
+      "id": "ambiguous-007",
+      "query": "What's the recommended way to implement it?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "I need to add rate limiting to my API endpoints"
+        },
+        {
+          "role": "assistant",
+          "content": "Rate limiting can be implemented using middleware with token bucket or sliding window algorithms."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What's the recommended way to implement rate limiting for API endpoints?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to rate limiting"
+    },
+    {
+      "id": "ambiguous-008",
+      "query": "Does that require additional dependencies?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "How can I add real-time updates using WebSockets?"
+        },
+        {
+          "role": "assistant",
+          "content": "You can use Socket.IO for WebSocket implementation, which provides automatic reconnection and fallback to long polling."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Does implementing WebSockets with Socket.IO require additional dependencies?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'that' refers to Socket.IO WebSocket implementation"
+    },
+    {
+      "id": "ambiguous-009",
+      "query": "Can it handle millions of records?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What's the best database for full-text search?"
+        },
+        {
+          "role": "assistant",
+          "content": "Elasticsearch is highly recommended for full-text search with its inverted index architecture and advanced query DSL."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Can Elasticsearch handle millions of records for full-text search?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to Elasticsearch"
+    },
+    {
+      "id": "ambiguous-010",
+      "query": "How do I debug issues with it?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "I'm setting up GraphQL for my API layer"
+        },
+        {
+          "role": "assistant",
+          "content": "GraphQL setup involves defining schemas, resolvers, and using tools like Apollo Server for implementation."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How do I debug issues with GraphQL API implementation?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to GraphQL setup"
+    },
+    {
+      "id": "ambiguous-011",
+      "query": "Is it compatible with AWS Lambda?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Tell me about the serverless framework options"
+        },
+        {
+          "role": "assistant",
+          "content": "The Serverless Framework supports multi-cloud deployment with built-in plugins for infrastructure as code."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Is the Serverless Framework compatible with AWS Lambda?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to Serverless Framework"
+    },
+    {
+      "id": "ambiguous-012",
+      "query": "What version of it should I use?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "I need to integrate PostgreSQL into my project"
+        },
+        {
+          "role": "assistant",
+          "content": "PostgreSQL is an excellent choice for relational data with JSONB support and strong ACID compliance."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What version of PostgreSQL should I use for my project?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to PostgreSQL"
+    },
+    {
+      "id": "ambiguous-013",
+      "query": "How does that compare to REST?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Should I use gRPC for microservices communication?"
+        },
+        {
+          "role": "assistant",
+          "content": "gRPC offers high performance with Protocol Buffers and bidirectional streaming, making it ideal for service-to-service communication."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How does gRPC compare to REST for microservices communication?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'that' refers to gRPC"
+    },
+    {
+      "id": "ambiguous-014",
+      "query": "Are those compatible with each other?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Can I use both JWT and session-based auth?"
+        },
+        {
+          "role": "assistant",
+          "content": "JWT tokens provide stateless authentication while session-based auth maintains server-side state. Each has different use cases."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Are JWT and session-based authentication compatible with each other?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'those' refers to JWT and session-based auth"
+    },
+    {
+      "id": "ambiguous-015",
+      "query": "This seems complex - is there a simpler alternative?",
+      "chat_history": [
+        { "role": "user", "content": "How do I implement event sourcing?" },
+        {
+          "role": "assistant",
+          "content": "Event sourcing stores state changes as a sequence of events, requiring an event store and projection handlers for read models."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Event sourcing seems complex - is there a simpler alternative?",
+      "reformulation_trigger": "pronoun_this",
+      "notes": "Pronoun 'this' refers to event sourcing implementation"
+    },
+    {
+      "id": "ambiguous-016",
+      "query": "Do they work with GraphQL subscriptions?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What WebSocket libraries are available?"
+        },
+        {
+          "role": "assistant",
+          "content": "Popular options include Socket.IO, ws for Node.js, and websockets library for Python."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Do Socket.IO, ws, and websockets libraries work with GraphQL subscriptions?",
+      "reformulation_trigger": "pronoun_they",
+      "notes": "Pronoun 'they' refers to the WebSocket libraries mentioned"
+    },
+    {
+      "id": "ambiguous-017",
+      "query": "Can they be integrated with existing SQL databases?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What are the benefits of using ORMs like Prisma or TypeORM?"
+        },
+        {
+          "role": "assistant",
+          "content": "ORMs provide type-safe database queries, automatic migrations, and relation management with reduced boilerplate code."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Can Prisma and TypeORM be integrated with existing SQL databases?",
+      "reformulation_trigger": "pronoun_they",
+      "notes": "Pronoun 'they' refers to Prisma and TypeORM"
+    },
+    {
+      "id": "ambiguous-018",
+      "query": "What are the security considerations for that?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "How do I implement file uploads in my API?"
+        },
+        {
+          "role": "assistant",
+          "content": "File uploads can be handled using multipart form data with libraries like multer or busboy, storing files in S3 or local filesystem."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What are the security considerations for implementing file uploads in APIs?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'that' refers to file upload implementation"
+    },
+    {
+      "id": "ambiguous-019",
+      "query": "Is this production-ready?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What do you think about using Deno for backend services?"
+        },
+        {
+          "role": "assistant",
+          "content": "Deno offers built-in TypeScript support, secure by default execution, and modern standard library without package.json dependencies."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Is Deno production-ready for backend services?",
+      "reformulation_trigger": "pronoun_this",
+      "notes": "Pronoun 'this' refers to Deno"
+    },
+    {
+      "id": "ambiguous-020",
+      "query": "How would I migrate from those to Kubernetes?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "We're currently using Docker Swarm for orchestration"
+        },
+        {
+          "role": "assistant",
+          "content": "Docker Swarm provides simpler orchestration with built-in load balancing and service discovery, though with fewer features than Kubernetes."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How would I migrate from Docker Swarm to Kubernetes?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'those' refers to Docker Swarm"
+    },
+    {
+      "id": "ambiguous-021",
+      "query": "Do they support hot reloading?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Which frontend frameworks should I consider?"
+        },
+        {
+          "role": "assistant",
+          "content": "React, Vue, and Svelte are popular choices with strong ecosystems and component-based architectures."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Do React, Vue, and Svelte support hot reloading?",
+      "reformulation_trigger": "pronoun_they",
+      "notes": "Pronoun 'they' refers to React, Vue, and Svelte"
+    },
+    {
+      "id": "ambiguous-022",
+      "query": "How do I configure one for my project?",
+      "chat_history": [
+        { "role": "user", "content": "What are CI/CD pipelines?" },
+        {
+          "role": "assistant",
+          "content": "CI/CD pipelines automate testing, building, and deployment using tools like GitHub Actions, GitLab CI, or Jenkins."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How do I configure a CI/CD pipeline for my project?",
+      "reformulation_trigger": "pronoun_one",
+      "notes": "Pronoun 'one' refers to CI/CD pipelines"
+    },
+    {
+      "id": "ambiguous-023",
+      "query": "Which one is better for real-time applications?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What's the difference between MongoDB and Cassandra?"
+        },
+        {
+          "role": "assistant",
+          "content": "MongoDB is a document database with flexible schemas, while Cassandra is a wide-column store optimized for write-heavy workloads and horizontal scaling."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Which database is better for real-time applications: MongoDB or Cassandra?",
+      "reformulation_trigger": "pronoun_one",
+      "notes": "Pronoun 'one' refers to choosing between MongoDB and Cassandra"
+    },
+    {
+      "id": "ambiguous-024",
+      "query": "Can I self-host one?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What monitoring solutions are available?"
+        },
+        {
+          "role": "assistant",
+          "content": "Popular monitoring tools include Prometheus, Grafana, Datadog, and New Relic for metrics, logs, and tracing."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Can I self-host a monitoring solution like Prometheus or Grafana?",
+      "reformulation_trigger": "pronoun_one",
+      "notes": "Pronoun 'one' refers to monitoring solutions"
+    },
+    {
+      "id": "ambiguous-025",
+      "query": "Would one work for mobile apps too?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "I need authentication providers for my web app"
+        },
+        {
+          "role": "assistant",
+          "content": "Auth0, Firebase Auth, and AWS Cognito provide managed authentication with social login and MFA support."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Would Auth0, Firebase Auth, or AWS Cognito work for mobile apps too?",
+      "reformulation_trigger": "pronoun_one",
+      "notes": "Pronoun 'one' refers to authentication providers"
+    },
+    {
+      "id": "ambiguous-026",
+      "query": "The previous solution seems outdated - what's current?",
+      "chat_history": [
+        { "role": "user", "content": "How should I handle background jobs?" },
+        {
+          "role": "assistant",
+          "content": "You can use Celery with Redis or RabbitMQ for distributed task queuing with retry logic and scheduling."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Celery with Redis/RabbitMQ seems outdated - what's the current solution for background jobs?",
+      "reformulation_trigger": "context_ref",
+      "notes": "Context reference 'previous solution' refers to Celery mentioned earlier"
+    },
+    {
+      "id": "ambiguous-027",
+      "query": "Can you expand on the earlier point about caching?",
+      "chat_history": [
+        { "role": "user", "content": "How do I optimize API response times?" },
+        {
+          "role": "assistant",
+          "content": "Key strategies include database indexing, caching with Redis, CDN for static assets, and query optimization."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Can you expand on using Redis caching to optimize API response times?",
+      "reformulation_trigger": "context_ref",
+      "notes": "Context reference 'earlier point' refers to caching strategy mentioned"
+    },
+    {
+      "id": "ambiguous-028",
+      "query": "What about the method mentioned above for error handling?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "How should I structure my Express.js middleware?"
+        },
+        {
+          "role": "assistant",
+          "content": "Use middleware chains for authentication, validation, error handling, and logging in that order for clean separation of concerns."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What about using middleware chains for error handling in Express.js?",
+      "reformulation_trigger": "context_ref",
+      "notes": "Context reference 'mentioned above' refers to middleware chains"
+    },
+    {
+      "id": "ambiguous-029",
+      "query": "Tell me more about the approach you described earlier",
+      "chat_history": [
+        { "role": "user", "content": "How do I prevent SQL injection?" },
+        {
+          "role": "assistant",
+          "content": "Use parameterized queries or prepared statements instead of string concatenation, and implement input validation at the application layer."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Tell me more about using parameterized queries to prevent SQL injection",
+      "reformulation_trigger": "context_ref",
+      "notes": "Context reference 'earlier approach' refers to parameterized queries"
+    },
+    {
+      "id": "ambiguous-030",
+      "query": "Regarding the previous recommendation, what are the costs?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What's the best cloud provider for startups?"
+        },
+        {
+          "role": "assistant",
+          "content": "AWS offers the most comprehensive services with a generous free tier and startup credits through their Activate program."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What are the costs of using AWS for startups?",
+      "reformulation_trigger": "context_ref",
+      "notes": "Context reference 'previous recommendation' refers to AWS"
+    },
+    {
+      "id": "ambiguous-031",
+      "query": "And for Python?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What's the best testing framework for JavaScript?"
+        },
+        {
+          "role": "assistant",
+          "content": "Jest is the most popular choice for JavaScript testing with built-in mocking, coverage reports, and snapshot testing."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What's the best testing framework for Python?",
+      "reformulation_trigger": "ellipsis",
+      "notes": "Elliptical query omits subject, relies on previous testing framework question"
+    },
+    {
+      "id": "ambiguous-032",
+      "query": "And with TypeScript?",
+      "chat_history": [
+        { "role": "user", "content": "How do I set up a React project?" },
+        {
+          "role": "assistant",
+          "content": "Use Create React App or Vite for quick setup with webpack configuration, development server, and hot module replacement."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How do I set up a React project with TypeScript?",
+      "reformulation_trigger": "ellipsis",
+      "notes": "Elliptical query omits subject, extends previous React setup question"
+    },
+    {
+      "id": "ambiguous-033",
+      "query": "What about NoSQL alternatives?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "When should I use a relational database?"
+        },
+        {
+          "role": "assistant",
+          "content": "Relational databases are ideal for structured data with complex relationships, ACID transactions, and strong consistency requirements."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "What NoSQL alternatives are there to relational databases?",
+      "reformulation_trigger": "ellipsis",
+      "notes": "Elliptical query omits subject, follows from database discussion"
+    },
+    {
+      "id": "ambiguous-034",
+      "query": "And in production environments?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "How should I handle environment variables in development?"
+        },
+        {
+          "role": "assistant",
+          "content": "Use .env files with dotenv library for local development, keeping sensitive values out of version control with .gitignore."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How should I handle environment variables in production environments?",
+      "reformulation_trigger": "ellipsis",
+      "notes": "Elliptical query omits subject, extends environment variables question"
+    },
+    {
+      "id": "ambiguous-035",
+      "query": "What about on-premises?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "How does serverless architecture work in the cloud?"
+        },
+        {
+          "role": "assistant",
+          "content": "Serverless uses functions-as-a-service that auto-scale based on demand, with providers managing infrastructure and charging per execution."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How does serverless architecture work on-premises?",
+      "reformulation_trigger": "ellipsis",
+      "notes": "Elliptical query omits subject, contrasts with cloud serverless"
+    },
+    {
+      "id": "ambiguous-036",
+      "query": "How do I set up one locally?",
+      "chat_history": [
+        { "role": "user", "content": "What are message queues used for?" },
+        {
+          "role": "assistant",
+          "content": "Message queues like RabbitMQ and Apache Kafka enable asynchronous communication between services with reliability and load balancing."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "How do I set up a message queue like RabbitMQ or Kafka locally?",
+      "reformulation_trigger": "pronoun_one",
+      "notes": "Pronoun 'one' refers to message queues"
+    },
+    {
+      "id": "ambiguous-037",
+      "query": "These look similar - what's the main difference?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Compare Redux and MobX for state management"
+        },
+        {
+          "role": "assistant",
+          "content": "Redux uses immutable state with explicit actions and reducers, while MobX uses observable state with automatic reactivity and less boilerplate."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Redux and MobX look similar - what's the main difference between them?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'these' refers to Redux and MobX"
+    },
+    {
+      "id": "ambiguous-038",
+      "query": "Those seem expensive - any cheaper options?",
+      "chat_history": [
+        { "role": "user", "content": "What are good logging services?" },
+        {
+          "role": "assistant",
+          "content": "Datadog and Splunk provide enterprise-grade logging with advanced analytics, alerting, and long-term retention."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Datadog and Splunk seem expensive - any cheaper logging service options?",
+      "reformulation_trigger": "pronoun_that",
+      "notes": "Pronoun 'those' refers to Datadog and Splunk"
+    },
+    {
+      "id": "ambiguous-039",
+      "query": "Can it be used with microservices?",
+      "chat_history": [
+        { "role": "user", "content": "What is API Gateway pattern?" },
+        {
+          "role": "assistant",
+          "content": "API Gateway acts as a single entry point for clients, handling routing, authentication, rate limiting, and request aggregation."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Can the API Gateway pattern be used with microservices?",
+      "reformulation_trigger": "pronoun_it",
+      "notes": "Pronoun 'it' refers to API Gateway pattern"
+    },
+    {
+      "id": "ambiguous-040",
+      "query": "Which one has better community support?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Should I learn Go or Rust for backend development?"
+        },
+        {
+          "role": "assistant",
+          "content": "Go offers simplicity and fast compilation with strong concurrency, while Rust provides memory safety and zero-cost abstractions."
+        }
+      ],
+      "classification": "ambiguous",
+      "expected_reformulation": "Which language has better community support: Go or Rust?",
+      "reformulation_trigger": "pronoun_one",
+      "notes": "Pronoun 'one' refers to choosing between Go and Rust"
+    },
+    {
+      "id": "complex-001",
+      "query": "Compare the authentication flow described in docs/security/auth.md with the one implemented in sdk/v2/auth.js — which one better balances developer ergonomics and zero-trust principles for RAGitect's third-party integrations?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Compare the auth flows in our docs and SDK."
+        },
+        {
+          "role": "assistant",
+          "content": "Do you mean the doc at docs/security/auth.md and sdk/v2/auth.js implementation?"
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Compare the authentication flow described in docs/security/auth.md (section 'OAuth vs. mTLS') with the implementation in sdk/v2/auth.js (functions: startAuth(), refreshToken(), validateSession()). Evaluate which approach better balances developer ergonomics (ease of integration, clear errors, minimal boilerplate) and zero-trust security principles (least privilege, short-lived credentials, explicit attestation) for RAGitect third-party integrations, and list trade-offs for migrating from one to the other.",
+      "reformulation_trigger": "comparison",
+      "notes": "Requires comparing two documents (doc + code), multi-criteria trade-off analysis and multi-hop reasoning across security and developer-experience docs."
+    },
+    {
+      "id": "complex-002",
+      "query": "What's the difference between the versioning strategy outlined in docs/versioning.md and the Git branching policy used in repo/CONTRIBUTING.md — how would those differences affect automated doc ingestion in RAGitect?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Explain differences in versioning vs branching policy."
+        },
+        {
+          "role": "assistant",
+          "content": "Which files exactly? docs/versioning.md and repo/CONTRIBUTING.md sound right."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Explain the differences between the semantic versioning strategy described in docs/versioning.md (sections 'release cadence' and 'breaking changes') and the Git branching policy in repo/CONTRIBUTING.md (sections 'main vs release branches' and 'feature flags'), and analyze how those differences would affect automated document ingestion pipelines in RAGitect (indexing freshness, handling breaking doc schema changes, and mapping tags to versions).",
+      "reformulation_trigger": "comparison",
+      "notes": "Comparison across process documents with impact on ingestion pipelines — needs multi-hop reasoning across versioning and CI/ingestion docs."
+    },
+    {
+      "id": "complex-003",
+      "query": "Compare examples of code snippets for error handling in docs/coding-standards.md and the live code in microservices/payment/service.py — which is more suitable to include as canonical examples in RAGitect's searchable docs, considering clarity and edge-case coverage?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Which error handling example should be canonical?"
+        },
+        {
+          "role": "assistant",
+          "content": "I can compare docs/coding-standards.md examples with microservices/payment/service.py if those are the targets."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Compare the error-handling code examples in docs/coding-standards.md (sections 'expected errors' and 'retry patterns') with the live implementation in microservices/payment/service.py (functions: process_payment(), handle_gateway_error()). Determine which example is more suitable to include as the canonical, searchable example in RAGitect's documentation, based on readability for developers, coverage of edge cases (timeouts, idempotency), and testability; recommend edits needed to bring the preferred example up to canonical quality.",
+      "reformulation_trigger": "comparison",
+      "notes": "Requires comparing documentation examples and production code, evaluating multiple criteria and suggesting edits."
+    },
+    {
+      "id": "complex-004",
+      "query": "What's the difference in indexing results if RAGitect ingests README.md files only vs. README.md + inline code comments in src/ — quantify expected recall/precision trade-offs and list which docs to prioritize for indexing first.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Should we index READMEs only or include inline comments?"
+        },
+        {
+          "role": "assistant",
+          "content": "I can estimate trade-offs and recommend priorities if you want quantitative reasoning."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Compare two ingestion strategies for RAGitect: (A) index only top-level README.md files across repositories, and (B) index README.md plus inline code comments extracted from src/ directories. For each strategy, quantify expected effects on retrieval recall and precision (qualitative percentages or ranges), estimate indexing cost and storage delta, and produce a prioritized list of document types to index first (e.g., API reference, architecture diagrams, READMEs, inline comments, changelogs).",
+      "reformulation_trigger": "comparison",
+      "notes": "Comparison requires aggregation of metrics, multi-criteria analysis, and prioritization — spans docs and code."
+    },
+    {
+      "id": "complex-005",
+      "query": "Compare the recommendation in docs/privacy/data-retention.md about redaction with the current implemented redaction rules in services/ingest/redactor.py — which one better meets GDPR principles for RAGitect, and what specific code changes would bring implementation into compliance?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Does our redaction code match privacy policy?"
+        },
+        {
+          "role": "assistant",
+          "content": "I'll compare the policy doc and redactor.py to identify gaps."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Compare the redaction policy in docs/privacy/data-retention.md (sections 'PII types', 'retention windows', 'right to be forgotten') with the actual redaction logic implemented in services/ingest/redactor.py (functions: redact_text(), redact_metadata()). Identify which policy requirements are not enforced by the code, evaluate how each gap affects GDPR compliance, and list concrete code-level changes (function signatures, regex rules, metadata handling) needed to comply.",
+      "reformulation_trigger": "comparison",
+      "notes": "Compare policy document to implementation; requires legal principle mapping to code changes (multi-hop)."
+    },
+    {
+      "id": "complex-006",
+      "query": "Compare the search ranking signals documented in docs/search/signals.md with those used in the current search-config.json — which signals are missing or out of date, and how would adding embeddings-based similarity change the ranking for long technical Q&A?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Are our search signals aligned with docs?"
+        },
+        {
+          "role": "assistant",
+          "content": "I can diff docs/search/signals.md and search-config.json and simulate impact of embeddings."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Compare the list of recommended search ranking signals in docs/search/signals.md (term frequency, recency, document authority, section matches) with the active signals listed in search-config.json. Identify which signals are missing or outdated, and explain how introducing embeddings-based semantic similarity as an additional signal would change ranking behavior for long technical Q&A documents (examples: API troubleshooting threads), including potential improvements in recall for paraphrased queries and risks of semantic drift.",
+      "reformulation_trigger": "comparison",
+      "notes": "Requires comparing docs and config, and reasoning about search ranking impact — multi-hop across search docs and configs."
+    },
+    {
+      "id": "complex-007",
+      "query": "Compare the migration checklist in docs/migration/upgrade-to-2.0.md with the actual migrations listed in db/migrations/ — which checklist steps are unimplemented and which migration scripts might conflict with policy changes?",
+      "chat_history": [
+        { "role": "user", "content": "Audit migration checklist vs scripts." },
+        {
+          "role": "assistant",
+          "content": "I'll check upgrade-to-2.0.md and db/migrations/ to find mismatches."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Compare the migration checklist items in docs/migration/upgrade-to-2.0.md (sections 'schema changes', 'data backfill', 'feature toggles') with the actual migration scripts present in db/migrations/ (names and SQL changes). Identify checklist steps that lack implemented scripts, migrations that could conflict with new policy fields, and recommend ordering or script changes to prevent data loss during an upgrade.",
+      "reformulation_trigger": "comparison",
+      "notes": "Cross-references docs and SQL scripts; needs multi-document comparison and recommendation."
+    },
+    {
+      "id": "complex-008",
+      "query": "Compare the performance guidance in docs/ops/perf.md for vector index sharding with the experiments recorded in logs/benchmarks/2025-*/report.json — which guidance should be updated and what parameter changes (shard size, replica count) would you recommend for large corpora in RAGitect?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Update perf guidance based on latest benchmarks."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll compare docs/ops/perf.md with the benchmark reports to suggest parameter changes."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Compare the sharding and replica guidance in docs/ops/perf.md (recommended shard_size, replica_count, and index refresh intervals) with measured results in logs/benchmarks/2025-*/report.json (throughput, p95 latency, memory usage). Identify parts of the guidance that should be updated and recommend concrete parameter adjustments (e.g., shard_size from X to Y, replica_count from A to B) tailored for large document corpora in RAGitect, with rationale based on the benchmark numbers.",
+      "reformulation_trigger": "comparison",
+      "notes": "Comparison between docs and benchmark data requiring extraction of numeric metrics and recommending config changes (multi-hop)."
+    },
+    {
+      "id": "complex-009",
+      "query": "Based on the API contract in api/openapi.yaml and the error codes listed in docs/errors.md, how should the SDK map server-side error codes to client exceptions to provide best UX while preserving error telemetry for RAGitect?",
+      "chat_history": [
+        { "role": "user", "content": "Design SDK exception mapping." },
+        {
+          "role": "assistant",
+          "content": "I'll reference openapi.yaml and docs/errors.md to propose mappings."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Using the API contract in api/openapi.yaml (paths: /ingest, /query) and the canonical server-side error codes in docs/errors.md (sections 'retryable', 'client error', 'auth error'), design a mapping for the SDK that translates server error codes into explicit client exceptions (naming, retries, metadata fields), balancing developer UX (clear messages, actionable suggestions) with preserving telemetry (original code, trace_id). Provide a mapping table and rationale.",
+      "reformulation_trigger": "multi_hop",
+      "notes": "Multi-hop: must read API spec and error docs, then design SDK mappings — spans multiple docs and reasoning about UX and telemetry."
+    },
+    {
+      "id": "complex-010",
+      "query": "Based on docs/search/faq.md and the changelog entries for the search service in CHANGELOG.md, how would you implement a fallback strategy for queries that return low-confidence results in RAGitect's query resolver?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Propose a fallback strategy for low-confidence search results."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll use search/faq.md and CHANGELOG.md to propose a resolver-level fallback."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Using the guidance in docs/search/faq.md (sections 'confidence scoring' and 'user prompts') together with recent changes to the search service listed in CHANGELOG.md (entries affecting scoring, rerankers, and latency), propose a fallback strategy for the query resolver when a user query returns low-confidence results. The strategy should include thresholds, alternate retrieval paths (semantic fallback, metadata filters), user-facing messaging, and instrumentation points to measure effectiveness.",
+      "reformulation_trigger": "multi_hop",
+      "notes": "Requires synthesizing FAQ guidance with changelog updates to design a multi-step fallback approach — multi-hop across docs."
+    },
+    {
+      "id": "complex-011",
+      "query": "Based on architecture/overview.md, the dataflow diagram, and docs/privacy/pseudonymization.md, design a pipeline modification that supports reversible pseudonymization for debugging while ensuring production exports remain non-reversible for RAGitect.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "We need reversible pseudonymization for debugging but non-reversible in prod."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll synthesize architecture and privacy docs to propose pipeline changes."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Using architecture/overview.md (dataflow diagram showing ingest -> transform -> index), and privacy rules in docs/privacy/pseudonymization.md (requirements for reversible vs non-reversible pseudonymization), propose a pipeline modification that allows reversible pseudonymization for controlled debugging environments (with key escrow, access controls, audit logs) while ensuring production exports remain non-reversible. Include steps, components to change, key management recommendations, and required policy checks.",
+      "reformulation_trigger": "multi_hop",
+      "notes": "Multi-hop across architecture and privacy docs, designing an implementation with security and operational considerations."
+    },
+    {
+      "id": "complex-012",
+      "query": "Based on the API examples in docs/examples and the rate limits in infra/rate-limits.yaml, what's the best batching strategy for bulk ingestion calls to maximize throughput without violating quotas or increasing tail latency?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Recommend batching strategy for bulk ingestion."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll review docs/examples and infra/rate-limits.yaml to craft a sizing strategy."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Using API examples in docs/examples (bulk_ingest sample payloads) and the service rate limits defined in infra/rate-limits.yaml (per-minute quotas, burst windows), recommend a batching strategy for bulk ingestion that maximizes throughput while staying within quotas and avoiding increased tail latency. Include batch size recommendations, pacing strategy (tokens/second or requests/second), retry/backoff behavior, and how to monitor for quota nearing.",
+      "reformulation_trigger": "multi_hop",
+      "notes": "Needs to combine example payloads and infra rate-limit rules to produce a batching algorithm — multi-hop across docs."
+    },
+    {
+      "id": "complex-013",
+      "query": "List all documents that mention 'PII' within docs/ and design an aggregated remediation plan: for each document, state whether it should be redacted, versioned, or moved to internal-only, and prioritize the actions for RAGitect.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Find all docs mentioning PII and propose remediations."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll scan docs/ for 'PII' and propose prioritized actions."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Search the docs/ directory for all documents that mention the term 'PII' and produce an aggregated remediation plan: for each document found, indicate the file path, the excerpt where 'PII' appears, recommend one of these actions (redact sensitive passages, add versioning/release notes, move document to internal-only access), and provide a prioritized list (high/medium/low) of actions to take for RAGitect based on sensitivity and public exposure.",
+      "reformulation_trigger": "aggregation",
+      "notes": "Aggregation across many docs, mapping findings to remediation actions and prioritization; multi-hop scanning and decision-making."
+    },
+    {
+      "id": "complex-014",
+      "query": "Summarize the approaches used across docs/ for troubleshooting 'index drift' (search drift over time) and aggregate recommended monitoring rules and alert thresholds for RAGitect's ops team.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Aggregate 'index drift' troubleshooting approaches."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll summarize approaches and suggest monitoring rules."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Scan documentation in docs/ for all approaches to troubleshooting 'index drift' (e.g., stale embeddings, content churn, schema changes), summarize the distinct approaches (rebuild schedules, reweighting signals, anomaly detection), and aggregate them into a concrete set of recommended monitoring rules and alert thresholds (metric names, sampling windows, thresholds) for the RAGitect ops team.",
+      "reformulation_trigger": "aggregation",
+      "notes": "Aggregation requires synthesizing multiple documents into a unified monitoring plan."
+    },
+    {
+      "id": "complex-015",
+      "query": "List all API endpoints across api/ that can change document state (create/update/delete) and aggregate required permission scopes from docs/permissions.md; produce a minimal role-based permission set for a 'doc-curator' role in RAGitect.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Create a minimal 'doc-curator' role based on API endpoints."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll list state-changing endpoints and map required scopes from docs/permissions.md."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Enumerate all API endpoints in the api/ directory that modify document state (create, update, delete). For each endpoint, extract the required permission scopes from docs/permissions.md and aggregate those scopes to define a minimal role-based permission set for a 'doc-curator' role (operations allowed, least-privilege justification, and any exceptions) for RAGitect.",
+      "reformulation_trigger": "aggregation",
+      "notes": "Needs to aggregate endpoints and permission docs, producing a minimal RBAC role — multi-document aggregation."
+    },
+    {
+      "id": "complex-016",
+      "query": "Decompose this high-level task: 'Migrate RAGitect to use a new embedding model while preserving search quality' into actionable sub-queries (data migration, A/B testing, rollback plan, cost estimate) and provide the order and dependencies.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Help break down migration to a new embedding model."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll decompose the task into sub-queries and order them."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Decompose the task 'Migrate RAGitect to use a new embedding model while preserving search quality' into actionable sub-queries: (1) evaluate model compatibility with current vector schema, (2) define data migration steps (re-embedding strategy, storage), (3) design A/B test and KPIs for search quality, (4) estimate cost and compute needs, (5) implement rollout and rollback plan, and (6) update docs and monitoring. Provide the execution order, dependencies, and owners for each sub-task.",
+      "reformulation_trigger": "decomposition",
+      "notes": "Decomposition into clear sub-queries with ordering and dependencies; useful for planning complex migrations."
+    },
+    {
+      "id": "complex-017",
+      "query": "Decompose the user intent: 'Enable external partners to query internal docs with redaction and rate limits' into technical tasks and policy checks, then map them to existing docs/ and infra components that must be modified.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "We want external partners to query internal docs with redaction."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll break it down into tasks, policy checks, and components to change."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Decompose the intent 'Enable external partners to query internal docs with redaction and rate limits' into technical tasks (authn/authz, tenant isolation, redaction at ingest/time-of-query, rate-limiting, billing), policy checks (data sharing agreements, PII rules), and map each task to existing documentation files (e.g., docs/privacy/*, docs/ops/*) and infrastructure components (ingest pipeline, proxy, rate-limiter service) that require modification. Provide recommended order and acceptance criteria.",
+      "reformulation_trigger": "decomposition",
+      "notes": "Decomposition across technical and policy dimensions, mapping to docs and infra components — multi-faceted planning."
+    },
+    {
+      "id": "complex-018",
+      "query": "Summarize the different backup/restore approaches documented in docs/backup/ (hot replica, cold snapshot, incremental) and aggregate a recommended SLAs and RTO/RPO values for each approach appropriate to RAGitect's different data tiers (metadata, vectors, raw docs).",
+      "chat_history": [
+        { "role": "user", "content": "Recommend backup SLAs per data tier." },
+        {
+          "role": "assistant",
+          "content": "I'll summarize backup approaches and map SLAs to data tiers."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Summarize the backup and restore approaches in docs/backup/ (hot replica, cold snapshots, incremental backups), and aggregate recommended SLAs including Recovery Time Objective (RTO) and Recovery Point Objective (RPO) values for different RAGitect data tiers: metadata (high criticality), vectors (medium-high), and raw documents (medium). Provide justification and operational trade-offs for each SLA choice.",
+      "reformulation_trigger": "aggregation",
+      "notes": "Aggregation across backup docs with mapping to SLAs per data tier; requires multi-criteria reasoning."
+    },
+    {
+      "id": "complex-019",
+      "query": "Based on docs/cli/usage.md and the set of stored procedures in db/utils/, how would you design a CLI command that performs a safe partial reindex of a specific project namespace while ensuring referential integrity and low service impact?",
+      "chat_history": [
+        { "role": "user", "content": "Design a safe CLI for partial reindex." },
+        {
+          "role": "assistant",
+          "content": "I'll use cli usage docs and DB utilities to propose a command and steps."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Using the CLI design patterns in docs/cli/usage.md and the stored procedures available in db/utils/ (e.g., lock_namespace(), snapshot_index(), enqueue_reindex()), design a CLI command (name, flags, safety checks) that performs a safe partial reindex for a specified project namespace. The design must ensure referential integrity (locking, transaction boundaries), minimize service impact (rate-limited background jobs, maintenance windows), include rollback steps, and specify required preconditions and post-checks.",
+      "reformulation_trigger": "multi_hop",
+      "notes": "Multi-hop across CLI docs and DB utilities to design a safe operational command; includes dependencies and checks."
+    },
+    {
+      "id": "complex-020",
+      "query": "Aggregate the different code documentation styles across docs/style-guide.md, README templates, and examples/; produce a single merged style checklist (headings, code fence language tags, API examples, TOC usage) that can be enforced by a linter for RAGitect.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Create a merged doc style checklist ready for a linter."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll aggregate style-guide, README templates, and examples to produce a checklist."
+        }
+      ],
+      "classification": "complex",
+      "expected_reformulation": "Aggregate documentation styles from docs/style-guide.md, README templates (templates/README.md), and examples/ directory. Produce a single merged, actionable style checklist covering headings hierarchy, required front-matter, code fence language tags, API example formats, table-of-contents usage, link formats, and filename conventions — formatted so it can be implemented as linter rules for RAGitect (rule name, description, and severity).",
+      "reformulation_trigger": "aggregation",
+      "notes": "Aggregation and normalization across multiple style docs into linter-ready checklist; spans templates and examples."
+    },
+    {
+      "id": "edge-001",
+      "query": "What does the `this` keyword do in Java?",
+      "chat_history": [
+        { "role": "user", "content": "I'm learning OOP concepts." },
+        {
+          "role": "assistant",
+          "content": "Object Oriented Programming is a paradigm..."
+        }
+      ],
+      "classification": "Simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "edge_case_type": "false_positive_ambiguous",
+      "notes": "Contains the word 'this', which usually triggers ambiguity, but here it refers to a specific programming keyword, not chat history."
+    },
+    {
+      "id": "edge-002",
+      "query": "Explain this error: `ConnectionRefusedError: [Errno 111]`",
+      "chat_history": [{ "role": "user", "content": "My script is failing." }],
+      "classification": "Simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "edge_case_type": "false_positive_ambiguous",
+      "notes": "Uses 'this' as a demonstrative adjective pointing to the explicit content immediately following it, making the query self-contained."
+    },
+    {
+      "id": "edge-003",
+      "query": "How do I configure `iterm2` on macOS?",
+      "chat_history": [],
+      "classification": "Simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "edge_case_type": "false_positive_ambiguous",
+      "notes": "Contains the substring 'it' (inside 'iterm2'), which a naive tokenizer might flag as a pronoun reference."
+    },
+    {
+      "id": "edge-004",
+      "query": "Is `self` required in Python class methods?",
+      "chat_history": [
+        { "role": "user", "content": "Tell me about C++ classes." }
+      ],
+      "classification": "Simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "edge_case_type": "false_positive_ambiguous",
+      "notes": "'self' looks like a reflexive reference to the user or context, but in Python, it is a specific syntactic requirement."
+    },
+    {
+      "id": "edge-005",
+      "query": "Compare `that` vs `which` in English grammar.",
+      "chat_history": [],
+      "classification": "Simple",
+      "expected_reformulation": null,
+      "reformulation_trigger": null,
+      "edge_case_type": "false_positive_ambiguous",
+      "notes": "The query asks about the words 'that' and 'which' themselves, rather than using them to refer to previous conversation items."
+    },
+    {
+      "id": "edge-006",
+      "query": "Examples?",
+      "chat_history": [
+        { "role": "user", "content": "How does PyTorch handle autograd?" },
+        {
+          "role": "assistant",
+          "content": "It builds a dynamic computational graph..."
+        }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "Give me examples of PyTorch autograd code.",
+      "reformulation_trigger": "Elliptical query",
+      "edge_case_type": "false_negative_ambiguous",
+      "notes": "Extremely short. Contains no pronouns, so simple keyword spotting fails. It is entirely dependent on the previous turn."
+    },
+    {
+      "id": "edge-007",
+      "query": "Why?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "I can't install Arch Linux on this drive."
+        },
+        {
+          "role": "assistant",
+          "content": "It looks like your partition table is MBR, not GPT."
+        }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "Why can't I install Arch Linux on an MBR partition table?",
+      "reformulation_trigger": "Elliptical query",
+      "edge_case_type": "false_negative_ambiguous",
+      "notes": "The shortest possible query. It looks like a philosophical question without context, but strictly asks for the cause of the previous statement."
+    },
+    {
+      "id": "edge-008",
+      "query": "Does it support Wayland?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "I am thinking of switching to Hyprland."
+        },
+        {
+          "role": "assistant",
+          "content": "Hyprland is a dynamic tiling compositor."
+        }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "Does Hyprland support Wayland?",
+      "reformulation_trigger": "it",
+      "edge_case_type": "false_negative_ambiguous",
+      "notes": "Standard ambiguity, but 'Wayland' is a strong keyword that might trick a classifier into thinking the query is specific enough on its own."
+    },
+    {
+      "id": "edge-009",
+      "query": "The second option.",
+      "chat_history": [
+        { "role": "user", "content": "Should I use Neovim or VS Code?" },
+        {
+          "role": "assistant",
+          "content": "Neovim is faster, but VS Code has easier setup."
+        }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "Tell me more about VS Code.",
+      "reformulation_trigger": "second option",
+      "edge_case_type": "false_negative_ambiguous",
+      "notes": "Ordinal reference. Looks like a simple statement of fact, but is actually a request for information about an entity in history."
+    },
+    {
+      "id": "edge-010",
+      "query": "Deployment settings.",
+      "chat_history": [
+        { "role": "user", "content": "I finished my Flask app." },
+        { "role": "assistant", "content": "Great! Are you ready to host it?" }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "What are the deployment settings for a Flask app?",
+      "reformulation_trigger": "Elliptical noun phrase",
+      "edge_case_type": "false_negative_ambiguous",
+      "notes": "Noun phrase fragment. Users often type keywords rather than full sentences. Needs context to know WHAT we are deploying."
+    },
+    {
+      "id": "edge-011",
+      "query": "Show me the logs.",
+      "chat_history": [
+        { "role": "user", "content": "My docker container crashed." },
+        { "role": "assistant", "content": "You should check the output." }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "Show me the logs for the crashed docker container.",
+      "reformulation_trigger": "the logs",
+      "edge_case_type": "borderline",
+      "notes": "Borderline. Could be interpreted as a general command 'how to view logs', or specific to the container. Given the history, it's likely specific."
+    },
+    {
+      "id": "edge-012",
+      "query": "Is the config file valid?",
+      "chat_history": [
+        { "role": "user", "content": "I edited /etc/nginx/nginx.conf" },
+        { "role": "assistant", "content": "Did you restart the service?" }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "Is the syntax of /etc/nginx/nginx.conf valid?",
+      "reformulation_trigger": "the config file",
+      "edge_case_type": "borderline",
+      "notes": "Borderline. 'The config file' is a definite reference, but in many RAG systems, the user might be asking the LLM to validate the *text they are about to paste*, or the file mentioned in history."
+    },
+    {
+      "id": "edge-013",
+      "query": "What are the requirements?",
+      "chat_history": [
+        { "role": "user", "content": "I want to install TensorFlow." }
+      ],
+      "classification": "Ambiguous",
+      "expected_reformulation": "What are the system requirements for TensorFlow?",
+      "reformulation_trigger": "requirements",
+      "edge_case_type": "borderline",
+      "notes": "Could be a general question (what are requirements in software engineering?) or specific (TF requirements). Context makes it specific."
+    },
+    {
+      "id": "edge-014",
+      "query": "Compare it with PyTorch and list the pros and cons.",
+      "chat_history": [
+        { "role": "user", "content": "I've been using TensorFlow for a while." }
+      ],
+      "classification": "Complex",
+      "expected_reformulation": "Compare TensorFlow with PyTorch and list the pros and cons.",
+      "reformulation_trigger": "it",
+      "edge_case_type": "conflict",
+      "notes": "Conflict: Ambiguous (needs 'it' resolved to TF) + Complex (Comparison + List format). Usually, 'Complex' or 'Ambiguous' logic must take precedence. Here, resolving ambiguity is the prerequisite for the complex task."
+    },
+    {
+      "id": "edge-015",
+      "query": "If I delete that, will it break the system dependency tree?",
+      "chat_history": [
+        { "role": "user", "content": "Can I remove python-pip?" }
+      ],
+      "classification": "Complex",
+      "expected_reformulation": "If I delete python-pip, will it break the system dependency tree?",
+      "reformulation_trigger": "that",
+      "edge_case_type": "conflict",
+      "notes": "Conflict: Ambiguous ('that') + Complex (Hypothetical reasoning). Requires multi-hop reasoning after entity resolution."
+    }
+  ]
+}

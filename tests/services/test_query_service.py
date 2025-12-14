@@ -1,85 +1,16 @@
 """Tests for query_service.py"""
 
+from unittest.mock import AsyncMock, patch
 import pytest
 
 from ragitect.services.query_service import (
-    _should_reformulate,
-    _extract_reformulated_query,
-    _validate_reformulated_query,
     format_chat_history,
     _build_reformulation_prompt,
+    adaptive_query_processing,
+    reformulate_query_with_chat_history,
 )
 
-
-class TestShouldReformulate:
-    """Test query reformulation decision logic"""
-
-    def test_returns_false_for_empty_history(self):
-        assert _should_reformulate("What is FastAPI?", []) is False
-
-    def test_returns_false_for_single_word_query(self):
-        history = [{"role": "user", "content": "Tell me about Python"}]
-        assert _should_reformulate("explain", history) is False
-
-    def test_returns_false_for_very_long_query(self):
-        history = [{"role": "user", "content": "Previous question"}]
-        long_query = " ".join(["word"] * 51)
-        assert _should_reformulate(long_query, history) is False
-
-    def test_returns_true_for_normal_query_with_history(self):
-        history = [
-            {"role": "user", "content": "What is Python?"},
-            {"role": "assistant", "content": "Python is a programming language."},
-        ]
-        assert _should_reformulate("How do I install it?", history) is True
-
-    def test_returns_true_for_multi_word_short_query(self):
-        history = [{"role": "user", "content": "Previous context"}]
-        assert _should_reformulate("tell me more", history) is True
-
-
-class TestExtractReformulatedQuery:
-    """Test reformulated query extraction logic"""
-
-    def test_removes_common_prefix_reformulated_query(self):
-        response = "Reformulated Query: How do I install FastAPI?"
-        result = _extract_reformulated_query(response)
-        assert result == "How do I install FastAPI?"
-
-    def test_removes_prefix_reformulated(self):
-        response = "Reformulated: Show me examples"
-        result = _extract_reformulated_query(response)
-        assert result == "Show me examples"
-
-    def test_removes_prefix_query(self):
-        response = "Query: What is async?"
-        result = _extract_reformulated_query(response)
-        assert result == "What is async?"
-
-    def test_removes_verbose_prefix(self):
-        response = "Here's the reformulated query: Explain Python decorators"
-        result = _extract_reformulated_query(response)
-        assert result == "Explain Python decorators"
-
-    def test_removes_surrounding_quotes(self):
-        response = '"How do I use async functions?"'
-        result = _extract_reformulated_query(response)
-        assert result == "How do I use async functions?"
-
-    def test_handles_single_quotes(self):
-        response = "'What is FastAPI?'"
-        result = _extract_reformulated_query(response)
-        assert result == "What is FastAPI?"
-
-    def test_handles_clean_response(self):
-        response = "What is the difference between async and sync?"
-        result = _extract_reformulated_query(response)
-        assert result == "What is the difference between async and sync?"
-
-    def test_strips_whitespace(self):
-        response = "   Reformulated Query:   How to use decorators?   "
-        result = _extract_reformulated_query(response)
-        assert result == "How to use decorators?"
+pytestmark = [pytest.mark.asyncio]
 
 
 class TestFormatChatHistory:
@@ -176,119 +107,133 @@ class TestBuildReformulationPrompt:
         assert len(prompt) < 600, f"Prompt too long: {len(prompt)} chars"
         assert "Example" not in prompt, "Prompt should not contain few-shot examples"
 
-
-class TestValidateReformulatedQuery:
-    """Test output validation for reformulated queries (Phase 1 Hotfix)"""
-
-    # Valid queries (should return True)
-    def test_accepts_valid_question_with_question_mark(self):
-        assert _validate_reformulated_query("What is FastAPI?") is True
-
-    def test_accepts_valid_how_to_question(self):
-        assert _validate_reformulated_query("How do I install FastAPI?") is True
-
-    def test_accepts_valid_explain_query(self):
-        assert _validate_reformulated_query("Explain Python decorators") is True
-
-    def test_accepts_valid_when_should_query(self):
-        assert (
-            _validate_reformulated_query("When should I use async functions in Python?")
-            is True
+    def test_prompt_instructs_no_prefixes(self):
+        """Phase 2: Verify prompt tells LLM not to use prefixes"""
+        prompt = _build_reformulation_prompt(
+            "test query", "<chat_history>\n</chat_history>"
         )
 
-    def test_accepts_short_query_without_question_mark(self):
-        # Short queries without periods are acceptable
-        assert _validate_reformulated_query("Python async functions") is True
+        # Check for anti-prefix instructions
+        assert "no label" in prompt.lower() or "no prefix" in prompt.lower()
+        assert "directly" in prompt.lower() or "only" in prompt.lower()
 
-    # Invalid queries (should return False - answer patterns)
-    def test_rejects_answer_with_because(self):
-        assert (
-            _validate_reformulated_query(
-                "You should use async functions because they are faster for I/O operations."
+
+class TestAdaptiveQueryProcessing:
+    """Test adaptive query processing based on complexity classification"""
+
+    async def test_simple_query_returns_original(self):
+        """Simple query with no history returns original query unchanged"""
+        mock_llm = AsyncMock()
+        user_query = "What is Python?"
+        chat_history = []
+
+        result = await adaptive_query_processing(mock_llm, user_query, chat_history)
+
+        assert result == user_query
+        mock_llm.assert_not_called()  # No LLM call for simple queries
+
+    async def test_ambiguous_query_triggers_reformulation(self):
+        """Query with pronoun and history triggers reformulation"""
+        mock_llm = AsyncMock()
+        user_query = "How do I install it?"
+        chat_history = [{"role": "user", "content": "Tell me about FastAPI"}]
+
+        with patch(
+            "ragitect.services.query_service.reformulate_query_with_chat_history"
+        ) as mock_reformulate:
+            mock_reformulate.return_value = "How do I install FastAPI?"
+
+            result = await adaptive_query_processing(mock_llm, user_query, chat_history)
+
+            assert result == "How do I install FastAPI?"
+            mock_reformulate.assert_called_once_with(mock_llm, user_query, chat_history)
+
+    async def test_complex_query_triggers_reformulation(self):
+        """Comparison query triggers reformulation"""
+        mock_llm = AsyncMock()
+        user_query = "Compare FastAPI vs Flask"
+        chat_history = []
+
+        with patch(
+            "ragitect.services.query_service.reformulate_query_with_chat_history"
+        ) as mock_reformulate:
+            mock_reformulate.return_value = "Compare FastAPI vs Flask for web APIs"
+
+            result = await adaptive_query_processing(mock_llm, user_query, chat_history)
+
+            assert result == "Compare FastAPI vs Flask for web APIs"
+            mock_reformulate.assert_called_once()
+
+
+class TestReformulateQueryWithChatHistory:
+    """Test query reformulation with chat history"""
+
+    async def test_reformulates_query_successfully(self):
+        """Successfully reformulates query using LLM"""
+        mock_llm = AsyncMock()
+        user_query = "How do I install it?"
+        chat_history = [{"role": "user", "content": "Tell me about FastAPI"}]
+
+        with patch("ragitect.services.query_service.generate_response") as mock_gen:
+            mock_gen.return_value = "How do I install FastAPI?"
+
+            result = await reformulate_query_with_chat_history(
+                mock_llm, user_query, chat_history
             )
-            is False
-        )
 
-    def test_rejects_answer_with_this_means(self):
-        assert (
-            _validate_reformulated_query(
-                "This means that decorators modify function behavior using the @ syntax."
+            assert result == "How do I install FastAPI?"
+            mock_gen.assert_called_once()
+
+    async def test_returns_original_on_empty_response(self):
+        """Returns original query when LLM returns empty response"""
+        mock_llm = AsyncMock()
+        user_query = "How do I install it?"
+        chat_history = [{"role": "user", "content": "Tell me about FastAPI"}]
+
+        with patch("ragitect.services.query_service.generate_response") as mock_gen:
+            mock_gen.return_value = "   "  # Whitespace only
+
+            result = await reformulate_query_with_chat_history(
+                mock_llm, user_query, chat_history
             )
-            is False
-        )
 
-    def test_rejects_answer_with_it_is(self):
-        assert (
-            _validate_reformulated_query(
-                "It is a modern Python web framework for building APIs."
+            assert result == user_query
+
+    async def test_returns_original_on_exception(self):
+        """Returns original query when LLM raises exception"""
+        mock_llm = AsyncMock()
+        user_query = "How do I install it?"
+        chat_history = [{"role": "user", "content": "Tell me about FastAPI"}]
+
+        with patch("ragitect.services.query_service.generate_response") as mock_gen:
+            mock_gen.side_effect = Exception("LLM API error")
+
+            result = await reformulate_query_with_chat_history(
+                mock_llm, user_query, chat_history
             )
-            is False
-        )
 
-    def test_rejects_definitional_answer(self):
-        assert (
-            _validate_reformulated_query(
-                "FastAPI is a modern Python web framework for building APIs with automatic validation."
-            )
-            is False
-        )
+            assert result == user_query
 
-    def test_rejects_long_statement_without_question(self):
-        # Long statement (>80 chars), no question words, ends with period
-        assert (
-            _validate_reformulated_query(
-                "Decorators are special functions that wrap other functions to modify their behavior without changing the source code directly."
-            )
-            is False
-        )
+    async def test_limits_history_to_10_messages(self):
+        """Limits history to last 10 messages for token efficiency"""
+        mock_llm = AsyncMock()
+        user_query = "What is that?"
+        # Create 15 messages
+        chat_history = [{"role": "user", "content": f"Message {i}"} for i in range(15)]
 
-    def test_rejects_statement_form_answer(self):
-        # Capital start, >5 words, ends with period, no question words
-        assert (
-            _validate_reformulated_query(
-                "Python uses the async and await keywords for asynchronous programming."
-            )
-            is False
-        )
+        with patch("ragitect.services.query_service.generate_response") as mock_gen:
+            mock_gen.return_value = "What is that thing you mentioned?"
 
-    # Edge cases
-    def test_rejects_empty_string(self):
-        assert _validate_reformulated_query("") is False
+            with patch(
+                "ragitect.services.query_service.format_chat_history"
+            ) as mock_format:
+                mock_format.return_value = "<chat_history></chat_history>"
 
-    def test_rejects_whitespace_only(self):
-        assert _validate_reformulated_query("   ") is False
+                await reformulate_query_with_chat_history(
+                    mock_llm, user_query, chat_history
+                )
 
-    def test_accepts_query_with_is_a_but_has_question_mark(self):
-        # "is a" is okay if it's part of a question
-        assert _validate_reformulated_query("What is a Python decorator?") is True
-
-    def test_accepts_long_query_with_question_words(self):
-        # Long text is okay if it has question words
-        assert (
-            _validate_reformulated_query(
-                "How do I configure FastAPI to use async database connections with SQLAlchemy and handle connection pooling?"
-            )
-            is True
-        )
-
-    def test_rejects_you_should_pattern(self):
-        assert (
-            _validate_reformulated_query(
-                "You should use Pydantic models for validation."
-            )
-            is False
-        )
-
-    def test_rejects_you_can_pattern(self):
-        assert (
-            _validate_reformulated_query(
-                "You can install it using pip install fastapi."
-            )
-            is False
-        )
-
-    def test_accepts_command_style_query(self):
-        # Imperative queries are valid
-        assert (
-            _validate_reformulated_query("Show examples of Python decorators") is True
-        )
+                # Should only pass last 10 messages
+                call_args = mock_format.call_args[0][0]
+                assert len(call_args) == 10
+                assert call_args[0]["content"] == "Message 5"  # First of last 10

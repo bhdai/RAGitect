@@ -19,7 +19,6 @@ from langchain_community.chat_models import ChatOllama
 
 from ragitect.services.query_service import (
     _build_reformulation_prompt,
-    _validate_reformulated_query,
     format_chat_history,
     reformulate_query_with_chat_history,
 )
@@ -131,10 +130,10 @@ class TestRealLLMComparison:
         """
         results = []
         total_latency = 0
-        validation_failures = 0
+        empty_outputs = 0
 
         print("\n" + "=" * 80)
-        print("REAL LLM COMPARISON TEST - Phase 1 Simplified Prompt")
+        print("REAL LLM COMPARISON TEST - Phase 2 Simplified Prompt")
         print("=" * 80)
 
         for idx, test_case in enumerate(REAL_LLM_TEST_QUERIES, 1):
@@ -149,31 +148,31 @@ class TestRealLLMComparison:
             )
             latency = (time.time() - start_time) * 1000
 
-            # Validate output
-            is_valid = _validate_reformulated_query(reformulated)
+            # Check if output is non-empty (Phase 2: we accept any output)
+            has_output = bool(reformulated and reformulated.strip())
 
             print(f"  Original:     {query}")
             print(f"  Reformulated: {reformulated}")
             print(f"  Latency:      {latency:.2f}ms")
-            print(f"  Validation:   {'✓ PASS' if is_valid else '✗ FAIL'}")
+            print(f"  Has Output:   {'✓ YES' if has_output else '✗ EMPTY'}")
 
             results.append(
                 {
                     "query": query,
                     "reformulated": reformulated,
                     "latency_ms": latency,
-                    "validation_passed": is_valid,
+                    "has_output": has_output,
                 }
             )
 
             total_latency += latency
-            if not is_valid:
-                validation_failures += 1
+            if not has_output:
+                empty_outputs += 1
 
         # Summary
         avg_latency = total_latency / len(REAL_LLM_TEST_QUERIES)
-        validation_pass_rate = (
-            (len(REAL_LLM_TEST_QUERIES) - validation_failures)
+        output_rate = (
+            (len(REAL_LLM_TEST_QUERIES) - empty_outputs)
             / len(REAL_LLM_TEST_QUERIES)
             * 100
         )
@@ -183,8 +182,8 @@ class TestRealLLMComparison:
         print("=" * 80)
         print(f"Total queries tested: {len(REAL_LLM_TEST_QUERIES)}")
         print(f"Average latency: {avg_latency:.2f}ms")
-        print(f"Validation pass rate: {validation_pass_rate:.1f}%")
-        print(f"Validation failures: {validation_failures}")
+        print(f"Output success rate: {output_rate:.1f}%")
+        print(f"Empty outputs: {empty_outputs}")
         print("=" * 80)
 
         # Calculate prompt metrics
@@ -202,11 +201,9 @@ class TestRealLLMComparison:
         )
         print("=" * 80)
 
-        # Phase 1 success criteria
-        assert validation_pass_rate >= 90, (
-            f"Validation pass rate too low: {validation_pass_rate}%"
-        )
-        print("\n✅ Phase 1 Hotfix: Output validation working correctly")
+        # Success criteria: should get output for 90%+ queries
+        assert output_rate >= 90, f"Output success rate too low: {output_rate}%"
+        print("\n✅ Phase 2 Simplification: Output generation working correctly")
 
     async def test_prompt_reduction_measurement(self, ollama_llm):
         """Measure prompt token reduction achieved in Phase 1"""
