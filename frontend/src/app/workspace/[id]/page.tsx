@@ -1,9 +1,12 @@
 /**
- * Workspace detail page
+ * Workspace detail page - Three-panel layout
  * 
- * Displays a single workspace with document upload, listing, viewing,
- * and delete functionality. Implements a side-by-side layout with
- * document viewer panel (FR9).
+ * Displays a single workspace with:
+ * - Left sidebar (280px): Document upload and listing
+ * - Center panel (flex): Chat interface (placeholder for Story 3.1)
+ * - Right panel (700px, conditional): Document viewer
+ * 
+ * Story 3.0: Streaming Infrastructure - AC3, AC4, AC5
  */
 
 'use client';
@@ -12,12 +15,11 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { IngestionDropzone } from '@/components/IngestionDropzone';
-import { UploadProgress, type Upload } from '@/components/UploadProgress';
-import { DocumentList } from '@/components/DocumentList';
+import { DocumentSidebar } from '@/components/DocumentSidebar';
+import { ChatPanel } from '@/components/ChatPanel';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { DeleteDocumentDialog } from '@/components/DeleteDocumentDialog';
+import type { Upload } from '@/components/UploadProgress';
 import { getWorkspace } from '@/lib/api';
 import { uploadDocuments, getDocumentStatus, deleteDocument, type Document } from '@/lib/documents';
 import { toast } from 'sonner';
@@ -278,78 +280,53 @@ export default function WorkspacePage() {
 
   return (
     <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
-      {/* Fixed header */}
-      <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-        <div className="px-4 py-4 sm:px-6 lg:px-8">
-          <Link 
-            href="/"
-            className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-          >
-            ← Back to Dashboard
-          </Link>
-        </div>
-      </div>
-
-      {/* Main content: flex row with scrollable sections */}
-      <div className="flex-1 flex min-h-0">
-        {/* Main content area - scrollable */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-            {/* Workspace info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">{workspace.name}</CardTitle>
-                {workspace.description && (
-                  <CardDescription className="text-base">
-                    {workspace.description}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="text-sm text-muted-foreground">
-                  <p>Created: {new Date(workspace.createdAt).toLocaleDateString()}</p>
-                  <p>Last updated: {new Date(workspace.updatedAt).toLocaleDateString()}</p>
-                </div>
-                
-                {/* Document upload section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Documents</h3>
-                  
-                  {/* Upload progress */}
-                  {uploads.length > 0 && (
-                    <UploadProgress
-                      uploads={uploads}
-                      onCancel={handleCancel}
-                      onRetry={handleRetry}
-                    />
-                  )}
-
-                  {/* Dropzone */}
-                  <IngestionDropzone
-                    workspaceId={workspace.id}
-                    onFilesSelected={handleFilesSelected}
-                    onUploadComplete={handleUploadComplete}
-                    onUploadError={handleUploadError}
-                  />
-
-                  {/* Document list */}
-                  <div className="mt-6">
-                    <DocumentList
-                      workspaceId={workspace.id}
-                      onSelectDocument={handleSelectDocument}
-                      onDeleteDocument={handleDeleteDocument}
-                      refreshTrigger={documentListRefresh}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      {/* Fixed header with workspace info */}
+      <header className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+        <div className="px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/"
+              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              ← Back to Dashboard
+            </Link>
+            <div className="hidden sm:block h-4 w-px bg-zinc-300 dark:bg-zinc-700" />
+            <div className="hidden sm:block">
+              <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                {workspace.name}
+              </h1>
+            </div>
           </div>
+          {workspace.description && (
+            <p className="hidden md:block text-sm text-muted-foreground max-w-md truncate">
+              {workspace.description}
+            </p>
+          )}
         </div>
+      </header>
 
-        {/* Document viewer panel (conditionally rendered) - has its own scrolling */}
+      {/* Main content: three-panel layout */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left: Document Sidebar (280px, scrollable) */}
+        <DocumentSidebar
+          workspaceId={workspace.id}
+          onSelectDocument={handleSelectDocument}
+          onDeleteDocument={handleDeleteDocument}
+          refreshTrigger={documentListRefresh}
+          uploads={uploads}
+          onFilesSelected={handleFilesSelected}
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+          onCancelUpload={handleCancel}
+          onRetryUpload={handleRetry}
+        />
+
+        {/* Center: Chat Panel (flex-1, scrollable) */}
+        <ChatPanel workspaceId={workspace.id} />
+
+        {/* Right: Document Viewer (700px, conditional) */}
         {selectedDocumentId && (
-          <div className="w-[700px] flex-shrink-0">
+          <div className="w-[700px] flex-shrink-0 border-l border-zinc-200 dark:border-zinc-800">
             <DocumentViewer
               documentId={selectedDocumentId}
               onClose={handleCloseViewer}
