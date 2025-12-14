@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -54,12 +55,12 @@ def _classify_query_complexity(
     is_complex = any(pattern in query_lower for pattern in complex_patterns)
 
     if is_complex:
-        logger.debug(f"Query classified as complex: '{user_query[:50]}...'")
+        logger.debug("Query classified as complex")
         return "complex"
 
     # No chat history = simple query (no context to resolve)
     if not chat_history:
-        logger.debug(f"Query classified as simple (no history): '{user_query[:50]}...'")
+        logger.debug("Query classified as simple (no history)")
         return "simple"
 
     # Check for pronouns that need resolution (ambiguous)
@@ -76,11 +77,11 @@ def _classify_query_complexity(
     has_context_ref = any(ref in query_lower for ref in context_refs)
 
     if has_pronouns or has_context_ref:
-        logger.debug(f"Query classified as ambiguous: '{user_query[:50]}...'")
+        logger.debug("Query classified as ambiguous")
         return "ambiguous"
 
     # Default to simple if no ambiguous markers found
-    logger.debug(f"Query classified as simple: '{user_query[:50]}...'")
+    logger.debug("Query classified as simple")
     return "simple"
 
 
@@ -173,7 +174,7 @@ Relevant:"""
         grade = response.strip().lower()
         is_relevant = grade == "yes" or grade.startswith("yes")
 
-        logger.info(f"Relevance grade: {grade} for query: '{query[:50]}...'")
+        logger.info(f"Relevance grade: {grade}")
         return is_relevant
 
     except Exception as e:
@@ -184,17 +185,29 @@ Relevant:"""
 def log_query_metrics(metadata: dict) -> None:
     """Log query metrics in structured JSON format for analysis.
 
+    Sanitizes PII by excluding raw query text from logs.
+    Only logs non-sensitive metrics: classification, timing, flags.
+
     Args:
         metadata: Dictionary containing query processing metrics
     """
-    logger.info(f"QUERY_METRICS: {json.dumps(metadata)}")
+    # Sanitize: exclude raw query text (PII/privacy concern)
+    safe_metadata = {
+        "classification": metadata.get("classification"),
+        "used_reformulation": metadata.get("used_reformulation"),
+        "grade": metadata.get("grade"),
+        "latency_ms": metadata.get("latency_ms"),
+        "original_query_length": len(metadata.get("original_query", "")),
+        "final_query_length": len(metadata.get("final_query", "")),
+    }
+    logger.info(f"QUERY_METRICS: {json.dumps(safe_metadata)}")
 
 
 async def query_with_iterative_fallback(
     llm_model: BaseChatModel,
     user_query: str,
     chat_history: list[dict[str, str]],
-    vector_search_fn: callable,
+    vector_search_fn: Callable,
 ) -> tuple[list[str], dict]:
     """Query with automatic fallback to reformulation if needed.
 
@@ -278,8 +291,8 @@ async def query_with_iterative_fallback(
 def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     """Build a simplified prompt for query reformulation
 
-    Phase 1 Hotfix: Reduced from ~2350 chars to ~400 chars (83% reduction)
-    Removed few-shot examples that were causing LLM confusion.
+    Phase 2 Simplification: Robust prompt that instructs LLM to output
+    only the reformulated query with no prefixes, labels, or quotes.
 
     Args:
         user_query: the current user query to reformulate
@@ -288,131 +301,22 @@ def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     Returns:
         str: complete prompt for the LLM
     """
-    # Simplified prompt - direct instructions only, no examples
     prompt = f"""Reformulate this query to be self-contained for semantic search.
 
 Rules:
 1. Replace pronouns (it/that/this) with their referents from history
 2. Add essential context to make the query standalone
 3. Keep it concise (1-2 sentences max)
-4. Output ONLY the reformulated query
+4. Output ONLY the reformulated query - no labels, prefixes, or quotes
+5. Do NOT start with "Reformulated:" or "Query:" - just output the query directly
 
 History:
 {formatted_history}
 
 Query: {user_query}
-Reformulated:"""
+"""
 
     return prompt
-
-
-def _extract_reformulated_query(llm_response: str) -> str:
-    response = llm_response.strip()
-
-    # remove common prefixes
-    prefixes_to_remove = [
-        "Reformulated Query:",
-        "Reformulated:",
-        "Query:",
-        "Here's the reformulated query:",
-        "The reformulated query is:",
-    ]
-
-    for prefix in prefixes_to_remove:
-        if response.startswith(prefix):
-            response = response[len(prefix) :].strip()
-            break
-
-    # remove quotes if the entire response is wrapped in them
-    if response.startswith(('"', "'")) and response.endswith(('"', "'")):
-        response = response[1:-1].strip()
-
-    return response
-
-
-def _validate_reformulated_query(query: str) -> bool:
-    """Validate that LLM output is a query, not an answer
-
-    Uses heuristic-based detection to catch common patterns where the LLM
-    generates an answer instead of reformulating the query.
-
-    Phase 1 Hotfix: Added to prevent answer generation bug.
-
-    Args:
-        query: The reformulated query string to validate
-
-    Returns:
-        bool: True if valid query, False if appears to be an answer
-
-    Examples of INVALID outputs (returns False):
-        - "FastAPI is a modern Python web framework for building APIs."
-        - "You should use async functions because they are faster."
-        - "This means that decorators modify function behavior."
-
-    Examples of VALID outputs (returns True):
-        - "What is FastAPI?"
-        - "How do I use async functions in Python?"
-        - "Explain Python decorators"
-    """
-    if not query or not query.strip():
-        return False
-
-    query_lower = query.lower().strip()
-
-    # Pattern 1: Explanation markers (strong signal of answer)
-    answer_markers = [
-        "because",
-        "this means",
-        "it is",
-        "they are",
-        "it works by",
-        "you should",
-        "you can",
-        "you need to",
-        "this is",
-        "that is",
-    ]
-    for marker in answer_markers:
-        if marker in query_lower:
-            logger.warning(
-                f"Validation failed: answer marker '{marker}' detected in output"
-            )
-            return False
-
-    # Pattern 2: Definitional structure (subject + "is a" + definition)
-    # Example: "FastAPI is a modern framework..."
-    if " is a " in query_lower or " are " in query_lower:
-        # Check if it's a statement form (no question mark, ends with period)
-        if "?" not in query and query.endswith("."):
-            logger.warning(
-                "Validation failed: definitional structure detected (is a/are + period)"
-            )
-            return False
-
-    # Pattern 3: Long statement without question markers
-    # Heuristic: >80 chars, no question words, ends with period = likely answer
-    question_words = ["what", "how", "why", "when", "where", "which", "who", "explain"]
-    has_question_word = any(word in query_lower for word in question_words)
-
-    if len(query) > 80 and not has_question_word and query.endswith("."):
-        logger.warning(
-            "Validation failed: long statement without question markers (>80 chars, no question words, ends with period)"
-        )
-        return False
-
-    # Pattern 4: Starts with capital statement (not question form)
-    # Example: "Decorators are functions..." vs "What are decorators?"
-    if query.endswith(".") and not has_question_word and query[0].isupper():
-        # Check if it looks like a statement sentence
-        words = query.split()
-        if len(words) > 5:  # Long enough to be a statement
-            logger.warning(
-                "Validation failed: statement form detected (capital start, >5 words, ends with period, no question words)"
-            )
-            return False
-
-    # Passed all validation checks
-    return True
 
 
 async def reformulate_query_with_chat_history(
@@ -438,7 +342,7 @@ async def reformulate_query_with_chat_history(
         str: the reformulated query string (or original on failure)
     """
     start_time = time.time()
-    logger.info(f"Reformulating query: {user_query}")
+    logger.info("Starting query reformulation")
 
     try:
         # limit the history to last 10 messages for token efficiency
@@ -459,33 +363,21 @@ async def reformulate_query_with_chat_history(
         llm_response = await generate_response(llm_model, messages=[human_message])
         llm_latency = (time.time() - llm_start) * 1000
 
-        reformulated = _extract_reformulated_query(llm_response)
-        logger.debug(f"Extracted query: '{reformulated}'")
+        # Phase 2: Accept LLM output directly (answers work as queries too)
+        reformulated = llm_response.strip()
+        logger.debug(f"Reformulated query length: {len(reformulated)} chars")
 
-        # Phase 1: Validate output to catch answer generation
-        validation_passed = _validate_reformulated_query(reformulated)
-
-        if not reformulated or not reformulated.strip() or not validation_passed:
-            if not reformulated or not reformulated.strip():
-                reason = "empty_response"
-                logger.warning("LLM returned empty reformulated query - using original")
-            else:
-                reason = "validation_failed"
-                logger.warning(
-                    f"Validation failed for reformulated query: '{reformulated}' - using original"
-                )
-
-            # Log metrics for failed validation
+        if not reformulated:
+            logger.warning("LLM returned empty reformulated query - using original")
             metrics = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "query_length": len(user_query),
                 "reformulated": False,
-                "reason": reason,
+                "reason": "empty_response",
                 "latency_ms": (time.time() - start_time) * 1000,
                 "llm_latency_ms": llm_latency,
                 "prompt_length": prompt_length,
                 "estimated_tokens": estimated_tokens,
-                "validation_passed": validation_passed,
             }
             logger.info(f"QueryMetrics: {json.dumps(metrics)}")
             return user_query
@@ -500,11 +392,10 @@ async def reformulate_query_with_chat_history(
             "llm_latency_ms": llm_latency,
             "prompt_length": prompt_length,
             "estimated_tokens": estimated_tokens,
-            "validation_passed": True,
             "output_length": len(reformulated),
         }
         logger.info(f"QueryMetrics: {json.dumps(metrics)}")
-        logger.info(f"Successfully reformulated: '{user_query}' -> '{reformulated}'")
+        logger.info("Successfully reformulated query")
         return reformulated
 
     except Exception as e:
