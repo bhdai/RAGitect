@@ -1,40 +1,216 @@
 /**
- * Chat panel placeholder for Story 3.1
- * 
- * Shows "Chat coming soon" message until full chat functionality
- * is implemented. Takes remaining space in the three-panel layout.
- * 
- * Story 3.0: Streaming Infrastructure - AC3
+ * Chat panel for natural language querying of documents
+ *
+ * Story 3.1: Natural Language Querying
+ * - Uses Vercel AI SDK useChat hook for native streaming support
+ * - Supports future COT/citation features via message.parts
+ *
+ * Migrated from custom useChat hook to @ai-sdk/react
  */
 
 'use client';
 
-import { MessageSquare } from 'lucide-react';
+import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import ReactMarkdown from 'react-markdown';
+import { ArrowUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface ChatPanelProps {
-  /** Workspace ID for future chat operations */
+  /** Workspace ID for chat operations */
   workspaceId: string;
 }
 
 /**
- * Placeholder chat panel for the workspace three-panel layout.
- * 
- * Will be implemented with full chat functionality in Story 3.1.
- * For now, displays a centered message indicating the feature is coming.
+ * Chat panel component using Vercel AI SDK.
+ *
+ * Provides:
+ * - Native streaming support via AI SDK Data Stream Protocol
+ * - Message parts rendering for future COT/citation support
+ * - Auto-scroll and loading states
  */
 export function ChatPanel({ workspaceId }: ChatPanelProps) {
-  // workspaceId will be used in Story 3.1 for actual chat functionality
-  void workspaceId;
+  const [inputValue, setInputValue] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { messages, status, sendMessage, error } = useChat({
+    id: `workspace-${workspaceId}`,
+    transport: new DefaultChatTransport({
+      api: `${API_URL}/api/v1/workspaces/${workspaceId}/chat/stream`,
+      // Transform AI SDK message format to backend's ChatRequest format
+      prepareSendMessagesRequest: ({ messages }) => {
+        // Get the last user message as the current message
+        const lastMessage = messages[messages.length - 1];
+        const messageText =
+          lastMessage?.parts
+            ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+            .map((p) => p.text)
+            .join('') || '';
+
+        // Build chat history from previous messages (excluding the current one)
+        const chatHistory = messages.slice(0, -1).map((m) => ({
+          role: m.role,
+          content:
+            m.parts
+              ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+              .map((p) => p.text)
+              .join('') || '',
+        }));
+
+        return {
+          body: {
+            message: messageText,
+            chat_history: chatHistory,
+          },
+        };
+      },
+    }),
+  });
+
+  const isLoading = status === 'streaming' || status === 'submitted';
+  // Only show thinking indicator when submitted but not yet streaming
+  const showThinkingIndicator = status === 'submitted';
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim() || isLoading) return;
+
+    const message = inputValue.trim();
+    setInputValue('');
+    await sendMessage({ text: message });
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e as unknown as FormEvent);
+    }
+  };
 
   return (
     <div
       data-testid="chat-panel"
-      className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 overflow-y-auto"
+      className="flex-1 flex flex-col min-h-0 bg-zinc-50 dark:bg-zinc-900 overflow-hidden"
     >
-      <div className="text-center text-muted-foreground">
-        <MessageSquare className="mx-auto h-12 w-12 mb-4 opacity-50" />
-        <p className="text-lg font-medium">Chat with your documents</p>
-        <p className="text-sm mt-1">Coming in Story 3.1</p>
+      {/* Messages area - must have explicit height constraints for scroll */}
+      <ScrollArea ref={scrollRef} className="flex-1 min-h-0">
+        {messages.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground p-4">
+            <p>Ask a question about your documents...</p>
+          </div>
+        ) : (
+          <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  'flex flex-col gap-1',
+                  message.role === 'user' ? 'items-end' : 'items-start'
+                )}
+              >
+                {/* Role label */}
+                <span className="text-xs font-medium text-muted-foreground px-1">
+                  {message.role === 'user' ? 'You' : 'Assistant'}
+                </span>
+
+                {/* Message content - bubble for user, full width for assistant */}
+                {message.role === 'user' ? (
+                  <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground rounded-br-md">
+                    {message.parts.map((part, idx) => {
+                      if (part.type === 'text') {
+                        return (
+                          <p key={idx} className="whitespace-pre-wrap text-sm">
+                            {part.text}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    {message.parts.map((part, idx) => {
+                      if (part.type === 'text') {
+                        return (
+                          <div
+                            key={idx}
+                            className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-3 prose-ul:my-2 prose-ol:my-2"
+                          >
+                            <ReactMarkdown>{part.text}</ReactMarkdown>
+                          </div>
+                        );
+                      }
+                      // Future: Handle 'reasoning' parts for chain-of-thought
+                      // Future: Handle 'source-document' parts for citations
+                      return null;
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Animated thinking indicator - only show before streaming starts */}
+            {showThinkingIndicator && (
+              <div className="flex flex-col gap-1 items-start" data-testid="thinking-indicator">
+                <span className="text-xs font-medium text-muted-foreground px-1">
+                  Assistant
+                </span>
+                <div className="flex gap-1.5 items-center h-5 px-1">
+                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" />
+                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:150ms]" />
+                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Error message */}
+      {error && (
+        <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm">
+          {error.message}
+        </div>
+      )}
+
+      {/* Input area - floating at bottom */}
+      <div className="p-4 pb-6 bg-gradient-to-t from-zinc-50 via-zinc-50 to-transparent dark:from-zinc-900 dark:via-zinc-900 pointer-events-none">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto pointer-events-auto">
+          <div className="relative flex items-end rounded-2xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 shadow-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+            <Textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message RAGitect..."
+              className="min-h-[52px] max-h-40 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-14 py-3.5 pl-4 rounded-2xl"
+              disabled={isLoading}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              className="absolute right-2 bottom-2 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 disabled:opacity-100 transition-colors"
+              disabled={!inputValue.trim() || isLoading}
+            >
+              <ArrowUp className="h-5 w-5" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 font-mono text-[10px]">Enter</kbd> to send
+          </p>
+        </form>
       </div>
     </div>
   );

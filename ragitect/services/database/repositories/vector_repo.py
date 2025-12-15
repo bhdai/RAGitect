@@ -51,16 +51,22 @@ class VectorRepository:
         k: int = 10,
         similarity_threshold: float = 0.0,
     ) -> list[tuple[DocumentChunk, float]]:
-        """Search for similar chunks using cosine similarity.
+        """Search for similar chunks using cosine distance.
+
+        Note:
+            Returns cosine DISTANCE (not similarity). Lower values = more similar.
+            Distance range: [0.0, 2.0] where 0.0 = identical, 2.0 = opposite.
+            To convert to similarity: similarity = 1.0 - distance
 
         Args:
             workspace_id: Workspace to search within
             query_vector: Query embedding vector (768 dims)
             k: Number of results to return
             similarity_threshold: Minimum similarity threshold (0.0-1.0)
+                Internally converted to distance: distance <= (1.0 - threshold)
 
         Returns:
-            List of (DocumentChunk, similarity_score) tuples ordered by similarity.
+            List of (DocumentChunk, cosine_distance) tuples ordered by distance (ascending).
 
         Raises:
             ValidationError: If query_vector dimension is invalid
@@ -115,16 +121,21 @@ class VectorRepository:
         k: int = 5,
         similarity_threshold: float = 0.0,
     ) -> list[tuple[Document, float]]:
-        """Search for similar documents using document-level embedding
+        """Search for similar documents using document-level embedding.
+
+        Note:
+            Returns cosine DISTANCE (not similarity). Lower values = more similar.
+            Distance range: [0.0, 2.0] where 0.0 = identical, 2.0 = opposite.
 
         Args:
             workspace_id: workspace to search within
             query_vector: Query embedding vector (768 dims)
             k: Number of results to return
             similarity_threshold: Minimum similarity threshold (0.0-1.0)
+                Internally converted to distance: distance <= (1.0 - threshold)
 
         Returns:
-            List of (Document, similarity_score) tuples ordered by similarity.
+            List of (Document, cosine_distance) tuples ordered by distance (ascending).
 
         Raises:
             ValidationError: If query_vector dimension is invalid
@@ -234,8 +245,8 @@ class VectorRepository:
         chunks_with_score = [(chunk, float(distance)) for chunk, distance in results]
 
         logger.debug(
-            f"Found {len(chunks_with_score)} similar chunks in document {document_id} "
-            + f"(workspace={document_id}, k={k}, threshold={similarity_threshold})"
+            f"Found {len(chunks_with_score)} similar chunks "
+            + f"(document_id={document_id}, k={k}, threshold={similarity_threshold})"
         )
 
         return chunks_with_score

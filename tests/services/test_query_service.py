@@ -92,8 +92,8 @@ class TestBuildReformulationPrompt:
         assert "reformulate" in prompt.lower() or "reformulated" in prompt.lower()
         assert "Rules:" in prompt or "rules:" in prompt.lower()
 
-    def test_simplified_prompt_is_shorter(self):
-        """Phase 1: Verify prompt is significantly shorter than baseline"""
+    def test_prompt_includes_guardrails(self):
+        """Verify prompt includes research-backed guardrails against over-reformulation"""
         user_query = "How do I use it?"
         formatted_history = """<chat_history>
 <message role="user">What is FastAPI?</message>
@@ -102,10 +102,12 @@ class TestBuildReformulationPrompt:
 
         prompt = _build_reformulation_prompt(user_query, formatted_history)
 
-        # New prompt should be ~400 chars (vs baseline ~2350 chars)
-        # Allow some variance for history content
-        assert len(prompt) < 600, f"Prompt too long: {len(prompt)} chars"
-        assert "Example" not in prompt, "Prompt should not contain few-shot examples"
+        # Check for critical guardrails (research-backed)
+        assert "SELF-CONTAINED" in prompt or "self-contained" in prompt
+        assert "UNCHANGED" in prompt or "unchanged" in prompt
+        assert "NEVER" in prompt  # Never add info not in history
+        # Examples help LLM understand when NOT to reformulate
+        assert "Example" in prompt or "example" in prompt
 
     def test_prompt_instructs_no_prefixes(self):
         """Phase 2: Verify prompt tells LLM not to use prefixes"""
