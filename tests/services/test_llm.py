@@ -370,7 +370,7 @@ class TestGetActiveLLMConfig:
         )
 
         with patch(
-            "ragitect.services.llm_config_service.get_active_config"
+            "ragitect.services.llm_factory.get_active_config"
         ) as mock_get_active:
             mock_get_active.return_value = active_config
 
@@ -389,7 +389,7 @@ class TestGetActiveLLMConfig:
         mock_session = AsyncMock()
 
         with patch(
-            "ragitect.services.llm_config_service.get_active_config"
+            "ragitect.services.llm_factory.get_active_config"
         ) as mock_get_active:
             mock_get_active.return_value = None
 
@@ -407,7 +407,7 @@ class TestGetActiveLLMConfig:
         mock_session = AsyncMock()
 
         with patch(
-            "ragitect.services.llm_config_service.get_active_config"
+            "ragitect.services.llm_factory.get_active_config"
         ) as mock_get_active:
             mock_get_active.side_effect = Exception("Database error")
 
@@ -431,7 +431,7 @@ class TestGetActiveLLMConfig:
         )
 
         with patch(
-            "ragitect.services.llm_config_service.get_active_config"
+            "ragitect.services.llm_factory.get_active_config"
         ) as mock_get_active:
             mock_get_active.return_value = active_config
 
@@ -459,8 +459,10 @@ class TestCreateLLMFromDB:
         )
 
         with (
-            patch("ragitect.services.llm.get_active_llm_config") as mock_get_config,
-            patch("ragitect.services.llm.create_llm") as mock_create,
+            patch(
+                "ragitect.services.llm_factory.get_active_llm_config"
+            ) as mock_get_config,
+            patch("ragitect.services.llm_factory.create_llm") as mock_create,
         ):
             mock_get_config.return_value = test_config
             mock_llm = MagicMock()
@@ -479,8 +481,10 @@ class TestCreateLLMFromDB:
         mock_session = AsyncMock()
 
         with (
-            patch("ragitect.services.llm.get_active_llm_config") as mock_get_config,
-            patch("ragitect.services.llm.create_llm") as mock_create,
+            patch(
+                "ragitect.services.llm_factory.get_active_llm_config"
+            ) as mock_get_config,
+            patch("ragitect.services.llm_factory.create_llm") as mock_create,
         ):
             # Return default config
             mock_get_config.return_value = LLMConfig()

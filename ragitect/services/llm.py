@@ -9,22 +9,32 @@ import logging
 import time
 from collections.abc import AsyncGenerator, Sequence
 from enum import Enum
-from typing import TYPE_CHECKING
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_litellm import ChatLiteLLM
 
-from ragitect.services.config import LLMConfig, get_default_config
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+from ragitect.services.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
 
 class LLMProvider(str, Enum):
-    """Supported LLM providers."""
+    """Supported LLM providers.
+
+    Note:
+        This enum is defined for type-safe provider validation but is not
+        currently enforced in LLMConfig.provider (which uses raw strings).
+
+        The enum exists as a reference for valid provider values and can be
+        used for validation in future iterations. Converting LLMConfig to use
+        this enum would require updates to:
+        - ragitect/services/config.py (LLMConfig dataclass)
+        - Database layer (provider storage/retrieval)
+        - All code creating LLMConfig instances
+
+        For now, provider strings are validated by LiteLLM at runtime.
+    """
 
     OLLAMA = "ollama"
     OPENAI = "openai"
@@ -245,60 +255,30 @@ async def generate_response_with_prompt(
 
 
 # =============================================================================
-# Database Integration
+# Database Integration - Re-exports from llm_factory
 # =============================================================================
 
+# These functions are re-exported from llm_factory.py to avoid circular imports.
+# The actual implementation lives in llm_factory.py which can safely import from
+# both llm.py and llm_config_service.py.
+#
+# Import chain:
+#   llm_config_service.py -> llm.py (for validate_llm_config)
+#   llm_factory.py -> llm.py (for create_llm)
+#   llm_factory.py -> llm_config_service.py (for get_active_config)
 
-async def get_active_llm_config(session: "AsyncSession") -> LLMConfig:
-    """Load active LLM configuration from database.
+from ragitect.services.llm_factory import (  # noqa: E402
+    create_llm_from_db,
+    get_active_llm_config,
+)
 
-    Falls back to default Ollama config if no active config exists.
-
-    Args:
-        session: Async database session
-
-    Returns:
-        LLMConfig: Configuration from DB or default
-    """
-    # Import here to avoid circular dependency
-    # TODO: Consider restructuring to eliminate this
-    from ragitect.services.llm_config_service import get_active_config
-
-    try:
-        config = await get_active_config(session)
-
-        if config:
-            provider = config.provider_name
-            config_data = config.config_data
-
-            logger.info(f"Using active LLM config: {provider}")
-
-            return LLMConfig(
-                provider=provider,
-                model=config_data.get("model", "llama3.1:8b"),
-                temperature=config_data.get("temperature", 0.7),
-                base_url=config_data.get("base_url"),
-                api_key=config_data.get("api_key"),
-                max_tokens=config_data.get("max_tokens"),
-                timeout=config_data.get("timeout", 60),
-            )
-
-        logger.info("No active LLM config found, using default")
-        return get_default_config()
-
-    except Exception as e:
-        logger.warning(f"Failed to load LLM config from DB: {e}, using default")
-        return get_default_config()
-
-
-async def create_llm_from_db(session: "AsyncSession") -> BaseChatModel:
-    """Create LLM model using active database configuration.
-
-    Args:
-        session: Async database session
-
-    Returns:
-        BaseChatModel: Configured LangChain chat model
-    """
-    config = await get_active_llm_config(session)
-    return await create_llm(config)
+__all__ = [
+    "LLMProvider",
+    "create_llm",
+    "create_llm_from_db",
+    "generate_response",
+    "generate_response_stream",
+    "generate_response_with_prompt",
+    "get_active_llm_config",
+    "validate_llm_config",
+]
