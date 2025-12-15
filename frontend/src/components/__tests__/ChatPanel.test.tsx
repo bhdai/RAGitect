@@ -1,35 +1,70 @@
 /**
- * Tests for ChatPanel component
+ * Tests for ChatPanel component with Vercel AI SDK
  *
  * Story 3.0: Streaming Infrastructure - AC3
  * Story 3.1: Natural Language Querying - AC1, AC4
+ *
+ * These tests mock the @ai-sdk/react useChat hook
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ChatPanel } from '../ChatPanel';
 
-// Mock the useChat hook
-vi.mock('@/hooks/useChat', () => ({
+// Mock the @ai-sdk/react useChat hook
+vi.mock('@ai-sdk/react', () => ({
   useChat: vi.fn(),
 }));
 
-import { useChat } from '@/hooks/useChat';
+// Mock the ai package for DefaultChatTransport
+vi.mock('ai', () => ({
+  DefaultChatTransport: class MockDefaultChatTransport {
+    constructor() { }
+  },
+}));
+
+import { useChat } from '@ai-sdk/react';
+
+/** Helper to create mock useChat return value */
+function createMockUseChatReturn(overrides: {
+  messages?: unknown[];
+  status?: string;
+  error?: Error | undefined;
+  sendMessage?: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    messages: overrides.messages ?? [],
+    status: overrides.status ?? 'ready',
+    error: overrides.error,
+    sendMessage: overrides.sendMessage ?? vi.fn(),
+    setMessages: vi.fn(),
+    reload: vi.fn(),
+    regenerate: vi.fn(),
+    stop: vi.fn(),
+    resumeStream: vi.fn(),
+    addToolResult: vi.fn(),
+    addToolOutput: vi.fn(),
+    clearError: vi.fn(),
+    input: '',
+    setInput: vi.fn(),
+    handleSubmit: vi.fn(),
+    handleInputChange: vi.fn(),
+    isLoading: overrides.status === 'streaming' || overrides.status === 'submitted',
+    data: undefined,
+    metadata: undefined,
+    id: 'test',
+  } as unknown as ReturnType<typeof useChat>;
+}
 
 describe('ChatPanel', () => {
   const mockSendMessage = vi.fn();
-  const mockClearMessages = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useChat).mockReturnValue({
-      messages: [],
-      isLoading: false,
-      error: null,
+    vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
       sendMessage: mockSendMessage,
-      clearMessages: mockClearMessages,
-    });
+    }));
   });
 
   it('renders the chat panel with input', () => {
@@ -50,30 +85,38 @@ describe('ChatPanel', () => {
   });
 
   it('renders user messages', () => {
-    vi.mocked(useChat).mockReturnValue({
-      messages: [{ role: 'user', content: 'Hello there!' }],
-      isLoading: false,
-      error: null,
+    vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Hello there!' }],
+        },
+      ],
       sendMessage: mockSendMessage,
-      clearMessages: mockClearMessages,
-    });
+    }));
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
     expect(screen.getByText('Hello there!')).toBeInTheDocument();
   });
 
-  it('renders assistant messages', () => {
-    vi.mocked(useChat).mockReturnValue({
+  it('renders assistant messages with parts', () => {
+    vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
       messages: [
-        { role: 'user', content: 'What is Python?' },
-        { role: 'assistant', content: 'Python is a programming language.' },
+        {
+          id: 'msg-1',
+          role: 'user',
+          parts: [{ type: 'text', text: 'What is Python?' }],
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'Python is a programming language.' }],
+        },
       ],
-      isLoading: false,
-      error: null,
       sendMessage: mockSendMessage,
-      clearMessages: mockClearMessages,
-    });
+    }));
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
@@ -83,17 +126,18 @@ describe('ChatPanel', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows loading indicator when processing', () => {
-    vi.mocked(useChat).mockReturnValue({
+  it('shows loading indicator when streaming', () => {
+    vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
       messages: [
-        { role: 'user', content: 'Hello' },
-        { role: 'assistant', content: '' },
+        {
+          id: 'msg-1',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Hello' }],
+        },
       ],
-      isLoading: true,
-      error: null,
+      status: 'streaming',
       sendMessage: mockSendMessage,
-      clearMessages: mockClearMessages,
-    });
+    }));
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
@@ -101,13 +145,11 @@ describe('ChatPanel', () => {
   });
 
   it('shows error message when error occurs', () => {
-    vi.mocked(useChat).mockReturnValue({
-      messages: [],
-      isLoading: false,
-      error: 'Connection failed',
+    vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
+      status: 'error',
+      error: new Error('Connection failed'),
       sendMessage: mockSendMessage,
-      clearMessages: mockClearMessages,
-    });
+    }));
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
@@ -126,7 +168,7 @@ describe('ChatPanel', () => {
     const submitButton = screen.getByRole('button');
     await user.click(submitButton);
 
-    expect(mockSendMessage).toHaveBeenCalledWith('What is RAG?');
+    expect(mockSendMessage).toHaveBeenCalledWith({ text: 'What is RAG?' });
   });
 
   it('sends message when Enter key is pressed', async () => {
@@ -138,7 +180,7 @@ describe('ChatPanel', () => {
     const input = screen.getByPlaceholderText(/ask a question/i);
     await user.type(input, 'Hello{Enter}');
 
-    expect(mockSendMessage).toHaveBeenCalledWith('Hello');
+    expect(mockSendMessage).toHaveBeenCalledWith({ text: 'Hello' });
   });
 
   it('does not send empty messages', async () => {
@@ -152,14 +194,11 @@ describe('ChatPanel', () => {
     expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
-  it('disables input when loading', () => {
-    vi.mocked(useChat).mockReturnValue({
-      messages: [],
-      isLoading: true,
-      error: null,
+  it('disables input when streaming', () => {
+    vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
+      status: 'streaming',
       sendMessage: mockSendMessage,
-      clearMessages: mockClearMessages,
-    });
+    }));
 
     render(<ChatPanel workspaceId="test-workspace" />);
 

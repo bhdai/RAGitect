@@ -46,34 +46,74 @@ class ChatRequest(BaseModel):
 async def format_sse_stream(
     chunks: AsyncGenerator[str, None],
 ) -> AsyncGenerator[str, None]:
-    """Format LLM chunks as SSE events for Vercel AI SDK.
+    """Format LLM chunks as AI SDK Data Stream Protocol events.
+
+    Implements the Vercel AI SDK UI Message Stream Protocol v1 for
+    compatibility with @ai-sdk/react useChat hook.
+
+    Protocol format:
+    - data: {"type": "start", "messageId": "..."}
+    - data: {"type": "text-start", "id": "..."}
+    - data: {"type": "text-delta", "id": "...", "delta": "..."}
+    - data: {"type": "text-end", "id": "..."}
+    - data: {"type": "finish", "finishReason": "stop"}
 
     Args:
         chunks: Async generator yielding response chunks
 
     Yields:
-        SSE formatted strings: "data: {...}\\n\\n"
+        SSE formatted strings following Data Stream Protocol
     """
+    import uuid
+
+    message_id = str(uuid.uuid4())
+    text_id = str(uuid.uuid4())
+
+    # Message start
+    yield f"data: {json.dumps({'type': 'start', 'messageId': message_id})}\n\n"
+
+    # Text block start
+    yield f"data: {json.dumps({'type': 'text-start', 'id': text_id})}\n\n"
+
+    # Stream text deltas
     async for chunk in chunks:
-        yield f"data: {json.dumps({'text': chunk})}\n\n"
-    yield "data: [DONE]\n\n"
+        yield f"data: {json.dumps({'type': 'text-delta', 'id': text_id, 'delta': chunk})}\n\n"
+
+    # Text block end
+    yield f"data: {json.dumps({'type': 'text-end', 'id': text_id})}\n\n"
+
+    # Finish message
+    yield f"data: {json.dumps({'type': 'finish', 'finishReason': 'stop'})}\n\n"
 
 
 async def empty_workspace_response() -> AsyncGenerator[str, None]:
-    """Return SSE stream for empty workspace message.
+    """Return SSE stream for empty workspace message using AI SDK protocol.
 
     Returns helpful message when user queries a workspace with no documents.
     Story 3.1: Natural Language Querying - AC6
 
     Yields:
-        SSE formatted message about uploading documents
+        SSE formatted message following Data Stream Protocol
     """
+    import uuid
+
     message = (
         "I don't have any documents to search in this workspace. "
         "Please upload some documents first to start asking questions about them."
     )
-    yield f"data: {json.dumps({'text': message})}\n\n"
-    yield "data: [DONE]\n\n"
+    message_id = str(uuid.uuid4())
+    text_id = str(uuid.uuid4())
+
+    # Message start
+    yield f"data: {json.dumps({'type': 'start', 'messageId': message_id})}\n\n"
+
+    # Text block with full message
+    yield f"data: {json.dumps({'type': 'text-start', 'id': text_id})}\n\n"
+    yield f"data: {json.dumps({'type': 'text-delta', 'id': text_id, 'delta': message})}\n\n"
+    yield f"data: {json.dumps({'type': 'text-end', 'id': text_id})}\n\n"
+
+    # Finish message
+    yield f"data: {json.dumps({'type': 'finish', 'finishReason': 'stop'})}\n\n"
 
 
 async def retrieve_context(
@@ -262,6 +302,7 @@ async def chat_stream(
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
+                "x-vercel-ai-ui-message-stream": "v1",
             },
         )
 
@@ -296,6 +337,7 @@ async def chat_stream(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "X-Accel-Buffering": "no",
+            "x-vercel-ai-ui-message-stream": "v1",
         },
     )

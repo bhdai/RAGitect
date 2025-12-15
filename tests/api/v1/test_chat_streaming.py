@@ -151,8 +151,10 @@ class TestChatStreamEndpoint:
         # SSE format: "data: {...}\n\n"
         content = response.text
         assert "data:" in content
-        # Should contain [DONE] at the end
-        assert "[DONE]" in content
+        # AI SDK Data Stream Protocol: should have type-based message parts
+        assert '"type": "text-delta"' in content or '"type":"text-delta"' in content
+        # Should end with finish message instead of [DONE]
+        assert '"type": "finish"' in content or '"type":"finish"' in content
 
     async def test_invalid_workspace_returns_404(self, async_client, mocker):
         """Test 404 for non-existent workspace."""
