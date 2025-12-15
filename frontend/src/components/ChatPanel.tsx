@@ -13,7 +13,8 @@
 import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { Send, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -73,6 +74,8 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
   });
 
   const isLoading = status === 'streaming' || status === 'submitted';
+  // Only show thinking indicator when submitted but not yet streaming
+  const showThinkingIndicator = status === 'submitted';
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -103,44 +106,73 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
       className="flex-1 flex flex-col min-h-0 bg-zinc-50 dark:bg-zinc-900 overflow-hidden"
     >
       {/* Messages area - must have explicit height constraints for scroll */}
-      <ScrollArea ref={scrollRef} className="flex-1 min-h-0 p-4">
+      <ScrollArea ref={scrollRef} className="flex-1 min-h-0">
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
+          <div className="h-full flex items-center justify-center text-muted-foreground p-4">
             <p>Ask a question about your documents...</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={cn(
-                  'p-3 rounded-lg max-w-[80%]',
-                  message.role === 'user'
-                    ? 'ml-auto bg-primary text-primary-foreground'
-                    : 'bg-muted'
+                  'flex flex-col gap-1',
+                  message.role === 'user' ? 'items-end' : 'items-start'
                 )}
               >
-                {/* Render message parts - supports future COT/citation via parts */}
-                {message.parts.map((part, idx) => {
-                  switch (part.type) {
-                    case 'text':
-                      return (
-                        <p key={idx} className="whitespace-pre-wrap">
-                          {part.text}
-                        </p>
-                      );
-                    // Future: Handle 'reasoning' parts for chain-of-thought
-                    // Future: Handle 'source-document' parts for citations
-                    default:
+                {/* Role label */}
+                <span className="text-xs font-medium text-muted-foreground px-1">
+                  {message.role === 'user' ? 'You' : 'Assistant'}
+                </span>
+
+                {/* Message content - bubble for user, full width for assistant */}
+                {message.role === 'user' ? (
+                  <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground rounded-br-md">
+                    {message.parts.map((part, idx) => {
+                      if (part.type === 'text') {
+                        return (
+                          <p key={idx} className="whitespace-pre-wrap text-sm">
+                            {part.text}
+                          </p>
+                        );
+                      }
                       return null;
-                  }
-                })}
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    {message.parts.map((part, idx) => {
+                      if (part.type === 'text') {
+                        return (
+                          <div
+                            key={idx}
+                            className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-3 prose-ul:my-2 prose-ol:my-2"
+                          >
+                            <ReactMarkdown>{part.text}</ReactMarkdown>
+                          </div>
+                        );
+                      }
+                      // Future: Handle 'reasoning' parts for chain-of-thought
+                      // Future: Handle 'source-document' parts for citations
+                      return null;
+                    })}
+                  </div>
+                )}
               </div>
             ))}
-            {isLoading && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Thinking...</span>
+
+            {/* Animated thinking indicator - only show before streaming starts */}
+            {showThinkingIndicator && (
+              <div className="flex flex-col gap-1 items-start" data-testid="thinking-indicator">
+                <span className="text-xs font-medium text-muted-foreground px-1">
+                  Assistant
+                </span>
+                <div className="flex gap-1.5 items-center h-5 px-1">
+                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" />
+                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:150ms]" />
+                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:300ms]" />
+                </div>
               </div>
             )}
           </div>
@@ -154,28 +186,32 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
         </div>
       )}
 
-      {/* Input area */}
-      <form onSubmit={handleSubmit} className="border-t p-4 flex gap-2">
-        <Textarea
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask a question about your documents..."
-          className="min-h-[44px] max-h-32 resize-none"
-          disabled={isLoading}
-        />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={!inputValue.trim() || isLoading}
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-        </Button>
-      </form>
+      {/* Input area - floating at bottom */}
+      <div className="p-4 pb-6 bg-gradient-to-t from-zinc-50 via-zinc-50 to-transparent dark:from-zinc-900 dark:via-zinc-900 pointer-events-none">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto pointer-events-auto">
+          <div className="relative flex items-end rounded-2xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 shadow-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+            <Textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message RAGitect..."
+              className="min-h-[52px] max-h-40 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-14 py-3.5 pl-4 rounded-2xl"
+              disabled={isLoading}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              className="absolute right-2 bottom-2 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 disabled:opacity-100 transition-colors"
+              disabled={!inputValue.trim() || isLoading}
+            >
+              <ArrowUp className="h-5 w-5" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 font-mono text-[10px]">Enter</kbd> to send
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

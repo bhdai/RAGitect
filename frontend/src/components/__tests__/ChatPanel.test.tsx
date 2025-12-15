@@ -72,7 +72,7 @@ describe('ChatPanel', () => {
 
     expect(screen.getByTestId('chat-panel')).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText(/ask a question/i)
+      screen.getByPlaceholderText(/message ragitect/i)
     ).toBeInTheDocument();
   });
 
@@ -126,7 +126,7 @@ describe('ChatPanel', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows loading indicator when streaming', () => {
+  it('shows loading indicator when submitted', () => {
     vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
       messages: [
         {
@@ -135,13 +135,13 @@ describe('ChatPanel', () => {
           parts: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      status: 'streaming',
+      status: 'submitted',
       sendMessage: mockSendMessage,
     }));
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    expect(screen.getByText(/thinking/i)).toBeInTheDocument();
+    expect(screen.getByTestId('thinking-indicator')).toBeInTheDocument();
   });
 
   it('shows error message when error occurs', () => {
@@ -162,7 +162,7 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    const input = screen.getByPlaceholderText(/ask a question/i);
+    const input = screen.getByPlaceholderText(/message ragitect/i);
     await user.type(input, 'What is RAG?');
 
     const submitButton = screen.getByRole('button');
@@ -177,7 +177,7 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    const input = screen.getByPlaceholderText(/ask a question/i);
+    const input = screen.getByPlaceholderText(/message ragitect/i);
     await user.type(input, 'Hello{Enter}');
 
     expect(mockSendMessage).toHaveBeenCalledWith({ text: 'Hello' });
@@ -202,7 +202,7 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    const input = screen.getByPlaceholderText(/ask a question/i);
+    const input = screen.getByPlaceholderText(/message ragitect/i);
     expect(input).toBeDisabled();
   });
 
