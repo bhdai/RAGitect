@@ -2,6 +2,7 @@
  * Tests for chat API client
  * 
  * Story 3.0: Streaming Infrastructure - AC2
+ * Story 3.1: Natural Language Querying - AC5 (chat_history)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -34,7 +35,35 @@ describe('streamChatResponse', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Hello' }),
+        body: JSON.stringify({ message: 'Hello', chat_history: [] }),
+      })
+    );
+  });
+
+  it('includes chat history in request body', async () => {
+    const mockResponse = new Response('data: {"text":"Response"}\n\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+    mockFetch.mockResolvedValue(mockResponse);
+
+    const history: ChatMessage[] = [
+      { role: 'user', content: 'First message' },
+      { role: 'assistant', content: 'First response' },
+    ];
+
+    await streamChatResponse('workspace-123', 'Second message', history);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({
+          message: 'Second message',
+          chat_history: [
+            { role: 'user', content: 'First message' },
+            { role: 'assistant', content: 'First response' },
+          ],
+        }),
       })
     );
   });

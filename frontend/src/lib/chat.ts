@@ -26,25 +26,33 @@ export interface ChatMessage {
  * 
  * @param workspaceId - The workspace to query documents from
  * @param message - The user's message to process
+ * @param chatHistory - Previous messages for context (Story 3.1)
  * @returns Response object with SSE stream
  * 
  * @example
  * ```ts
- * const response = await streamChatResponse(workspaceId, message);
+ * const response = await streamChatResponse(workspaceId, message, history);
  * const reader = response.body?.getReader();
  * // Process SSE chunks...
  * ```
  */
 export async function streamChatResponse(
   workspaceId: string,
-  message: string
+  message: string,
+  chatHistory: ChatMessage[] = []
 ): Promise<Response> {
   const response = await fetch(
     `${API_URL}/api/v1/workspaces/${workspaceId}/chat/stream`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message,
+        chat_history: chatHistory.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      }),
     }
   );
   return response;
