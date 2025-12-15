@@ -289,10 +289,12 @@ async def query_with_iterative_fallback(
 
 
 def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
-    """Build a simplified prompt for query reformulation
+    """Build a guarded prompt for query reformulation.
 
-    Phase 2 Simplification: Robust prompt that instructs LLM to output
-    only the reformulated query with no prefixes, labels, or quotes.
+    Uses research-backed guardrails to prevent over-reformulation:
+    - Returns query unchanged if already self-contained
+    - Only replaces pronouns that genuinely need history context
+    - Never adds information not explicitly in history
 
     Args:
         user_query: the current user query to reformulate
@@ -301,20 +303,27 @@ def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     Returns:
         str: complete prompt for the LLM
     """
-    prompt = f"""Reformulate this query to be self-contained for semantic search.
+    prompt = f"""You are a query preprocessor for semantic search. Your task is to make queries self-contained when needed.
 
-Rules:
-1. Replace pronouns (it/that/this) with their referents from history
-2. Add essential context to make the query standalone
-3. Keep it concise (1-2 sentences max)
-4. Output ONLY the reformulated query - no labels, prefixes, or quotes
-5. Do NOT start with "Reformulated:" or "Query:" - just output the query directly
+CRITICAL RULES:
+1. If the query is ALREADY SELF-CONTAINED, OUTPUT IT UNCHANGED
+   - Example: "What is Quickshell and how do I install it?" → The "it" refers to "Quickshell" in the same sentence, so OUTPUT UNCHANGED
+   - Example: "Tell me about Python and its features" → The "its" refers to "Python" in the same sentence, so OUTPUT UNCHANGED
 
-History:
+2. ONLY replace pronouns if they refer to something from PREVIOUS CONVERSATION TURNS that cannot be understood from the current query alone
+   - Example: Previous: "Tell me about FastAPI" → Current: "How do I install it?" → "it" refers to FastAPI from history, so reformulate to "How do I install FastAPI?"
+
+3. NEVER add information that is not explicitly stated in the conversation history
+4. NEVER invent or assume context - only use what is clearly present
+5. Keep reformulated queries concise (1-2 sentences max)
+6. Output ONLY the query (original or reformulated) - no labels, prefixes, explanations, or quotes
+
+Conversation History:
 {formatted_history}
 
-Query: {user_query}
-"""
+Current Query: {user_query}
+
+Output:"""
 
     return prompt
 
