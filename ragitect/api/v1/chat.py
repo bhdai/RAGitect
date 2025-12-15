@@ -19,7 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragitect.services.database.connection import get_async_session
 from ragitect.services.database.repositories.workspace_repo import WorkspaceRepository
-from ragitect.services.llm import create_llm_from_db, generate_response_stream
+from ragitect.services.llm import generate_response_stream
+from ragitect.services.llm_factory import create_llm_from_db
 
 logger = logging.getLogger(__name__)
 

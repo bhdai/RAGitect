@@ -254,31 +254,11 @@ async def generate_response_with_prompt(
     return await generate_response(llm_model, messages)
 
 
-# =============================================================================
-# Database Integration - Re-exports from llm_factory
-# =============================================================================
-
-# These functions are re-exported from llm_factory.py to avoid circular imports.
-# The actual implementation lives in llm_factory.py which can safely import from
-# both llm.py and llm_config_service.py.
-#
-# Import chain:
-#   llm_config_service.py -> llm.py (for validate_llm_config)
-#   llm_factory.py -> llm.py (for create_llm)
-#   llm_factory.py -> llm_config_service.py (for get_active_config)
-
-from ragitect.services.llm_factory import (  # noqa: E402
-    create_llm_from_db,
-    get_active_llm_config,
-)
-
 __all__ = [
     "LLMProvider",
     "create_llm",
-    "create_llm_from_db",
     "generate_response",
     "generate_response_stream",
     "generate_response_with_prompt",
-    "get_active_llm_config",
     "validate_llm_config",
 ]

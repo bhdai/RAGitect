@@ -20,12 +20,14 @@ from ragitect.services.database.models import LLMProviderConfig
 from ragitect.services.llm import (
     _build_litellm_kwargs,
     create_llm,
-    create_llm_from_db,
     generate_response,
     generate_response_stream,
     generate_response_with_prompt,
-    get_active_llm_config,
     validate_llm_config,
+)
+from ragitect.services.llm_factory import (
+    create_llm_from_db,
+    get_active_llm_config,
 )
 
 pytestmark = [pytest.mark.asyncio]

@@ -40,6 +40,10 @@ from ragitect.services.llm import (
     generate_response_with_prompt,
     validate_llm_config,
 )
+from ragitect.services.llm_factory import (
+    create_llm_from_db,
+    get_active_llm_config,
+)
 
 # Query service
 from ragitect.services.query_service import (
@@ -61,9 +65,11 @@ __all__ = [
     # LLM
     "LLMProvider",
     "create_llm",
+    "create_llm_from_db",
     "generate_response",
     "generate_response_stream",
     "generate_response_with_prompt",
+    "get_active_llm_config",
     "validate_llm_config",
     # Query service
     "format_chat_history",
