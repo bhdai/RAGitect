@@ -13,11 +13,11 @@
 import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import ReactMarkdown from 'react-markdown';
 import { ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { MessageResponse } from '@/components/ai-elements/message';
 import { cn } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -150,42 +150,12 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
                   <div className="w-full">
                     {message.parts.map((part, idx) => {
                       if (part.type === 'text') {
+                        // Using AI Elements MessageResponse for proper markdown rendering
+                        // with syntax highlighting and copy-to-clipboard on code blocks
                         return (
-                          <div
-                            key={idx}
-                            className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-3 prose-ul:my-2 prose-ol:my-2"
-                          >
-                            <ReactMarkdown
-                              components={{
-                                // Custom code block with overflow handling
-                                pre: ({ children }) => (
-                                  <pre className="overflow-x-auto rounded-lg bg-zinc-900 dark:bg-zinc-950 p-4 text-sm">
-                                    {children}
-                                  </pre>
-                                ),
-                                // Inline code styling
-                                code: ({ className, children, ...props }) => {
-                                  // Check if it's a code block (has language class) or inline
-                                  const isInline = !className;
-                                  if (isInline) {
-                                    return (
-                                      <code className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-mono" {...props}>
-                                        {children}
-                                      </code>
-                                    );
-                                  }
-                                  // Code block content
-                                  return (
-                                    <code className="block text-zinc-100 font-mono whitespace-pre" {...props}>
-                                      {children}
-                                    </code>
-                                  );
-                                },
-                              }}
-                            >
-                              {part.text}
-                            </ReactMarkdown>
-                          </div>
+                          <MessageResponse key={idx}>
+                            {part.text}
+                          </MessageResponse>
                         );
                       }
                       // Future: Handle 'reasoning' parts for chain-of-thought
