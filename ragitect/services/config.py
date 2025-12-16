@@ -26,6 +26,9 @@ DEFAULT_SIMILARITY_THRESHOLD: float = float(
 )
 DEFAULT_RETRIEVAL_K: int = int(os.getenv("DEFAULT_RETRIEVAL_K", "10"))
 
+# Encryption key for API key storage (required for cloud LLM providers)
+ENCRYPTION_KEY: str | None = os.getenv("ENCRYPTION_KEY")
+
 
 @dataclass
 class LLMConfig:

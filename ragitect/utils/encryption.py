@@ -10,7 +10,9 @@ from cryptography.fernet import Fernet
 
 
 def get_encryption_key() -> bytes:
-    """Get encryption key from environment variable.
+    """Get encryption key from environment.
+
+    Reads ENCRYPTION_KEY dynamically from os.environ to support test patching.
 
     Returns:
         bytes: Encryption key

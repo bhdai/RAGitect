@@ -65,7 +65,12 @@ async def get_active_llm_config(session: "AsyncSession") -> LLMConfig:
         return get_default_config()
 
     except Exception as e:
-        logger.warning(f"Failed to load LLM config from DB: {e}, using default")
+        import traceback
+
+        logger.warning(
+            f"Failed to load LLM config from DB: {type(e).__name__}: {e!r}\n"
+            f"Traceback:\n{traceback.format_exc()}"
+        )
         return get_default_config()
 
 

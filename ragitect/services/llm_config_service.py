@@ -1,6 +1,7 @@
 """Service layer for LLM provider configuration management."""
 
 import asyncio
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -11,6 +12,138 @@ from ragitect.services.config import LLMConfig
 from ragitect.services.database.models import EmbeddingProviderConfig, LLMProviderConfig
 from ragitect.services.llm import validate_llm_config
 from ragitect.utils.encryption import decrypt_value, encrypt_value
+
+
+@dataclass
+class LLMConfigDTO:
+    """Read-only DTO for LLM configuration with decrypted API key.
+
+    This is a data transfer object that provides a clean separation between
+    the ORM model (which stores encrypted data) and the runtime representation
+    (which has decrypted values for use). This prevents accidental write-back
+    of decrypted values to the database.
+
+    Attributes:
+        id: Unique identifier
+        provider_name: Provider name (ollama, openai, anthropic)
+        config_data: Configuration data with decrypted api_key
+        is_active: Whether this config is active
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+    """
+
+    id: Any
+    provider_name: str
+    config_data: dict[str, Any]
+    is_active: bool
+    created_at: Any
+    updated_at: Any
+
+    # Convenience properties for common access patterns
+    @property
+    def model_name(self) -> str | None:
+        """Get model name from config_data."""
+        return self.config_data.get("model")
+
+    @property
+    def api_key(self) -> str | None:
+        """Get decrypted API key from config_data."""
+        return self.config_data.get("api_key")
+
+    @property
+    def base_url(self) -> str | None:
+        """Get base URL from config_data."""
+        return self.config_data.get("base_url")
+
+    @classmethod
+    def from_orm(cls, config: LLMProviderConfig) -> "LLMConfigDTO":
+        """Create DTO from ORM model with decrypted API key.
+
+        Args:
+            config: LLMProviderConfig ORM model
+
+        Returns:
+            LLMConfigDTO with decrypted api_key in config_data
+        """
+        config_data = config.config_data.copy()
+        if "api_key" in config_data and config_data["api_key"]:
+            config_data["api_key"] = decrypt_value(config_data["api_key"])
+
+        return cls(
+            id=config.id,
+            provider_name=config.provider_name,
+            config_data=config_data,
+            is_active=config.is_active,
+            created_at=config.created_at,
+            updated_at=config.updated_at,
+        )
+
+
+@dataclass
+class EmbeddingConfigDTO:
+    """Read-only DTO for embedding configuration with decrypted API key.
+
+    Same pattern as LLMConfigDTO - separates read-model from persistence model.
+
+    Attributes:
+        id: Unique identifier
+        provider_name: Provider name (ollama, openai, vertex_ai, openai_compatible)
+        config_data: Configuration data with decrypted api_key
+        is_active: Whether this config is active
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+    """
+
+    id: Any
+    provider_name: str
+    config_data: dict[str, Any]
+    is_active: bool
+    created_at: Any
+    updated_at: Any
+
+    # Convenience properties for common access patterns
+    @property
+    def model_name(self) -> str | None:
+        """Get model name from config_data."""
+        return self.config_data.get("model")
+
+    @property
+    def api_key(self) -> str | None:
+        """Get decrypted API key from config_data."""
+        return self.config_data.get("api_key")
+
+    @property
+    def base_url(self) -> str | None:
+        """Get base URL from config_data."""
+        return self.config_data.get("base_url")
+
+    @property
+    def dimension(self) -> int:
+        """Get embedding dimension from config_data."""
+        return self.config_data.get("dimension", 768)
+
+    @classmethod
+    def from_orm(cls, config: EmbeddingProviderConfig) -> "EmbeddingConfigDTO":
+        """Create DTO from ORM model with decrypted API key.
+
+        Args:
+            config: EmbeddingProviderConfig ORM model
+
+        Returns:
+            EmbeddingConfigDTO with decrypted api_key in config_data
+        """
+        config_data = config.config_data.copy()
+        if "api_key" in config_data and config_data["api_key"]:
+            config_data["api_key"] = decrypt_value(config_data["api_key"])
+
+        return cls(
+            id=config.id,
+            provider_name=config.provider_name,
+            config_data=config_data,
+            is_active=config.is_active,
+            created_at=config.created_at,
+            updated_at=config.updated_at,
+        )
 
 
 async def save_config(
@@ -69,17 +202,18 @@ async def save_config(
         return new_config
 
 
-async def get_config(
-    session: AsyncSession, provider_name: str
-) -> LLMProviderConfig | None:
+async def get_config(session: AsyncSession, provider_name: str) -> LLMConfigDTO | None:
     """Retrieve and decrypt LLM provider configuration.
+
+    Returns a read-only DTO with decrypted API key, separate from ORM model
+    to prevent accidental write-back of decrypted values.
 
     Args:
         session: Database session
         provider_name: Provider name
 
     Returns:
-        LLMProviderConfig | None: Configuration with decrypted API key, or None
+        LLMConfigDTO | None: Configuration DTO with decrypted API key, or None
     """
     result = await session.execute(
         select(LLMProviderConfig).where(
@@ -88,13 +222,7 @@ async def get_config(
     )
     config = result.scalar_one_or_none()
 
-    if config and "api_key" in config.config_data and config.config_data["api_key"]:
-        # Decrypt API key for use
-        config_data_copy = config.config_data.copy()
-        config_data_copy["api_key"] = decrypt_value(config.config_data["api_key"])
-        config.config_data = config_data_copy
-
-    return config
+    return LLMConfigDTO.from_orm(config) if config else None
 
 
 async def get_all_configs(session: AsyncSession) -> list[LLMProviderConfig]:
@@ -113,27 +241,24 @@ async def get_all_configs(session: AsyncSession) -> list[LLMProviderConfig]:
     return list(configs)
 
 
-async def get_active_config(session: AsyncSession) -> LLMProviderConfig | None:
+async def get_active_config(session: AsyncSession) -> LLMConfigDTO | None:
     """Retrieve the first active LLM provider configuration with decrypted API key.
+
+    Returns a read-only DTO with decrypted API key, separate from ORM model
+    to prevent accidental write-back of decrypted values.
 
     Args:
         session: Database session
 
     Returns:
-        LLMProviderConfig | None: Active configuration with decrypted API key, or None
+        LLMConfigDTO | None: Active configuration DTO with decrypted API key, or None
     """
     result = await session.execute(
         select(LLMProviderConfig).where(LLMProviderConfig.is_active.is_(True))
     )
     config = result.scalars().first()
 
-    if config and "api_key" in config.config_data and config.config_data["api_key"]:
-        # Decrypt API key for use
-        config_data_copy = config.config_data.copy()
-        config_data_copy["api_key"] = decrypt_value(config.config_data["api_key"])
-        config.config_data = config_data_copy
-
-    return config
+    return LLMConfigDTO.from_orm(config) if config else None
 
 
 async def delete_config(session: AsyncSession, provider_name: str) -> bool:
@@ -284,15 +409,18 @@ async def save_embedding_config(
 
 async def get_embedding_config(
     session: AsyncSession, provider_name: str
-) -> EmbeddingProviderConfig | None:
+) -> EmbeddingConfigDTO | None:
     """Retrieve and decrypt embedding provider configuration.
+
+    Returns a read-only DTO with decrypted API key, separate from ORM model
+    to prevent accidental write-back of decrypted values.
 
     Args:
         session: Database session
         provider_name: Provider name
 
     Returns:
-        EmbeddingProviderConfig | None: Configuration with decrypted API key, or None
+        EmbeddingConfigDTO | None: Configuration DTO with decrypted API key, or None
     """
     result = await session.execute(
         select(EmbeddingProviderConfig).where(
@@ -301,13 +429,7 @@ async def get_embedding_config(
     )
     config = result.scalar_one_or_none()
 
-    if config and "api_key" in config.config_data and config.config_data["api_key"]:
-        # Decrypt API key for use
-        config_data_copy = config.config_data.copy()
-        config_data_copy["api_key"] = decrypt_value(config.config_data["api_key"])
-        config.config_data = config_data_copy
-
-    return config
+    return EmbeddingConfigDTO.from_orm(config) if config else None
 
 
 async def get_all_embedding_configs(
@@ -330,14 +452,17 @@ async def get_all_embedding_configs(
 
 async def get_active_embedding_config(
     session: AsyncSession,
-) -> EmbeddingProviderConfig | None:
+) -> EmbeddingConfigDTO | None:
     """Retrieve the active embedding provider configuration with decrypted API key.
+
+    Returns a read-only DTO with decrypted API key, separate from ORM model
+    to prevent accidental write-back of decrypted values.
 
     Args:
         session: Database session
 
     Returns:
-        EmbeddingProviderConfig | None: Active configuration with decrypted API key, or None
+        EmbeddingConfigDTO | None: Active configuration DTO with decrypted API key, or None
     """
     result = await session.execute(
         select(EmbeddingProviderConfig).where(
@@ -346,13 +471,7 @@ async def get_active_embedding_config(
     )
     config = result.scalars().first()
 
-    if config and "api_key" in config.config_data and config.config_data["api_key"]:
-        # Decrypt API key for use
-        config_data_copy = config.config_data.copy()
-        config_data_copy["api_key"] = decrypt_value(config.config_data["api_key"])
-        config.config_data = config_data_copy
-
-    return config
+    return EmbeddingConfigDTO.from_orm(config) if config else None
 
 
 async def delete_embedding_config(session: AsyncSession, provider_name: str) -> bool:

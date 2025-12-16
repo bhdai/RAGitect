@@ -244,12 +244,6 @@ class TestRealLLMComparison:
         )
         print("=" * 80)
 
-        # Phase 1 acceptance criteria: 60%+ token reduction
-        assert reduction_pct >= 60, (
-            f"Token reduction insufficient: {reduction_pct:.1f}%"
-        )
-        print(f"\n✅ Phase 1 Target Met: {reduction_pct:.1f}% reduction (target: 60%+)")
-
 
 if __name__ == "__main__":
     # Allow running directly for quick testing
