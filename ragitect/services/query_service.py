@@ -7,10 +7,125 @@ from datetime import datetime, timezone
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel
 
 from ragitect.services.llm import generate_response
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Pydantic Schema for Structured LLM Output
+# =============================================================================
+
+
+class QueryReformulationResponse(BaseModel):
+    """Structured response for query reformulation.
+
+    JSON schema for LLM to return structured output.
+    The 'reasoning' field captures LLM explanation (discarded in output).
+    """
+
+    reasoning: str
+    reformulated_query: str
+    was_modified: bool
+
+
+# =============================================================================
+# Response Parsing
+# =============================================================================
+
+
+def _parse_reformulation_response(response: str, original_query: str) -> str:
+    """Parse JSON response with fallback to regex cleanup.
+
+    Primary: JSON parsing using Pydantic validation
+    Fallback: Regex cleanup if LLM returns plain text
+
+    Args:
+        response: Raw LLM response string
+        original_query: Original query for fallback
+
+    Returns:
+        str: Cleaned reformulated query
+    """
+    # Handle empty/whitespace-only responses
+    if not response or not response.strip():
+        logger.warning("Empty response - returning original query")
+        return original_query
+
+    # Strategy: Find JSON object by locating balanced braces
+    def extract_json_object(text: str) -> str | None:
+        """Extract first complete JSON object from text."""
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        escape_next = False
+
+        for i, char in enumerate(text[start:], start):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == "\\":
+                escape_next = True
+                continue
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        return None
+
+    # Try to extract and validate JSON using Pydantic
+    json_str = extract_json_object(response)
+    if json_str:
+        try:
+            parsed = QueryReformulationResponse.model_validate_json(json_str)
+            query = parsed.reformulated_query.strip()
+            if query:
+                logger.debug(
+                    f"JSON parse successful, was_modified={parsed.was_modified}"
+                )
+                return query
+            else:
+                logger.warning("Pydantic parsed but reformulated_query empty")
+        except Exception as e:
+            logger.debug(f"Pydantic validation failed ({e}), using fallback")
+
+    # Fallback: regex cleanup for plain text responses
+    cleaned = response.strip()
+
+    # Remove parenthetical explanations at the end
+    cleaned = re.sub(r"\n+\s*\([^)]+\)\s*$", "", cleaned, flags=re.DOTALL)
+
+    # Remove leading/trailing quotes
+    cleaned = cleaned.strip().strip("\"'")
+
+    # Remove common prefixes
+    cleaned = re.sub(
+        r"^(Output|Query|Reformulated|Here is|The reformulated query is):\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+
+    cleaned = cleaned.strip()
+
+    if cleaned:
+        logger.debug("Fallback regex cleanup successful")
+        return cleaned
+
+    logger.warning("All parsing failed, returning original query")
+    return original_query
 
 
 def _classify_query_complexity(
@@ -289,12 +404,13 @@ async def query_with_iterative_fallback(
 
 
 def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
-    """Build a guarded prompt for query reformulation.
+    """Build a guarded prompt for query reformulation with JSON output.
 
     Uses research-backed guardrails to prevent over-reformulation:
     - Returns query unchanged if already self-contained
     - Only replaces pronouns that genuinely need history context
     - Never adds information not explicitly in history
+    - Requests JSON structured output for reliable parsing
 
     Args:
         user_query: the current user query to reformulate
@@ -305,18 +421,50 @@ def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     """
     prompt = f"""You are a query preprocessor for semantic search. Your task is to make queries self-contained when needed.
 
+OUTPUT FORMAT:
+Return a JSON object with this exact structure:
+{{"reasoning": "brief explanation", "reformulated_query": "the query", "was_modified": true/false}}
+
 CRITICAL RULES:
-1. If the query is ALREADY SELF-CONTAINED, OUTPUT IT UNCHANGED
-   - Example: "What is Quickshell and how do I install it?" → The "it" refers to "Quickshell" in the same sentence, so OUTPUT UNCHANGED
-   - Example: "Tell me about Python and its features" → The "its" refers to "Python" in the same sentence, so OUTPUT UNCHANGED
+1. If the query is ALREADY SELF-CONTAINED, return it UNCHANGED with was_modified=false
+   - Pronouns in the SAME SENTENCE as their referent do NOT need reformulation
+   - "What is Quickshell and how do I install it?" → "it" refers to "Quickshell" in the same sentence → UNCHANGED
 
 2. ONLY replace pronouns if they refer to something from PREVIOUS CONVERSATION TURNS that cannot be understood from the current query alone
-   - Example: Previous: "Tell me about FastAPI" → Current: "How do I install it?" → "it" refers to FastAPI from history, so reformulate to "How do I install FastAPI?"
 
 3. NEVER add information that is not explicitly stated in the conversation history
 4. NEVER invent or assume context - only use what is clearly present
 5. Keep reformulated queries concise (1-2 sentences max)
-6. Output ONLY the query (original or reformulated) - no labels, prefixes, explanations, or quotes
+
+<example>
+History: (empty)
+Query: "What is Quickshell and how do I install it on Ubuntu?"
+Output: {{"reasoning": "Query is self-contained. The pronoun 'it' refers to 'Quickshell' within the same sentence.", "reformulated_query": "What is Quickshell and how do I install it on Ubuntu?", "was_modified": false}}
+</example>
+
+<example>
+History: User asked about FastAPI
+Query: "How do I install it?"
+Output: {{"reasoning": "The pronoun 'it' refers to FastAPI from conversation history.", "reformulated_query": "How do I install FastAPI?", "was_modified": true}}
+</example>
+
+<example>
+History: (empty)
+Query: "Tell me about Python and its features"
+Output: {{"reasoning": "Query is self-contained. The pronoun 'its' refers to 'Python' within the same sentence.", "reformulated_query": "Tell me about Python and its features", "was_modified": false}}
+</example>
+
+<example>
+History: User discussed PostgreSQL setup
+Query: "Is it faster than MySQL?"
+Output: {{"reasoning": "The pronoun 'it' refers to PostgreSQL from conversation history.", "reformulated_query": "Is PostgreSQL faster than MySQL?", "was_modified": true}}
+</example>
+
+<example>
+History: (empty)
+Query: "Compare React and Vue"
+Output: {{"reasoning": "Query is self-contained with no ambiguous references.", "reformulated_query": "Compare React and Vue", "was_modified": false}}
+</example>
 
 Conversation History:
 {formatted_history}
@@ -372,8 +520,8 @@ async def reformulate_query_with_chat_history(
         llm_response = await generate_response(llm_model, messages=[human_message])
         llm_latency = (time.time() - llm_start) * 1000
 
-        # Phase 2: Accept LLM output directly (answers work as queries too)
-        reformulated = llm_response.strip()
+        # Parse structured JSON response with fallback
+        reformulated = _parse_reformulation_response(llm_response, user_query)
         logger.debug(f"Reformulated query length: {len(reformulated)} chars")
 
         if not reformulated:
