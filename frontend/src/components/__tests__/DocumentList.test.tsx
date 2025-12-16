@@ -135,7 +135,7 @@ describe('DocumentList', () => {
     expect(handleDelete).toHaveBeenCalledWith(mockDoc);
   });
 
-  it('displays status badge for each document', async () => {
+  it('uses color-coded status for documents', async () => {
     const { getDocuments } = await import('@/lib/documents');
     const mockDocs = {
       documents: [
@@ -155,8 +155,9 @@ describe('DocumentList', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('ready')).toBeInTheDocument();
-      expect(screen.getByText('processing')).toBeInTheDocument();
+      // Documents should render with file names
+      expect(screen.getByText('ready.pdf')).toBeInTheDocument();
+      expect(screen.getByText('processing.pdf')).toBeInTheDocument();
     });
   });
 

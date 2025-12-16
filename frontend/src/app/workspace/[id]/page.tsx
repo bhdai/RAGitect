@@ -98,6 +98,9 @@ export default function WorkspacePage() {
           clearInterval(interval);
           pollingIntervalsRef.current.delete(documentId);
         }
+        
+        // Refresh document list when status becomes terminal
+        setDocumentListRefresh(prev => prev + 1);
 
         if (status.status === 'ready') {
           toast.success(`Document ready: ${fileName}`);
@@ -279,16 +282,16 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
-      {/* Fixed header with workspace info */}
-      <header className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-        <div className="px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
+    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--workspace-bg)' }}>
+      {/* Fixed header with workspace info - blends with background */}
+      <header className="flex-shrink-0" style={{ backgroundColor: 'var(--workspace-bg)' }}>
+        <div className="px-[var(--workspace-padding)] pt-[var(--workspace-padding)] pb-2 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link 
               href="/"
               className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             >
-              ← Back to Dashboard
+              ← Back
             </Link>
             <div className="hidden sm:block h-4 w-px bg-zinc-300 dark:bg-zinc-700" />
             <div className="hidden sm:block">
@@ -305,28 +308,53 @@ export default function WorkspacePage() {
         </div>
       </header>
 
-      {/* Main content: three-panel layout */}
-      <div className="flex-1 flex min-h-0">
-        {/* Left: Document Sidebar (280px, scrollable) */}
-        <DocumentSidebar
-          workspaceId={workspace.id}
-          onSelectDocument={handleSelectDocument}
-          onDeleteDocument={handleDeleteDocument}
-          refreshTrigger={documentListRefresh}
-          uploads={uploads}
-          onFilesSelected={handleFilesSelected}
-          onUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-          onCancelUpload={handleCancel}
-          onRetryUpload={handleRetry}
-        />
+      {/* Main content: three-panel floating cards layout */}
+      <div 
+        className="flex-1 flex min-h-0 px-[var(--workspace-padding)] pb-[var(--workspace-padding)]"
+        style={{ gap: 'var(--panel-gap)' }}
+      >
+        {/* Left: Document Sidebar Card */}
+        <div 
+          className="flex-shrink-0 overflow-hidden"
+          style={{ 
+            borderRadius: 'var(--card-radius)',
+            backgroundColor: 'var(--card-sidebar-bg)'
+          }}
+        >
+          <DocumentSidebar
+            workspaceId={workspace.id}
+            onSelectDocument={handleSelectDocument}
+            onDeleteDocument={handleDeleteDocument}
+            refreshTrigger={documentListRefresh}
+            uploads={uploads}
+            onFilesSelected={handleFilesSelected}
+            onUploadComplete={handleUploadComplete}
+            onUploadError={handleUploadError}
+            onCancelUpload={handleCancel}
+            onRetryUpload={handleRetry}
+          />
+        </div>
 
-        {/* Center: Chat Panel (flex-1, scrollable) */}
-        <ChatPanel workspaceId={workspace.id} />
+        {/* Center: Chat Panel Card (flex-1) */}
+        <div 
+          className="flex-1 min-w-0 overflow-hidden"
+          style={{ 
+            borderRadius: 'var(--card-radius)',
+            backgroundColor: 'var(--card-chat-bg)'
+          }}
+        >
+          <ChatPanel workspaceId={workspace.id} />
+        </div>
 
-        {/* Right: Document Viewer (700px, conditional) */}
+        {/* Right: Document Viewer Card (700px, conditional) */}
         {selectedDocumentId && (
-          <div className="w-[700px] flex-shrink-0 border-l border-zinc-200 dark:border-zinc-800">
+          <div 
+            className="w-[700px] flex-shrink-0 overflow-hidden"
+            style={{ 
+              borderRadius: 'var(--card-radius)',
+              backgroundColor: 'var(--card-viewer-bg)'
+            }}
+          >
             <DocumentViewer
               documentId={selectedDocumentId}
               onClose={handleCloseViewer}

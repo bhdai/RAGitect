@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Required for AI Elements MessageResponse component (Streamdown markdown rendering) */
+@source "../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -113,6 +116,25 @@
 }
 
 @layer base {
+  :root {
+    /* Workspace layout variables */
+    --workspace-bg: theme('colors.zinc.100');
+    --card-sidebar-bg: theme('colors.white');
+    --card-chat-bg: theme('colors.zinc.50');
+    --card-viewer-bg: theme('colors.white');
+    --card-radius: 12px;
+    --panel-gap: 12px;
+    --workspace-padding: 12px;
+  }
+
+  .dark {
+    /* Workspace layout variables - dark mode */
+    --workspace-bg: theme('colors.zinc.900');
+    --card-sidebar-bg: theme('colors.zinc.950');
+    --card-chat-bg: theme('colors.zinc.900');
+    --card-viewer-bg: theme('colors.zinc.950');
+  }
+
   * {
     @apply border-border outline-ring/50;
   }

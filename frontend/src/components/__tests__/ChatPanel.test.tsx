@@ -210,7 +210,7 @@ describe('ChatPanel', () => {
     render(<ChatPanel workspaceId="test-workspace" />);
 
     const panel = screen.getByTestId('chat-panel');
-    expect(panel).toHaveClass('flex-1');
+    expect(panel).toHaveClass('h-full');
     expect(panel).toHaveClass('flex');
     expect(panel).toHaveClass('flex-col');
   });
