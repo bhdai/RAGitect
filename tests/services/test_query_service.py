@@ -6,6 +6,7 @@ import pytest
 from ragitect.services.query_service import (
     format_chat_history,
     _build_reformulation_prompt,
+    _parse_reformulation_response,
     adaptive_query_processing,
     reformulate_query_with_chat_history,
 )
@@ -110,14 +111,14 @@ class TestBuildReformulationPrompt:
         assert "Example" in prompt or "example" in prompt
 
     def test_prompt_instructs_no_prefixes(self):
-        """Phase 2: Verify prompt tells LLM not to use prefixes"""
+        """Phase 2: Verify prompt uses JSON format to avoid prefix issues"""
         prompt = _build_reformulation_prompt(
             "test query", "<chat_history>\n</chat_history>"
         )
 
-        # Check for anti-prefix instructions
-        assert "no label" in prompt.lower() or "no prefix" in prompt.lower()
-        assert "directly" in prompt.lower() or "only" in prompt.lower()
+        # JSON format inherently avoids prefix issues - verify JSON structure is requested
+        assert "json" in prompt.lower()
+        assert "reformulated_query" in prompt
 
 
 class TestAdaptiveQueryProcessing:
@@ -239,3 +240,152 @@ class TestReformulateQueryWithChatHistory:
                 call_args = mock_format.call_args[0][0]
                 assert len(call_args) == 10
                 assert call_args[0]["content"] == "Message 5"  # First of last 10
+
+
+# =============================================================================
+# 🔴 RED PHASE: Tests for Structured Output Parsing
+# These tests define expected behavior - they should FAIL until implementation
+# =============================================================================
+
+
+class TestParseReformulationResponse:
+    """Tests for _parse_reformulation_response function.
+
+    🔴 RED PHASE: These tests define expected behavior.
+    They should FAIL until implementation is complete.
+    """
+
+    def test_valid_json_response(self):
+        """JSON response extracts reformulated_query correctly."""
+        response = '{"reasoning": "test", "reformulated_query": "What is FastAPI?", "was_modified": true}'
+        result = _parse_reformulation_response(response, "original")
+        assert result == "What is FastAPI?"
+
+    def test_json_with_code_blocks(self):
+        """JSON wrapped in markdown code blocks is parsed."""
+        response = '```json\n{"reasoning": "test", "reformulated_query": "Test query", "was_modified": false}\n```'
+        result = _parse_reformulation_response(response, "original")
+        assert result == "Test query"
+
+    def test_plain_text_with_explanation(self):
+        """Plain text with parenthetical explanation uses fallback."""
+        response = "What is FastAPI?\n\n(I reformulated because...)"
+        result = _parse_reformulation_response(response, "original")
+        assert result == "What is FastAPI?"
+
+    def test_plain_text_with_prefix(self):
+        """Plain text with 'Output:' prefix is cleaned."""
+        response = "Output: What is FastAPI?"
+        result = _parse_reformulation_response(response, "original")
+        assert result == "What is FastAPI?"
+
+    def test_empty_response_returns_original(self):
+        """Empty response returns original query."""
+        result = _parse_reformulation_response("", "original query")
+        assert result == "original query"
+
+    def test_whitespace_only_returns_original(self):
+        """Whitespace-only response returns original query."""
+        result = _parse_reformulation_response("   \n\n  ", "original query")
+        assert result == "original query"
+
+    def test_was_modified_true_extracts_query(self):
+        """JSON with was_modified=true extracts reformulated_query."""
+        response = '{"reasoning": "replaced pronoun", "reformulated_query": "How do I install FastAPI?", "was_modified": true}'
+        result = _parse_reformulation_response(response, "How do I install it?")
+        assert result == "How do I install FastAPI?"
+
+    def test_was_modified_false_extracts_query(self):
+        """JSON with was_modified=false extracts unchanged query."""
+        response = '{"reasoning": "already self-contained", "reformulated_query": "What is Python?", "was_modified": false}'
+        result = _parse_reformulation_response(response, "What is Python?")
+        assert result == "What is Python?"
+
+    def test_json_embedded_in_verbose_response(self):
+        """JSON embedded in verbose response with markdown is extracted."""
+        response = """### User:
+The conversation history is empty, so we need to check if the query is self-contained.
+
+### Analysis
+The query contains a pronoun "it" that refers to "Quickshell" within the same sentence.
+
+### Output
+
+{"reasoning": "Query is self-contained.", "reformulated_query": "What is Quickshell and how can I install it?", "was_modified": false}"""
+        result = _parse_reformulation_response(response, "original")
+        assert result == "What is Quickshell and how can I install it?"
+
+
+class TestBuildReformulationPromptStructuredOutput:
+    """Tests for updated _build_reformulation_prompt with JSON output.
+
+    🔴 RED PHASE: Define expected new prompt structure.
+    """
+
+    def test_prompt_requests_json_output(self):
+        """Prompt should request JSON output format."""
+        prompt = _build_reformulation_prompt(
+            "test query", "<chat_history></chat_history>"
+        )
+        assert "JSON" in prompt or "json" in prompt
+        assert "reformulated_query" in prompt
+        assert "was_modified" in prompt
+
+    def test_prompt_has_few_shot_examples(self):
+        """Prompt should contain 4+ few-shot examples."""
+        prompt = _build_reformulation_prompt(
+            "test query", "<chat_history></chat_history>"
+        )
+        example_count = prompt.count("<example>")
+        assert example_count >= 4, f"Expected 4+ examples, found {example_count}"
+
+    def test_prompt_includes_same_sentence_rule(self):
+        """Prompt should explain same-sentence pronoun handling."""
+        prompt = _build_reformulation_prompt(
+            "test query", "<chat_history></chat_history>"
+        )
+        assert "same sentence" in prompt.lower() or "same-sentence" in prompt.lower()
+
+    def test_prompt_includes_quickshell_example(self):
+        """Prompt should include the Quickshell self-contained example."""
+        prompt = _build_reformulation_prompt(
+            "test query", "<chat_history></chat_history>"
+        )
+        assert "Quickshell" in prompt or "quickshell" in prompt
+
+
+class TestReformulateQueryWithChatHistoryParsing:
+    """Integration tests for reformulate_query_with_chat_history parsing.
+
+    🔴 RED PHASE: Ensure end-to-end parsing works correctly.
+    """
+
+    async def test_parses_json_response_correctly(self):
+        """When LLM returns JSON, extracts reformulated_query field."""
+        mock_llm = AsyncMock()
+
+        with patch("ragitect.services.query_service.generate_response") as mock_gen:
+            mock_gen.return_value = '{"reasoning": "test", "reformulated_query": "What is FastAPI?", "was_modified": false}'
+
+            result = await reformulate_query_with_chat_history(
+                mock_llm, "What is FastAPI?", []
+            )
+
+            assert result == "What is FastAPI?"
+            assert "reasoning" not in result
+
+    async def test_cleans_plain_text_with_explanation(self):
+        """When LLM returns text with explanation, removes explanation."""
+        mock_llm = AsyncMock()
+
+        with patch("ragitect.services.query_service.generate_response") as mock_gen:
+            mock_gen.return_value = (
+                "What is FastAPI?\n\n(I kept the query unchanged because...)"
+            )
+
+            result = await reformulate_query_with_chat_history(
+                mock_llm, "What is FastAPI?", []
+            )
+
+            assert result == "What is FastAPI?"
+            assert "because" not in result
