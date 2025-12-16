@@ -26,7 +26,7 @@ from ragitect.services.embedding import create_embeddings_model, embed_text
 from ragitect.services.llm import generate_response_stream
 from ragitect.services.llm_config_service import get_active_embedding_config
 from ragitect.services.llm_factory import create_llm_from_db
-from ragitect.services.query_service import adaptive_query_processing
+from ragitect.services.query_service import query_with_iterative_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +123,12 @@ async def retrieve_context(
     chat_history: list[dict[str, str]],
     k: int = 5,
 ) -> list[dict]:
-    """Retrieve relevant context chunks for RAG.
+    """Retrieve relevant context chunks for RAG using iterative fallback.
 
-    Uses query optimization and vector search to find relevant document chunks.
+    Uses query_with_iterative_fallback for intelligent query processing:
+    - Classifies query complexity (simple/ambiguous/complex)
+    - For simple queries: tries direct search, falls back to reformulation if low relevance
+    - For ambiguous/complex: reformulates directly with chat history context
 
     Story 3.1: Natural Language Querying - AC2
 
@@ -142,11 +145,7 @@ async def retrieve_context(
     # Get LLM for query optimization
     llm = await create_llm_from_db(session)
 
-    # Process query with adaptive optimization (handles pronouns, complex queries)
-    processed_query = await adaptive_query_processing(llm, query, chat_history)
-    logger.info(f"Query processed: '{query}' -> '{processed_query}'")
-
-    # Get embedding configuration and generate query embedding
+    # Get embedding configuration and create model
     embedding_config = await get_active_embedding_config(session)
 
     # Build EmbeddingConfig from database config
@@ -155,7 +154,7 @@ async def retrieve_context(
     if embedding_config:
         config = EmbeddingConfig(
             provider=embedding_config.provider_name,
-            model=embedding_config.model_name,
+            model=embedding_config.model_name or "nomic-embed-text",
             base_url=embedding_config.config_data.get("base_url"),
             api_key=embedding_config.config_data.get("api_key"),
             dimension=embedding_config.config_data.get("dimension", 768),
@@ -164,19 +163,42 @@ async def retrieve_context(
         config = EmbeddingConfig()  # Use defaults (Ollama)
 
     embedding_model = create_embeddings_model(config)
-    query_embedding = await embed_text(embedding_model, processed_query)
 
-    # Search similar chunks
-    repo = VectorRepository(session)
-    chunks_with_scores = await repo.search_similar_chunks(
-        workspace_id, query_embedding, k=k
+    # Store search results to avoid duplicate retrieval
+    search_results_cache: dict[str, list[tuple]] = {}
+
+    # Create vector search function for iterative fallback
+    async def vector_search_fn(search_query: str) -> list[str]:
+        """Perform vector search and return chunk contents (caches full results)."""
+        query_embedding = await embed_text(embedding_model, search_query)
+        repo = VectorRepository(session)
+        chunks_with_scores = await repo.search_similar_chunks(
+            workspace_id, query_embedding, k=k
+        )
+        # Cache full results for later use
+        search_results_cache[search_query] = chunks_with_scores
+        return [chunk.content for chunk, _distance in chunks_with_scores]
+
+    # Use iterative fallback for intelligent query processing and retrieval
+    retrieved_contents, metadata = await query_with_iterative_fallback(
+        llm, query, chat_history, vector_search_fn
     )
+
+    final_query = metadata.get("final_query", query)
+    logger.info(
+        f"Query processed: '{query}' -> '{final_query}' "
+        f"(classification={metadata.get('classification')}, "
+        f"used_reformulation={metadata.get('used_reformulation')})"
+    )
+
+    # Use cached search results to avoid duplicate retrieval
+    chunks_with_scores = search_results_cache.get(final_query, [])
 
     # Format results with document info
     results = []
+    doc_repo = DocumentRepository(session)
     for chunk, distance in chunks_with_scores:
         # Load the parent document to get filename
-        doc_repo = DocumentRepository(session)
         document = await doc_repo.get_by_id(chunk.document_id)
 
         results.append(
