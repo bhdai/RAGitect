@@ -2,27 +2,32 @@
  * Tests for DocumentSidebar component
  * 
  * Story 3.0: Streaming Infrastructure - AC3, AC4
+ * Updated for collapsible sidebar with modal upload
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { DocumentSidebar } from '../DocumentSidebar';
 
 // Mock the child components
-vi.mock('../IngestionDropzone', () => ({
-  IngestionDropzone: ({ onFilesSelected }: { onFilesSelected: (files: File[]) => void }) => (
-    <div data-testid="ingestion-dropzone" onClick={() => onFilesSelected([])}>
-      Drag and drop files here
+vi.mock('../UploadModal', () => ({
+  UploadModal: ({ open }: { open: boolean }) => (
+    open ? <div data-testid="upload-modal">Upload Modal</div> : null
+  ),
+}));
+
+vi.mock('../DocumentList', () => ({
+  DocumentList: ({ collapsed }: { collapsed?: boolean }) => (
+    <div data-testid="document-list" data-collapsed={collapsed}>
+      Document List {collapsed ? '(collapsed)' : '(expanded)'}
     </div>
   ),
 }));
 
-vi.mock('../UploadProgress', () => ({
-  UploadProgress: () => <div data-testid="upload-progress">Upload Progress</div>,
-}));
-
-vi.mock('../DocumentList', () => ({
-  DocumentList: () => <div data-testid="document-list">Document List</div>,
+// Mock useLocalStorage with a simple implementation
+let mockIsCollapsed = false;
+vi.mock('@/hooks/useLocalStorage', () => ({
+  useLocalStorage: () => [mockIsCollapsed, (val: boolean) => { mockIsCollapsed = val; }],
 }));
 
 describe('DocumentSidebar', () => {
@@ -42,17 +47,35 @@ describe('DocumentSidebar', () => {
   it('renders the sidebar with correct structure', () => {
     render(<DocumentSidebar {...defaultProps} />);
     
-    // Should have the sidebar container with proper width
+    // Should have the sidebar container
     const sidebar = screen.getByTestId('document-sidebar');
     expect(sidebar).toBeInTheDocument();
-    expect(sidebar).toHaveClass('w-72'); // 288px = 18rem
   });
 
-  it('renders dropzone component', () => {
+  it('renders the collapse toggle button', () => {
     render(<DocumentSidebar {...defaultProps} />);
     
-    expect(screen.getByTestId('ingestion-dropzone')).toBeInTheDocument();
-    expect(screen.getByText('Drag and drop files here')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-toggle')).toBeInTheDocument();
+  });
+
+  it('renders Add Source button', () => {
+    render(<DocumentSidebar {...defaultProps} />);
+    
+    expect(screen.getByTestId('add-source-button')).toBeInTheDocument();
+    expect(screen.getByText('Add Source')).toBeInTheDocument();
+  });
+
+  it('opens upload modal when Add Source is clicked', () => {
+    render(<DocumentSidebar {...defaultProps} />);
+    
+    // Modal should not be visible initially
+    expect(screen.queryByTestId('upload-modal')).not.toBeInTheDocument();
+    
+    // Click Add Source
+    fireEvent.click(screen.getByTestId('add-source-button'));
+    
+    // Modal should now be visible
+    expect(screen.getByTestId('upload-modal')).toBeInTheDocument();
   });
 
   it('renders document list', () => {
@@ -61,20 +84,22 @@ describe('DocumentSidebar', () => {
     expect(screen.getByTestId('document-list')).toBeInTheDocument();
   });
 
-  it('renders upload progress when uploads exist', () => {
+  it('accepts uploads prop for interface compatibility', () => {
     const propsWithUploads = {
       ...defaultProps,
       uploads: [{ fileName: 'test.pdf', progress: 50, status: 'uploading' as const, size: 1000 }],
     };
     
+    // Should render without errors even with uploads (no longer displays UploadProgress)
     render(<DocumentSidebar {...propsWithUploads} />);
     
-    expect(screen.getByTestId('upload-progress')).toBeInTheDocument();
+    expect(screen.getByTestId('document-sidebar')).toBeInTheDocument();
   });
 
-  it('does not render upload progress when no uploads', () => {
+  it('does not render upload progress component', () => {
     render(<DocumentSidebar {...defaultProps} />);
     
+    // UploadProgress has been removed - status is now shown via DocumentList color coding
     expect(screen.queryByTestId('upload-progress')).not.toBeInTheDocument();
   });
 
@@ -84,10 +109,11 @@ describe('DocumentSidebar', () => {
     expect(screen.getByRole('heading', { name: 'Documents' })).toBeInTheDocument();
   });
 
-  it('has proper overflow handling for scrolling', () => {
+  it('has proper structure for content layout', () => {
     render(<DocumentSidebar {...defaultProps} />);
     
     const sidebar = screen.getByTestId('document-sidebar');
-    expect(sidebar).toHaveClass('overflow-y-auto');
+    expect(sidebar).toHaveClass('flex-shrink-0');
+    expect(sidebar).toHaveClass('h-full');
   });
 });

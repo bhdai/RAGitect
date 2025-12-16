@@ -103,16 +103,22 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
   return (
     <div
       data-testid="chat-panel"
-      className="flex-1 flex flex-col min-h-0 bg-zinc-50 dark:bg-zinc-900 overflow-hidden"
+      className="h-full flex flex-col min-h-0 overflow-hidden"
     >
-      {/* Messages area - must have explicit height constraints for scroll */}
+      {/* Messages area - scrollable with flex-1 to take remaining space */}
       <ScrollArea ref={scrollRef} className="flex-1 min-h-0">
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground p-4">
-            <p>Ask a question about your documents...</p>
+          // Empty state - placeholder for future summary/suggestion prompts
+          <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
+            <div className="max-w-md text-center space-y-4">
+              <p className="text-lg">Ask a question about your documents</p>
+              <p className="text-sm opacity-70">
+                Start a conversation to explore your uploaded documents.
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+          <div className="max-w-3xl mx-auto px-4 pt-6 pb-20 space-y-6">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -149,7 +155,36 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
                             key={idx}
                             className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-3 prose-ul:my-2 prose-ol:my-2"
                           >
-                            <ReactMarkdown>{part.text}</ReactMarkdown>
+                            <ReactMarkdown
+                              components={{
+                                // Custom code block with overflow handling
+                                pre: ({ children }) => (
+                                  <pre className="overflow-x-auto rounded-lg bg-zinc-900 dark:bg-zinc-950 p-4 text-sm">
+                                    {children}
+                                  </pre>
+                                ),
+                                // Inline code styling
+                                code: ({ className, children, ...props }) => {
+                                  // Check if it's a code block (has language class) or inline
+                                  const isInline = !className;
+                                  if (isInline) {
+                                    return (
+                                      <code className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-mono" {...props}>
+                                        {children}
+                                      </code>
+                                    );
+                                  }
+                                  // Code block content
+                                  return (
+                                    <code className="block text-zinc-100 font-mono whitespace-pre" {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                },
+                              }}
+                            >
+                              {part.text}
+                            </ReactMarkdown>
                           </div>
                         );
                       }
@@ -186,25 +221,32 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
         </div>
       )}
 
-      {/* Input area - floating at bottom */}
-      <div className="p-4 pb-6 bg-gradient-to-t from-zinc-50 via-zinc-50 to-transparent dark:from-zinc-900 dark:via-zinc-900 pointer-events-none">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto pointer-events-auto">
-          <div className="relative flex items-end rounded-2xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 shadow-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+      {/* Input area - anchored at bottom, floating effect with negative margin */}
+      <div className="flex-shrink-0 px-4 pb-4 -mt-6 relative z-10">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+          <div className="relative flex items-center rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
             <Textarea
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                // Auto-resize textarea
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = `${Math.min(target.scrollHeight, 288)}px`; // max ~12 lines (24px * 12)
+              }}
               onKeyDown={handleKeyDown}
               placeholder="Message RAGitect..."
-              className="min-h-[52px] max-h-40 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-14 py-3.5 pl-4 rounded-2xl"
+              className="min-h-[44px] max-h-72 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-12 py-2.5 pl-4 rounded-2xl text-sm leading-6"
               disabled={isLoading}
+              rows={1}
             />
             <Button
               type="submit"
               size="icon"
-              className="absolute right-2 bottom-2 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 disabled:opacity-100 transition-colors"
+              className="absolute right-2 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 disabled:opacity-100 transition-colors"
               disabled={!inputValue.trim() || isLoading}
             >
-              <ArrowUp className="h-5 w-5" />
+              <ArrowUp className="h-4 w-4" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
