@@ -39,7 +39,7 @@ class QueryReformulationResponse(BaseModel):
 def _parse_reformulation_response(response: str, original_query: str) -> str:
     """Parse JSON response with fallback to regex cleanup.
 
-    Primary: JSON parsing from structured output
+    Primary: JSON parsing using Pydantic validation
     Fallback: Regex cleanup if LLM returns plain text
 
     Args:
@@ -54,42 +54,54 @@ def _parse_reformulation_response(response: str, original_query: str) -> str:
         logger.warning("Empty response - returning original query")
         return original_query
 
-    # Try JSON parse first - look for JSON object anywhere in response
-    try:
-        # Find JSON object pattern anywhere in the response
-        json_match = re.search(r"\{[^{}]*\"reformulated_query\"[^{}]*\}", response)
-        if json_match:
-            json_str = json_match.group(0)
-            data = json.loads(json_str)
-            query = data.get("reformulated_query", "").strip()
+    # Strategy: Find JSON object by locating balanced braces
+    def extract_json_object(text: str) -> str | None:
+        """Extract first complete JSON object from text."""
+        start = text.find("{")
+        if start == -1:
+            return None
 
+        depth = 0
+        in_string = False
+        escape_next = False
+
+        for i, char in enumerate(text[start:], start):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == "\\":
+                escape_next = True
+                continue
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        return None
+
+    # Try to extract and validate JSON using Pydantic
+    json_str = extract_json_object(response)
+    if json_str:
+        try:
+            parsed = QueryReformulationResponse.model_validate_json(json_str)
+            query = parsed.reformulated_query.strip()
             if query:
                 logger.debug(
-                    f"JSON parse successful, was_modified={data.get('was_modified')}"
+                    f"JSON parse successful, was_modified={parsed.was_modified}"
                 )
                 return query
             else:
-                logger.warning("JSON parsed but reformulated_query empty")
-        else:
-            # Try stripping code blocks and parsing entire response
-            cleaned = re.sub(
-                r"^```(?:json)?\s*|\s*```$", "", response.strip(), flags=re.MULTILINE
-            )
-            cleaned = cleaned.strip()
+                logger.warning("Pydantic parsed but reformulated_query empty")
+        except Exception as e:
+            logger.debug(f"Pydantic validation failed ({e}), using fallback")
 
-            if cleaned.startswith("{"):
-                data = json.loads(cleaned)
-                query = data.get("reformulated_query", "").strip()
-                if query:
-                    logger.debug(
-                        f"JSON parse successful, was_modified={data.get('was_modified')}"
-                    )
-                    return query
-
-    except (json.JSONDecodeError, KeyError, TypeError) as e:
-        logger.debug(f"JSON parse failed ({e}), using fallback")
-
-    # Fallback: regex cleanup for plain text
+    # Fallback: regex cleanup for plain text responses
     cleaned = response.strip()
 
     # Remove parenthetical explanations at the end
