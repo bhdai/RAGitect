@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * Custom hook that syncs state with localStorage.
@@ -20,33 +20,38 @@ export function useLocalStorage<T>(
   key: string,
   initialValue: T
 ): [T, (value: T | ((prev: T) => T)) => void] {
-  // Initialize with a function to avoid reading localStorage on every render
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load from localStorage on mount (client-side only)
-  useEffect(() => {
+  // Initialize with a function to read from localStorage only once
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    // SSR safety: return initialValue if window is undefined
+    if (typeof window === 'undefined') {
+      return initialValue;
+    }
+    
     try {
       const item = window.localStorage.getItem(key);
-      if (item !== null) {
-        setStoredValue(JSON.parse(item));
-      }
+      return item !== null ? JSON.parse(item) : initialValue;
     } catch (error) {
       console.warn(`Error reading localStorage key "${key}":`, error);
+      return initialValue;
     }
-    setIsInitialized(true);
-  }, [key]);
+  });
+  
+  // Use ref to track if we're past initial mount (avoids setState in effect)
+  const isInitialMount = useRef(true);
 
-  // Update localStorage when value changes (after initialization)
+  // Update localStorage when value changes (skip initial mount)
   useEffect(() => {
-    if (!isInitialized) return;
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     
     try {
       window.localStorage.setItem(key, JSON.stringify(storedValue));
     } catch (error) {
       console.warn(`Error setting localStorage key "${key}":`, error);
     }
-  }, [key, storedValue, isInitialized]);
+  }, [key, storedValue]);
 
   const setValue = (value: T | ((prev: T) => T)) => {
     setStoredValue((prev) => {
