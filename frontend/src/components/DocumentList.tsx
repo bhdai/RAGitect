@@ -161,16 +161,16 @@ export function DocumentList({
           <Card
             key={doc.id}
             className={cn(
-              "flex flex-row items-center gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors",
+              "flex flex-row items-center gap-2 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors",
               styles.card
             )}
             onClick={() => onSelectDocument(doc)}
           >
             {/* Icon - color indicates status */}
-            <FileText className={cn("h-5 w-5 flex-shrink-0", styles.icon)} />
+            <FileText className={cn("h-4 w-4 flex-shrink-0", styles.icon)} />
             
             {/* File name - takes full available space */}
-            <p className="text-sm font-medium truncate flex-1 min-w-0" title={doc.fileName}>
+            <p className="text-xs font-medium truncate flex-1 min-w-0" title={doc.fileName}>
               {doc.fileName}
             </p>
             
@@ -178,14 +178,14 @@ export function DocumentList({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 flex-shrink-0 text-zinc-400 hover:text-red-500"
+              className="h-6 w-6 flex-shrink-0 text-zinc-400 hover:text-red-500"
               aria-label={`Delete ${doc.fileName}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onDeleteDocument(doc);
               }}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3 w-3" />
             </Button>
           </Card>
         );

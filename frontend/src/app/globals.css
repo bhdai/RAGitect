@@ -142,3 +142,34 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom styles for Streamdown code blocks */
+@layer components {
+  /* Code block header - light theme uses #FAFAFA, dark theme uses #171717 */
+  div[data-streamdown="code-block-header"] {
+    background-color: #FAFAFA !important;
+  }
+  
+  .dark div[data-streamdown="code-block-header"] {
+    background-color: #171717 !important;
+  }
+  
+  /* Code block body - matching backgrounds */
+  pre[data-streamdown="code-block-body"] {
+    background-color: #FAFAFA !important;
+  }
+  
+  .dark pre[data-streamdown="code-block-body"] {
+    background-color: #171717 !important;
+  }
+  
+  /* Fix list alignment - reduce excessive left indent */
+  ul, ol {
+    @apply pl-5;
+  }
+  
+  /* Nested lists should have smaller indent */
+  ul ul, ol ul, ul ol, ol ol {
+    @apply pl-4;
+  }
+}

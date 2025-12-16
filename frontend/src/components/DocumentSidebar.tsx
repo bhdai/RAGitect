@@ -111,13 +111,13 @@ export function DocumentSidebar({
             variant="outline"
             onClick={() => setIsUploadModalOpen(true)}
             className={cn(
-              'mb-4',
-              isCollapsed ? 'w-8 h-8 p-0' : 'w-full justify-start'
+              'mb-4 flex items-center',
+              isCollapsed ? 'w-8 h-8 p-0' : 'w-full justify-center'
             )}
             data-testid="add-source-button"
           >
             <Plus className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
-            {!isCollapsed && 'Add Source'}
+            {!isCollapsed && <span>Add Source</span>}
           </Button>
 
           {/* Document list - scrollable area */}

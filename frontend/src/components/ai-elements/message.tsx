@@ -22,6 +22,7 @@ import {
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
+import { useTheme } from "next-themes";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -307,15 +308,22 @@ export const MessageBranchPage = ({
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        className
-      )}
-      {...props}
-    />
-  ),
+  ({ className, ...props }: MessageResponseProps) => {
+    const { resolvedTheme } = useTheme();
+    // Use resolved theme to handle 'system' preference
+    const isDark = resolvedTheme === 'dark';
+    
+    return (
+      <Streamdown
+        className={cn(
+          "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+          className
+        )}
+        shikiTheme={isDark ? ['github-dark', 'github-dark'] : ['github-light', 'github-light']}
+        {...props}
+      />
+    );
+  },
   (prevProps, nextProps) => prevProps.children === nextProps.children
 );
 
