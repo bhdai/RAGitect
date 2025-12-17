@@ -202,6 +202,50 @@ class TestLLMConfigIntegration:
         )
         assert response.status_code == 404
 
+    async def test_update_config_preserves_api_key(
+        self, shared_integration_client: AsyncClient, clean_database
+    ):
+        """Test updating config preserves existing API key when not provided."""
+        with (
+            patch("ragitect.services.llm_config_service.encrypt_value") as mock_encrypt,
+            patch("ragitect.services.llm_config_service.decrypt_value") as mock_decrypt,
+        ):
+            mock_encrypt.return_value = "encrypted-api-key"
+            mock_decrypt.return_value = "sk-test-original-key"
+
+            # Create initial config with API key
+            config_data = {
+                "providerName": "openai",
+                "apiKey": "sk-test-original-key",
+                "model": "gpt-4",
+                "isActive": True,
+            }
+            response = await shared_integration_client.post(
+                "/api/v1/llm-configs", json=config_data
+            )
+            assert response.status_code == 201
+
+            # Update model only (no API key provided) using PATCH
+            update_data = {"model": "gpt-4o"}
+            response = await shared_integration_client.patch(
+                "/api/v1/llm-configs/openai", json=update_data
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["model"] == "gpt-4o"
+            assert data["isActive"] is True  # Should be preserved
+
+    async def test_update_nonexistent_config_returns_404(
+        self, shared_integration_client: AsyncClient, clean_database
+    ):
+        """Test updating non-existent config returns 404."""
+        update_data = {"model": "gpt-4o"}
+        response = await shared_integration_client.patch(
+            "/api/v1/llm-configs/nonexistent", json=update_data
+        )
+        assert response.status_code == 404
+        assert "not configured" in response.json()["detail"].lower()
+
     async def test_validate_ollama_success(
         self, shared_integration_client: AsyncClient, clean_database
     ):

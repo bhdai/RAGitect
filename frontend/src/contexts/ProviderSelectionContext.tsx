@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { getLLMConfigs, type LLMProviderConfig } from '@/lib/llmConfig';
 import { LLM_PROVIDER_REGISTRY } from '@/lib/providers';
 
@@ -13,7 +13,17 @@ export interface ProviderOption {
   isActive: boolean;
 }
 
-export function useProviderSelection() {
+interface ProviderSelectionContextValue {
+  selectedProvider: string | null;
+  selectProvider: (providerName: string) => void;
+  providers: ProviderOption[];
+  currentProvider: ProviderOption | undefined;
+  isLoading: boolean;
+}
+
+const ProviderSelectionContext = createContext<ProviderSelectionContextValue | null>(null);
+
+export function ProviderSelectionProvider({ children }: { children: ReactNode }) {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +67,6 @@ export function useProviderSelection() {
   }, []);
 
   const selectProvider = useCallback((providerName: string) => {
-    console.log('[useProviderSelection] selectProvider called with:', providerName);
     setSelectedProvider(providerName);
     localStorage.setItem(STORAGE_KEY, providerName);
   }, []);
@@ -65,11 +74,25 @@ export function useProviderSelection() {
   // Get current selection details
   const currentProvider = providers.find(p => p.providerName === selectedProvider);
 
-  return {
-    selectedProvider,
-    selectProvider,
-    providers,
-    currentProvider,
-    isLoading,
-  };
+  return (
+    <ProviderSelectionContext.Provider
+      value={{
+        selectedProvider,
+        selectProvider,
+        providers,
+        currentProvider,
+        isLoading,
+      }}
+    >
+      {children}
+    </ProviderSelectionContext.Provider>
+  );
+}
+
+export function useProviderSelectionContext() {
+  const context = useContext(ProviderSelectionContext);
+  if (!context) {
+    throw new Error('useProviderSelectionContext must be used within ProviderSelectionProvider');
+  }
+  return context;
 }

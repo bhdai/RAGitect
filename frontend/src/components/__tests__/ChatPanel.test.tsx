@@ -24,9 +24,9 @@ vi.mock('ai', () => ({
   },
 }));
 
-// Mock the useProviderSelection hook
-vi.mock('@/hooks/useProviderSelection', () => ({
-  useProviderSelection: vi.fn(() => ({
+// Mock the useProviderSelectionContext hook
+vi.mock('@/contexts/ProviderSelectionContext', () => ({
+  useProviderSelectionContext: vi.fn(() => ({
     selectedProvider: 'openai',
     selectProvider: vi.fn(),
     providers: [{ providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true }],
@@ -88,7 +88,7 @@ describe('ChatPanel', () => {
 
     expect(screen.getByTestId('chat-panel')).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText(/message ragitect/i)
+      screen.getByPlaceholderText(/how can i help you today/i)
     ).toBeInTheDocument();
   });
 
@@ -178,10 +178,10 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    const input = screen.getByPlaceholderText(/message ragitect/i);
+    const input = screen.getByPlaceholderText(/how can i help you today/i);
     await user.type(input, 'What is RAG?');
 
-    const submitButton = screen.getByRole('button');
+    const submitButton = screen.getAllByRole('button').find(btn => btn.getAttribute('type') === 'submit')!;
     await user.click(submitButton);
 
     expect(mockSendMessage).toHaveBeenCalledWith({ text: 'What is RAG?' });
@@ -193,7 +193,7 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    const input = screen.getByPlaceholderText(/message ragitect/i);
+    const input = screen.getByPlaceholderText(/how can i help you today/i);
     await user.type(input, 'Hello{Enter}');
 
     expect(mockSendMessage).toHaveBeenCalledWith({ text: 'Hello' });
@@ -204,7 +204,8 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    const submitButton = screen.getByRole('button');
+    // The submit button should be disabled when input is empty
+    const submitButton = screen.getAllByRole('button').find(btn => btn.getAttribute('type') === 'submit')!;
     await user.click(submitButton);
 
     expect(mockSendMessage).not.toHaveBeenCalled();
@@ -218,7 +219,7 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
-    const input = screen.getByPlaceholderText(/message ragitect/i);
+    const input = screen.getByPlaceholderText(/how can i help you today/i);
     expect(input).toBeDisabled();
   });
 

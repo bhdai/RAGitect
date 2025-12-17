@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, FormEvent, KeyboardEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { ArrowUp, Plus, Clock } from 'lucide-react';
@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { ChatProviderSelector } from '@/components/ChatProviderSelector';
-import { useProviderSelection } from '@/hooks/useProviderSelection';
+import { useProviderSelectionContext } from '@/contexts/ProviderSelectionContext';
 import { cn } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -40,42 +40,57 @@ export interface ChatPanelProps {
 export function ChatPanel({ workspaceId }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { selectedProvider } = useProviderSelection();
+  const { selectedProvider } = useProviderSelectionContext();
+
+  // Use a ref to always have the current selectedProvider value in callbacks
+  const selectedProviderRef = useRef(selectedProvider);
+  useEffect(() => {
+    selectedProviderRef.current = selectedProvider;
+  }, [selectedProvider]);
+
+  // Memoize transport to avoid recreating on every render, but use ref for current provider
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: `${API_URL}/api/v1/workspaces/${workspaceId}/chat/stream`,
+        // Transform AI SDK message format to backend's ChatRequest format
+        prepareSendMessagesRequest: ({ messages }) => {
+          const currentProvider = selectedProviderRef.current;
+          
+          // Get the last user message as the current message
+          const lastMessage = messages[messages.length - 1];
+          const messageText =
+            lastMessage?.parts
+              ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+              .map((p) => p.text)
+              .join('') || '';
+
+          // Build chat history from previous messages (excluding the current one)
+          const chatHistory = messages.slice(0, -1).map((m) => ({
+            role: m.role,
+            content:
+              m.parts
+                ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+                .map((p) => p.text)
+                .join('') || '',
+          }));
+
+          return {
+            body: {
+              message: messageText,
+              chat_history: chatHistory,
+              // Use ref to get current provider value (avoids stale closure)
+              provider: currentProvider,
+            },
+          };
+        },
+      }),
+    [workspaceId]
+  );
 
   const { messages, status, sendMessage, error } = useChat({
     id: `workspace-${workspaceId}`,
-    transport: new DefaultChatTransport({
-      api: `${API_URL}/api/v1/workspaces/${workspaceId}/chat/stream`,
-      // Transform AI SDK message format to backend's ChatRequest format
-      prepareSendMessagesRequest: ({ messages }) => {
-        // Get the last user message as the current message
-        const lastMessage = messages[messages.length - 1];
-        const messageText =
-          lastMessage?.parts
-            ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-            .map((p) => p.text)
-            .join('') || '';
-
-        // Build chat history from previous messages (excluding the current one)
-        const chatHistory = messages.slice(0, -1).map((m) => ({
-          role: m.role,
-          content:
-            m.parts
-              ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-              .map((p) => p.text)
-              .join('') || '',
-        }));
-
-        return {
-          body: {
-            message: messageText,
-            chat_history: chatHistory,
-            // Include provider selection for per-request provider override
-            provider: selectedProvider,
-          },
-        };
-      },
-    }),
+    transport,
   });
 
   const isLoading = status === 'streaming' || status === 'submitted';

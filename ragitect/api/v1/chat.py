@@ -30,7 +30,7 @@ from ragitect.services.database.repositories.workspace_repo import WorkspaceRepo
 from ragitect.services.embedding import create_embeddings_model, embed_text
 from ragitect.services.llm import generate_response_stream
 from ragitect.services.llm_config_service import get_active_embedding_config
-from ragitect.services.llm_factory import create_llm_from_db, create_llm_with_provider
+from ragitect.services.llm_factory import create_llm_with_provider
 from ragitect.services.query_service import query_with_iterative_fallback
 
 logger = logging.getLogger(__name__)
@@ -130,6 +130,7 @@ async def retrieve_context(
     workspace_id: UUID,
     query: str,
     chat_history: list[dict[str, str]],
+    provider: str | None = None,
     k: int = DEFAULT_RETRIEVAL_K,
     similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
 ) -> list[dict]:
@@ -147,13 +148,14 @@ async def retrieve_context(
         workspace_id: Workspace to search
         query: User query
         chat_history: Previous conversation for context
+        provider: Optional provider override for query processing LLM
         k: Number of chunks to retrieve
 
     Returns:
         List of chunks with content and metadata
     """
-    # Get LLM for query optimization
-    llm = await create_llm_from_db(session)
+    # Get LLM for query optimization (uses provider override if specified)
+    llm = await create_llm_with_provider(session, provider=provider)
 
     # Get embedding configuration and create model
     embedding_config = await get_active_embedding_config(session)
@@ -351,7 +353,9 @@ async def chat_stream(
             detail=f"Workspace {workspace_id} not found",
         )
 
-    logger.info(f"Chat stream requested for workspace {workspace_id}")
+    logger.info(
+        f"Chat stream requested for workspace {workspace_id}, provider={request.provider}"
+    )
 
     # Check if workspace has documents (AC6)
     doc_repo = DocumentRepository(session)
@@ -371,11 +375,13 @@ async def chat_stream(
         )
 
     # Retrieve context from documents (AC2)
+    # Pass provider override to use consistent LLM for query processing
     context_chunks = await retrieve_context(
         session,
         workspace_id,
         request.message,
         request.chat_history,
+        provider=request.provider,
     )
 
     # Build RAG prompt with context (AC3)

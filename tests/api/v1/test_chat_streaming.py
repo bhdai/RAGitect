@@ -82,10 +82,10 @@ class TestChatStreamEndpoint:
             side_effect=mock_stream,
         )
 
-        # Mock create_llm_from_db
+        # Mock create_llm_with_provider
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 
@@ -151,7 +151,7 @@ class TestChatStreamEndpoint:
 
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 
@@ -406,7 +406,7 @@ class TestChatRAGIntegration:
 
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 
@@ -482,7 +482,7 @@ class TestChatRAGIntegration:
 
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 
@@ -771,7 +771,7 @@ class TestRetrievalThresholdFiltering:
         # Mock LLM
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 
@@ -857,7 +857,7 @@ class TestRetrievalThresholdFiltering:
         # Mock LLM
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 
@@ -944,7 +944,7 @@ class TestRetrievalThresholdFiltering:
         # Mock LLM
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 
@@ -1181,7 +1181,7 @@ class TestRetrievalLogging:
         # Mock LLM
         mock_llm = mocker.MagicMock()
         mocker.patch(
-            "ragitect.api.v1.chat.create_llm_from_db",
+            "ragitect.api.v1.chat.create_llm_with_provider",
             return_value=mock_llm,
         )
 

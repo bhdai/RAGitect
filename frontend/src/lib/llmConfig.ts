@@ -142,6 +142,20 @@ class LLMConfigApiClient {
       body: JSON.stringify({ isActive }),
     });
   }
+
+  /**
+   * Update existing LLM provider configuration (partial update)
+   * API key is optional - existing key is preserved if not provided
+   */
+  async updateLLMConfig(
+    providerName: string,
+    data: Partial<LLMProviderConfigCreateRequest>
+  ): Promise<LLMProviderConfig> {
+    return this.request<LLMProviderConfig>(`/api/v1/llm-configs/${providerName}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 // Export singleton instance
@@ -153,6 +167,8 @@ export const getLLMConfig = (providerName: string) =>
   llmConfigApiClient.getLLMConfig(providerName);
 export const saveLLMConfig = (data: LLMProviderConfigCreateRequest) => 
   llmConfigApiClient.saveLLMConfig(data);
+export const updateLLMConfig = (providerName: string, data: Partial<LLMProviderConfigCreateRequest>) =>
+  llmConfigApiClient.updateLLMConfig(providerName, data);
 export const deleteLLMConfig = (providerName: string) => 
   llmConfigApiClient.deleteLLMConfig(providerName);
 export const validateLLMConfig = (data: LLMProviderConfigValidateRequest) => 

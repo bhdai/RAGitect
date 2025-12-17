@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useProviderSelection } from '@/hooks/useProviderSelection';
+import { useProviderSelectionContext } from '@/contexts/ProviderSelectionContext';
 import { Loader2, Settings } from 'lucide-react';
 import Link from 'next/link';
 
@@ -18,7 +18,7 @@ export function ChatProviderSelector() {
     providers,
     currentProvider,
     isLoading
-  } = useProviderSelection();
+  } = useProviderSelectionContext();
 
   if (isLoading) {
     return (

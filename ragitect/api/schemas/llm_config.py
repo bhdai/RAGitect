@@ -76,6 +76,51 @@ class LLMProviderConfigCreate(BaseModel):
             )
 
 
+class LLMProviderConfigUpdate(BaseModel):
+    """Request model for updating existing LLM provider configuration.
+
+    Unlike LLMProviderConfigCreate, api_key is optional since it may already
+    be stored. Use this for partial updates (e.g., changing only the model).
+    """
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+
+    base_url: str | None = Field(
+        None,
+        description="Base URL for the provider (required for Ollama)",
+        examples=["http://localhost:11434"],
+    )
+    api_key: SecretStr | None = Field(
+        None,
+        description="API key for cloud providers (optional for updates)",
+    )
+    model: str | None = Field(
+        None,
+        description="Model name to use with the provider",
+        examples=["llama3.2", "gpt-4", "claude-3-5-sonnet-20241022"],
+    )
+    is_active: bool | None = Field(
+        None,
+        description="Whether this configuration is active",
+    )
+
+    @field_validator("api_key")
+    @classmethod
+    def validate_api_key_format(cls, v: SecretStr | None) -> SecretStr | None:
+        """Validate API key format if provided."""
+        if v is None:
+            return v
+
+        api_key_str = v.get_secret_value()
+        # Basic validation - just check it's not empty if provided
+        if not api_key_str.strip():
+            return None
+        return v
+
+
 class LLMProviderConfigResponse(BaseModel):
     """Response model for LLM provider configuration."""
 

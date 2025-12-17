@@ -14,6 +14,7 @@ from ragitect.api.schemas.llm_config import (
     LLMProviderConfigCreate,
     LLMProviderConfigListResponse,
     LLMProviderConfigResponse,
+    LLMProviderConfigUpdate,
     LLMProviderConfigValidate,
     LLMProviderConfigValidateResponse,
     LLMProviderToggleRequest,
@@ -324,6 +325,60 @@ async def toggle_llm_config(
         is_active=config.is_active,
         created_at=config.created_at.isoformat(),
         updated_at=config.updated_at.isoformat(),
+    )
+
+
+@router.patch(
+    "/{provider_name}",
+    response_model=LLMProviderConfigResponse,
+    summary="Update provider configuration",
+    description="Partially update a saved provider configuration. API key is optional - "
+    "existing key is preserved if not provided.",
+)
+async def update_llm_config(
+    provider_name: str,
+    config_data: LLMProviderConfigUpdate,
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> LLMProviderConfigResponse:
+    """Update existing provider configuration with partial data.
+
+    This allows users to update model or other settings without re-entering
+    their API key. The existing API key is preserved if not provided.
+    """
+    # Check if config exists
+    existing = await get_config(session, provider_name)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Provider {provider_name} not configured. Use POST to create.",
+        )
+
+    # Build update dict with only provided values
+    update_dict: dict[str, Any] = {}
+
+    if config_data.base_url is not None:
+        update_dict["base_url"] = config_data.base_url
+
+    if config_data.api_key is not None:
+        update_dict["api_key"] = config_data.api_key.get_secret_value()
+
+    if config_data.model is not None:
+        update_dict["model"] = config_data.model
+
+    if config_data.is_active is not None:
+        update_dict["is_active"] = config_data.is_active
+
+    # Save with merge behavior
+    saved_config = await save_config(session, provider_name, update_dict)
+
+    return LLMProviderConfigResponse(
+        id=str(saved_config.id),
+        provider_name=saved_config.provider_name,
+        base_url=saved_config.config_data.get("base_url"),
+        model=saved_config.config_data.get("model"),
+        is_active=saved_config.is_active,
+        created_at=saved_config.created_at.isoformat(),
+        updated_at=saved_config.updated_at.isoformat(),
     )
 
 

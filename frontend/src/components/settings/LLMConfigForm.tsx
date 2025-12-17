@@ -43,6 +43,7 @@ import {
   type LLMProviderConfig,
   getLLMConfigs,
   saveLLMConfig,
+  updateLLMConfig,
   validateLLMConfig,
   toggleLLMConfig,
 } from '@/lib/llmConfig';
@@ -188,15 +189,48 @@ export function LLMConfigForm() {
     setFormState(prev => ({ ...prev, isSaving: true }));
 
     try {
-      const saveData = {
-        providerName: formState.selectedProvider,
-        isActive: formState.isEnabled,
-        model: formState.model || undefined,
-        baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
-        apiKey: currentProvider.requiresApiKey && formState.apiKey ? formState.apiKey : undefined,
-      };
+      // Check if this provider already has a saved config
+      const existingConfig = savedConfigs.find(
+        c => c.providerName === formState.selectedProvider
+      );
 
-      await saveLLMConfig(saveData);
+      if (existingConfig) {
+        // Use PATCH for existing config - API key is optional
+        const updateData: {
+          model?: string;
+          baseUrl?: string;
+          apiKey?: string;
+          isActive?: boolean;
+        } = {
+          isActive: formState.isEnabled,
+        };
+
+        if (formState.model) {
+          updateData.model = formState.model;
+        }
+
+        if (!currentProvider.requiresApiKey && formState.baseUrl) {
+          updateData.baseUrl = formState.baseUrl;
+        }
+
+        // Only include API key if user entered a new one
+        if (currentProvider.requiresApiKey && formState.apiKey) {
+          updateData.apiKey = formState.apiKey;
+        }
+
+        await updateLLMConfig(formState.selectedProvider, updateData);
+      } else {
+        // Use POST for new config - API key required for cloud providers
+        const saveData = {
+          providerName: formState.selectedProvider,
+          isActive: formState.isEnabled,
+          model: formState.model || undefined,
+          baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
+          apiKey: currentProvider.requiresApiKey && formState.apiKey ? formState.apiKey : undefined,
+        };
+
+        await saveLLMConfig(saveData);
+      }
 
       setFormState(prev => ({ 
         ...prev, 
@@ -214,7 +248,7 @@ export function LLMConfigForm() {
       setFormState(prev => ({ ...prev, isSaving: false }));
       toast.error(message);
     }
-  }, [formState.selectedProvider, formState.isEnabled, formState.model, formState.baseUrl, formState.apiKey, currentProvider]);
+  }, [formState.selectedProvider, formState.isEnabled, formState.model, formState.baseUrl, formState.apiKey, currentProvider, savedConfigs]);
 
   // Handler for toggle switch - uses toggle endpoint for existing configs
   const handleToggle = useCallback(async (checked: boolean) => {

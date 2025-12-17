@@ -151,6 +151,9 @@ async def save_config(
 ) -> LLMProviderConfig:
     """Save or update LLM provider configuration.
 
+    Supports partial updates - only provided fields are updated, preserving
+    existing values (like api_key) when not provided.
+
     Args:
         session: Database session
         provider_name: Provider name (ollama, openai, anthropic)
@@ -169,11 +172,6 @@ async def save_config(
             f"Invalid provider_name. Must be one of: {', '.join(valid_providers)}"
         )
 
-    # Encrypt API key if present
-    encrypted_data = config_data.copy()
-    if "api_key" in encrypted_data and encrypted_data["api_key"]:
-        encrypted_data["api_key"] = encrypt_value(encrypted_data["api_key"])
-
     # Check if config already exists
     result = await session.execute(
         select(LLMProviderConfig).where(
@@ -183,13 +181,33 @@ async def save_config(
     existing_config = result.scalar_one_or_none()
 
     if existing_config:
-        # Update existing configuration
-        existing_config.config_data = encrypted_data
-        existing_config.is_active = config_data.get("is_active", True)
+        # Merge with existing config - preserve existing API key if not provided
+        merged_data = existing_config.config_data.copy()
+
+        # Update only the fields that are provided (non-None)
+        for key, value in config_data.items():
+            if key == "is_active":
+                continue  # Handle separately
+            if value is not None:
+                # Encrypt new API key if provided
+                if key == "api_key" and value:
+                    merged_data[key] = encrypt_value(value)
+                else:
+                    merged_data[key] = value
+
+        existing_config.config_data = merged_data
+        existing_config.is_active = config_data.get(
+            "is_active", existing_config.is_active
+        )
         await session.flush()
         await session.refresh(existing_config)
         return existing_config
     else:
+        # New config - encrypt API key if present
+        encrypted_data = config_data.copy()
+        if "api_key" in encrypted_data and encrypted_data["api_key"]:
+            encrypted_data["api_key"] = encrypt_value(encrypted_data["api_key"])
+
         # Create new configuration
         new_config = LLMProviderConfig(
             provider_name=provider_name.lower(),
