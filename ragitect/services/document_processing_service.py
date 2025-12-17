@@ -21,6 +21,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ragitect.services.config import load_document_config
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 from ragitect.services.document_processor import process_file_bytes, split_document
 from ragitect.services.embedding import create_embeddings_model, embed_documents
@@ -116,10 +117,16 @@ class DocumentProcessingService:
             await self.repo.update_status(document_id, "embedding")
             await self.session.commit()
 
+            # Load document configuration
+            doc_config = load_document_config()
+
             # Split text into chunks
             file_type = metadata.get("file_type")
             chunks = split_document(
-                text, chunk_size=1000, overlap=150, file_type=file_type
+                text,
+                chunk_size=doc_config.chunk_size,
+                overlap=doc_config.chunk_overlap,
+                file_type=file_type,
             )
             logger.info(f"Split into {len(chunks)} chunks for document {document_id}")
 

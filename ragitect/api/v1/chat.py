@@ -18,6 +18,11 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ragitect.services.config import (
+    DEFAULT_RETRIEVAL_K,
+    DEFAULT_SIMILARITY_THRESHOLD,
+    EmbeddingConfig,
+)
 from ragitect.services.database.connection import get_async_session
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 from ragitect.services.database.repositories.vector_repo import VectorRepository
@@ -121,7 +126,8 @@ async def retrieve_context(
     workspace_id: UUID,
     query: str,
     chat_history: list[dict[str, str]],
-    k: int = 5,
+    k: int = DEFAULT_RETRIEVAL_K,
+    similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
 ) -> list[dict]:
     """Retrieve relevant context chunks for RAG using iterative fallback.
 
@@ -149,8 +155,6 @@ async def retrieve_context(
     embedding_config = await get_active_embedding_config(session)
 
     # Build EmbeddingConfig from database config
-    from ragitect.services.config import EmbeddingConfig
-
     if embedding_config:
         config = EmbeddingConfig(
             provider=embedding_config.provider_name,
@@ -173,7 +177,10 @@ async def retrieve_context(
         query_embedding = await embed_text(embedding_model, search_query)
         repo = VectorRepository(session)
         chunks_with_scores = await repo.search_similar_chunks(
-            workspace_id, query_embedding, k=k
+            workspace_id,
+            query_embedding,
+            k=k,
+            similarity_threshold=similarity_threshold,
         )
         # Cache full results for later use
         search_results_cache[search_query] = chunks_with_scores
@@ -186,13 +193,26 @@ async def retrieve_context(
 
     final_query = metadata.get("final_query", query)
     logger.info(
-        f"Query processed: '{query}' -> '{final_query}' "
-        f"(classification={metadata.get('classification')}, "
-        f"used_reformulation={metadata.get('used_reformulation')})"
+        "Query processed: '%s' -> '%s' (classification=%s, used_reformulation=%s)",
+        query,
+        final_query,
+        metadata.get("classification"),
+        metadata.get("used_reformulation"),
     )
 
     # Use cached search results to avoid duplicate retrieval
     chunks_with_scores = search_results_cache.get(final_query, [])
+
+    # Log similarity score distribution (AC5)
+    if chunks_with_scores:
+        similarities = [1.0 - dist for _, dist in chunks_with_scores]
+        logger.info(
+            "Retrieval stats: %d chunks, similarity range [%.3f, %.3f], mean: %.3f",
+            len(chunks_with_scores),
+            min(similarities),
+            max(similarities),
+            sum(similarities) / len(similarities),
+        )
 
     # Format results with document info
     results = []
@@ -208,10 +228,11 @@ async def retrieve_context(
                 "document_id": str(chunk.document_id),
                 "chunk_index": chunk.chunk_index,
                 "similarity": 1.0 - distance,  # Convert distance to similarity
+                "chunk_label": f"Chunk {len(results) + 1}",  # For citation binding
             }
         )
 
-    logger.info(f"Retrieved {len(results)} context chunks for query")
+    logger.info("Retrieved %d context chunks for query", len(results))
     return results
 
 
@@ -220,9 +241,10 @@ def build_rag_prompt(
     context_chunks: list[dict],
     chat_history: list[dict[str, str]],
 ) -> list[BaseMessage]:
-    """Build prompt with RAG context for LLM.
+    """Build prompt with RAG context for LLM using research-backed patterns.
 
     Story 3.1: Natural Language Querying - AC3
+    Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC3, AC4
 
     Args:
         user_query: Current user question
@@ -232,33 +254,49 @@ def build_rag_prompt(
     Returns:
         List of messages for LangChain chat model
     """
-    # Format context chunks with sources
+    # Format context with indexed chunks for citation binding
     if context_chunks:
         context_text = "\n\n".join(
             [
-                f"[Source: {chunk['document_name']}]\n{chunk['content']}"
-                for chunk in context_chunks
+                f"[Chunk {i + 1}] (From: {chunk['document_name']}, Similarity: {chunk['similarity']:.2f})\n{chunk['content']}"
+                for i, chunk in enumerate(context_chunks)
             ]
         )
     else:
         context_text = "No relevant context found in documents."
 
-    # System prompt with RAG instructions - research-backed expert persona
-    system_content = f"""You are a knowledgeable documentation expert who helps users understand their documents thoroughly.
+    # System prompt with research-backed RAG instructions
+    system_content = f"""<system_instructions>
+IDENTITY:
+You are a research librarian specializing in technical documentation. Your role is to locate, organize, and accurately cite information from the user's document collection.
 
-Your response guidelines:
-- Provide comprehensive, well-structured explanations that fully address the question
-- Use markdown formatting (headers, bullet points, code blocks) for readability when appropriate
-- Include relevant code examples or configuration snippets from the documents when helpful
-- Reference source documents to support your answers (e.g., "According to [Source: filename]...")
-- Explain concepts in context - don't just list bare facts
-- Be thorough and helpful - users prefer detailed, complete answers over terse responses
-- If multiple aspects of a topic are covered in the documents, explain them all
+ABSOLUTE CONSTRAINTS:
+1. USE ONLY the information within <context>. Your training data does NOT exist for this task.
+2. DO NOT fabricate, infer, or extrapolate beyond what is explicitly stated.
+3. If the answer cannot be found, respond: "I cannot find information about [topic] in your documents."
+4. If documents contain conflicting information, present BOTH positions with their citations.
 
-If the context doesn't contain enough information to fully answer the question, clearly state what information is available and what is missing.
+CITATION RULES:
+- Cite every factual claim using [N] where N matches the chunk number from [Chunk N] labels.
+- Place citations immediately after the sentence, no space: "sentence.[1]"
+- Maximum 3 citations per sentence.
+- ONLY cite chunks that directly support the claim.
 
-Context from user's documents:
+RESPONSE FORMAT:
+1. First, internally assess if <context> contains sufficient information.
+2. If sufficient, provide a comprehensive answer with inline citations.
+3. If partial, answer what you can and explicitly state what information is missing.
+4. If insufficient, refuse politely and suggest what documents might help.
+
+OUTPUT STYLE:
+- Use markdown formatting (headers, bullets, code blocks) for readability.
+- Be thorough but objective. Do not editorialize.
+- Maintain a professional, journalistic tone.
+</system_instructions>
+
+<context>
 {context_text}
+</context>
 """
 
     messages: list[BaseMessage] = [SystemMessage(content=system_content)]
