@@ -56,12 +56,12 @@ export function DocumentSidebar({
   onSelectDocument,
   onDeleteDocument,
   refreshTrigger,
-  uploads: _uploads, // Kept for interface compatibility, not rendered
+  uploads: _uploads = [], // eslint-disable-line @typescript-eslint/no-unused-vars -- Kept for interface compatibility
   onFilesSelected,
   onUploadComplete,
   onUploadError,
-  onCancelUpload: _onCancelUpload, // Kept for interface compatibility
-  onRetryUpload: _onRetryUpload, // Kept for interface compatibility
+  onCancelUpload: _onCancelUpload = () => { }, // eslint-disable-line @typescript-eslint/no-unused-vars -- Kept for interface compatibility
+  onRetryUpload: _onRetryUpload = () => { }, // eslint-disable-line @typescript-eslint/no-unused-vars -- Kept for interface compatibility
 }: DocumentSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useLocalStorage('sidebar-collapsed', false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);

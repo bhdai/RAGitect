@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { getLLMConfigs, type LLMProviderConfig } from '@/lib/llmConfig';
+import { getLLMConfigs } from '@/lib/llmConfig';
 import { LLM_PROVIDER_REGISTRY } from '@/lib/providers';
 
 const STORAGE_KEY = 'ragitect-selected-provider';

@@ -76,7 +76,7 @@ def load_document_config() -> DocumentConfig:
     return DocumentConfig(
         enable_docling=os.getenv("ENABLE_DOCLING", "true").lower() == "true",
         enable_unstructure=os.getenv("ENABLE_UNSTRUCTURE", "false").lower() == "true",
-        chunk_size=int(os.getenv("CHUNK_SIZE", "3200")),
+        chunk_size=int(os.getenv("CHUNK_SIZE", "2000")),
         chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "400")),
     )
 

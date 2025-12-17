@@ -48,45 +48,50 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
     selectedProviderRef.current = selectedProvider;
   }, [selectedProvider]);
 
-  // Memoize transport to avoid recreating on every render, but use ref for current provider
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: `${API_URL}/api/v1/workspaces/${workspaceId}/chat/stream`,
-        // Transform AI SDK message format to backend's ChatRequest format
-        prepareSendMessagesRequest: ({ messages }) => {
-          const currentProvider = selectedProviderRef.current;
-          
-          // Get the last user message as the current message
-          const lastMessage = messages[messages.length - 1];
-          const messageText =
-            lastMessage?.parts
-              ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-              .map((p) => p.text)
-              .join('') || '';
+  // Create transport with a stable reference - the prepareSendMessagesRequest callback
+  // accesses selectedProviderRef.current only when called (during event handling), not during render
+  /* eslint-disable react-hooks/refs */
+  const transport = useMemo(() => {
+    // This function is called during message send, not during render
+    const prepareSendMessagesRequest = ({ messages }: { messages: Array<{ role: string; parts?: Array<{ type: string; text?: string }> }> }) => {
+      // Safe to access ref here - this runs during event handling, not render
+      const currentProvider = selectedProviderRef.current;
 
-          // Build chat history from previous messages (excluding the current one)
-          const chatHistory = messages.slice(0, -1).map((m) => ({
-            role: m.role,
-            content:
-              m.parts
-                ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-                .map((p) => p.text)
-                .join('') || '',
-          }));
+      // Get the last user message as the current message
+      const lastMessage = messages[messages.length - 1];
+      const messageText =
+        lastMessage?.parts
+          ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+          .map((p) => p.text)
+          .join('') || '';
 
-          return {
-            body: {
-              message: messageText,
-              chat_history: chatHistory,
-              // Use ref to get current provider value (avoids stale closure)
-              provider: currentProvider,
-            },
-          };
+      // Build chat history from previous messages (excluding the current one)
+      const chatHistory = messages.slice(0, -1).map((m) => ({
+        role: m.role,
+        content:
+          m.parts
+            ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+            .map((p) => p.text)
+            .join('') || '',
+      }));
+
+      return {
+        body: {
+          message: messageText,
+          chat_history: chatHistory,
+          // Use ref to get current provider value (avoids stale closure)
+          provider: currentProvider,
         },
-      }),
-    [workspaceId]
-  );
+      };
+    };
+
+    return new DefaultChatTransport({
+      api: `${API_URL}/api/v1/workspaces/${workspaceId}/chat/stream`,
+      // Transform AI SDK message format to backend's ChatRequest format
+      prepareSendMessagesRequest,
+    });
+  }, [workspaceId]);
+  /* eslint-enable react-hooks/refs */
 
   const { messages, status, sendMessage, error } = useChat({
     id: `workspace-${workspaceId}`,
