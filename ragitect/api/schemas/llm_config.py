@@ -141,6 +141,19 @@ class LLMProviderConfigValidateResponse(BaseModel):
     error: str | None = Field(None, description="Error details if validation failed")
 
 
+class LLMProviderToggleRequest(BaseModel):
+    """Request model for toggling provider active state."""
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+
+    is_active: bool = Field(
+        ..., description="Whether to enable or disable the provider"
+    )
+
+
 # Embedding config schemas
 class EmbeddingConfigCreate(BaseModel):
     """Request model for creating/updating embedding provider configuration."""

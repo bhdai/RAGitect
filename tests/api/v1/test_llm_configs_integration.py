@@ -322,3 +322,126 @@ class TestLLMConfigIntegration:
         for config in data["configs"]:
             assert "apiKey" not in config
             assert "api_key" not in config
+
+
+class TestLLMConfigToggleIntegration:
+    """Integration tests for LLM config toggle endpoint."""
+
+    async def test_toggle_enable_provider(
+        self, shared_integration_client: AsyncClient, clean_database
+    ):
+        """Test enabling a disabled provider via toggle endpoint."""
+        # Create a disabled config first
+        config_data = {
+            "providerName": "ollama",
+            "baseUrl": "http://localhost:11434",
+            "model": "llama3.2",
+            "isActive": False,
+        }
+        await shared_integration_client.post("/api/v1/llm-configs", json=config_data)
+
+        # Toggle it active
+        response = await shared_integration_client.patch(
+            "/api/v1/llm-configs/ollama/toggle",
+            json={"isActive": True},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["isActive"] is True
+        assert data["providerName"] == "ollama"
+
+    async def test_toggle_disable_provider(
+        self, shared_integration_client: AsyncClient, clean_database
+    ):
+        """Test disabling an active provider via toggle endpoint."""
+        # Create an active config
+        config_data = {
+            "providerName": "ollama",
+            "baseUrl": "http://localhost:11434",
+            "isActive": True,
+        }
+        await shared_integration_client.post("/api/v1/llm-configs", json=config_data)
+
+        # Toggle it inactive
+        response = await shared_integration_client.patch(
+            "/api/v1/llm-configs/ollama/toggle",
+            json={"isActive": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["isActive"] is False
+
+    async def test_toggle_nonexistent_provider(
+        self, shared_integration_client: AsyncClient, clean_database
+    ):
+        """Test toggling a non-existent provider returns 404."""
+        response = await shared_integration_client.patch(
+            "/api/v1/llm-configs/nonexistent/toggle",
+            json={"isActive": True},
+        )
+
+        assert response.status_code == 404
+        assert "not configured" in response.json()["detail"].lower()
+
+    async def test_toggle_preserves_config_data(
+        self, shared_integration_client: AsyncClient, clean_database
+    ):
+        """Test that toggle preserves API key and other config data."""
+        with patch(
+            "ragitect.services.llm_config_service.encrypt_value"
+        ) as mock_encrypt:
+            mock_encrypt.return_value = "encrypted_key"
+
+            config_data = {
+                "providerName": "openai",
+                "apiKey": "sk-test123",
+                "model": "gpt-4o",
+                "isActive": True,
+            }
+            await shared_integration_client.post(
+                "/api/v1/llm-configs", json=config_data
+            )
+
+        # Toggle off
+        response = await shared_integration_client.patch(
+            "/api/v1/llm-configs/openai/toggle",
+            json={"isActive": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["isActive"] is False
+        assert data["model"] == "gpt-4o"  # Model preserved
+
+        # Toggle back on
+        response = await shared_integration_client.patch(
+            "/api/v1/llm-configs/openai/toggle",
+            json={"isActive": True},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["isActive"] is True
+        assert data["model"] == "gpt-4o"  # Model still preserved
+
+    async def test_toggle_case_insensitive_provider_name(
+        self, shared_integration_client: AsyncClient, clean_database
+    ):
+        """Test that toggle works with case-insensitive provider name."""
+        config_data = {
+            "providerName": "ollama",
+            "baseUrl": "http://localhost:11434",
+            "isActive": True,
+        }
+        await shared_integration_client.post("/api/v1/llm-configs", json=config_data)
+
+        # Toggle with uppercase
+        response = await shared_integration_client.patch(
+            "/api/v1/llm-configs/OLLAMA/toggle",
+            json={"isActive": False},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["isActive"] is False

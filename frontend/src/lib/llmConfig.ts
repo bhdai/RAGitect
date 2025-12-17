@@ -42,6 +42,10 @@ export interface LLMProviderConfigValidateResponse {
   error?: string | null;
 }
 
+export interface LLMProviderToggleRequest {
+  isActive: boolean;
+}
+
 // API Client
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -125,6 +129,19 @@ class LLMConfigApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  /**
+   * Toggle LLM provider active state without requiring API key
+   */
+  async toggleLLMConfig(
+    providerName: string,
+    isActive: boolean
+  ): Promise<LLMProviderConfig> {
+    return this.request<LLMProviderConfig>(`/api/v1/llm-configs/${providerName}/toggle`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
+  }
 }
 
 // Export singleton instance
@@ -140,6 +157,8 @@ export const deleteLLMConfig = (providerName: string) =>
   llmConfigApiClient.deleteLLMConfig(providerName);
 export const validateLLMConfig = (data: LLMProviderConfigValidateRequest) => 
   llmConfigApiClient.validateLLMConfig(data);
+export const toggleLLMConfig = (providerName: string, isActive: boolean) =>
+  llmConfigApiClient.toggleLLMConfig(providerName, isActive);
 
 // ===== Embedding Configuration Types & Methods =====
 

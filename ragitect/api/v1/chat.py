@@ -30,7 +30,7 @@ from ragitect.services.database.repositories.workspace_repo import WorkspaceRepo
 from ragitect.services.embedding import create_embeddings_model, embed_text
 from ragitect.services.llm import generate_response_stream
 from ragitect.services.llm_config_service import get_active_embedding_config
-from ragitect.services.llm_factory import create_llm_from_db
+from ragitect.services.llm_factory import create_llm_from_db, create_llm_with_provider
 from ragitect.services.query_service import query_with_iterative_fallback
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,10 @@ class ChatRequest(BaseModel):
     chat_history: list[dict[str, str]] = Field(
         default_factory=list,
         description="Previous messages for context. Each dict has 'role' and 'content' keys.",
+    )
+    provider: str | None = Field(
+        None,
+        description="Optional provider override. Uses that provider's configured model.",
     )
 
 
@@ -328,14 +332,14 @@ async def chat_stream(
 
     Args:
         workspace_id: UUID of the workspace
-        request: Chat request with user message and optional chat history
+        request: Chat request with user message, optional chat history, and optional provider
         session: Database session
 
     Returns:
         StreamingResponse with SSE content type
 
     Raises:
-        HTTPException: 404 if workspace not found
+        HTTPException: 404 if workspace not found, 400 if provider invalid
     """
     # Validate workspace exists
     ws_repo = WorkspaceRepository(session)
@@ -381,8 +385,11 @@ async def chat_stream(
         request.chat_history,
     )
 
-    # Get LLM from database config
-    llm = await create_llm_from_db(session)
+    # Get LLM with optional provider override
+    try:
+        llm = await create_llm_with_provider(session, provider=request.provider)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Generate streaming response (AC4)
     async def generate():

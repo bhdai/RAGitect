@@ -44,6 +44,7 @@ import {
   getLLMConfigs,
   saveLLMConfig,
   validateLLMConfig,
+  toggleLLMConfig,
 } from '@/lib/llmConfig';
 import { LLM_PROVIDER_REGISTRY, LLM_PROVIDER_OPTIONS } from '@/lib/providers';
 
@@ -215,6 +216,37 @@ export function LLMConfigForm() {
     }
   }, [formState.selectedProvider, formState.isEnabled, formState.model, formState.baseUrl, formState.apiKey, currentProvider]);
 
+  // Handler for toggle switch - uses toggle endpoint for existing configs
+  const handleToggle = useCallback(async (checked: boolean) => {
+    // Check if this provider has a saved config
+    const existingConfig = savedConfigs.find(
+      c => c.providerName === formState.selectedProvider
+    );
+
+    if (existingConfig) {
+      // Use toggle endpoint - no API key needed!
+      try {
+        await toggleLLMConfig(formState.selectedProvider, checked);
+        setFormState(prev => ({ ...prev, isEnabled: checked }));
+        toast.success(`${currentProvider.displayName} ${checked ? 'enabled' : 'disabled'}`);
+
+        // Reload configs to sync state
+        const response = await getLLMConfigs();
+        setSavedConfigs(response.configs);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to toggle provider';
+        toast.error(message);
+      }
+    } else {
+      // No saved config yet - just update form state (user needs to save first)
+      setFormState(prev => ({
+        ...prev,
+        isEnabled: checked,
+        hasChanges: true,
+      }));
+    }
+  }, [formState.selectedProvider, savedConfigs, currentProvider]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -377,11 +409,7 @@ export function LLMConfigForm() {
           <Switch
             id="is-active"
             checked={formState.isEnabled}
-            onCheckedChange={(checked) => setFormState(prev => ({
-              ...prev,
-              isEnabled: checked,
-              hasChanges: true,
-            }))}
+            onCheckedChange={handleToggle}
           />
         </div>
 

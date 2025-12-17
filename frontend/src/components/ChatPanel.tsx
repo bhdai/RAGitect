@@ -13,11 +13,13 @@
 import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Plus, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageResponse } from '@/components/ai-elements/message';
+import { ChatProviderSelector } from '@/components/ChatProviderSelector';
+import { useProviderSelection } from '@/hooks/useProviderSelection';
 import { cn } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -38,6 +40,7 @@ export interface ChatPanelProps {
 export function ChatPanel({ workspaceId }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { selectedProvider } = useProviderSelection();
 
   const { messages, status, sendMessage, error } = useChat({
     id: `workspace-${workspaceId}`,
@@ -67,6 +70,8 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
           body: {
             message: messageText,
             chat_history: chatHistory,
+            // Include provider selection for per-request provider override
+            provider: selectedProvider,
           },
         };
       },
@@ -194,7 +199,8 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
       {/* Input area - anchored at bottom, floating effect with negative margin */}
       <div className="flex-shrink-0 px-4 pb-4 -mt-6 relative z-10">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-          <div className="relative flex items-center rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg transition-all overflow-hidden">
+            {/* Textarea - full width at top */}
             <Textarea
               value={inputValue}
               onChange={(e) => {
@@ -205,23 +211,50 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
                 target.style.height = `${Math.min(target.scrollHeight, 288)}px`; // max ~12 lines (24px * 12)
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Message RAGitect..."
-              className="min-h-[44px] max-h-72 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-12 py-2.5 pl-4 rounded-2xl text-sm leading-6"
+              placeholder="How can I help you today?"
+              className="min-h-[44px] max-h-72 resize-none border-0 bg-transparent dark:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-3 px-4 rounded-t-2xl text-sm leading-6 w-full shadow-none"
               disabled={isLoading}
               rows={1}
             />
-            <Button
-              type="submit"
-              size="icon"
-              className="absolute right-2 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 disabled:opacity-100 transition-colors"
-              disabled={!inputValue.trim() || isLoading}
-            >
-              <ArrowUp className="h-4 w-4" />
-            </Button>
+
+            {/* Bottom toolbar row */}
+            <div className="flex items-center justify-between px-2 pt-1 pb-2">
+              {/* Left side - Plus and Clock buttons */}
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                  disabled={isLoading}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                  disabled={isLoading}
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Right side - Model selector and Submit button */}
+              <div className="flex items-center gap-2">
+                <ChatProviderSelector />
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg bg-primary hover:bg-primary/90 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 disabled:opacity-100 transition-colors"
+                  disabled={!inputValue.trim() || isLoading}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 font-mono text-[10px]">Enter</kbd> to send
-          </p>
         </form>
       </div>
     </div>

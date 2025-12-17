@@ -24,6 +24,22 @@ vi.mock('ai', () => ({
   },
 }));
 
+// Mock the useProviderSelection hook
+vi.mock('@/hooks/useProviderSelection', () => ({
+  useProviderSelection: vi.fn(() => ({
+    selectedProvider: 'openai',
+    selectProvider: vi.fn(),
+    providers: [{ providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true }],
+    currentProvider: { providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true },
+    isLoading: false,
+  })),
+}));
+
+// Mock the ChatProviderSelector component
+vi.mock('@/components/ChatProviderSelector', () => ({
+  ChatProviderSelector: () => <div data-testid="chat-provider-selector">gpt-4o</div>,
+}));
+
 import { useChat } from '@ai-sdk/react';
 
 /** Helper to create mock useChat return value */

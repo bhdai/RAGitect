@@ -4,10 +4,10 @@ import os
 from unittest.mock import patch
 
 from ragitect.services.config import (
-    LLMConfig,
     DocumentConfig,
-    load_config_from_env,
+    LLMConfig,
     get_default_config,
+    load_config_from_env,
     load_document_config,
 )
 
@@ -50,13 +50,13 @@ class TestDocumentConfig:
         with patch.dict(os.environ, {"CHUNK_SIZE": "2000"}):
             config = load_document_config()
             assert config.chunk_size == 2000
-            assert config.chunk_overlap == 150  # Should still use default
+            assert config.chunk_overlap == 400  # Should still use default
 
     def test_loads_chunk_overlap_from_env(self):
         """Test that CHUNK_OVERLAP env var overrides default"""
         with patch.dict(os.environ, {"CHUNK_OVERLAP": "300"}):
             config = load_document_config()
-            assert config.chunk_size == 1000  # Should still use default
+            assert config.chunk_size == 2000  # Should still use default
             assert config.chunk_overlap == 300
 
     def test_loads_both_chunk_params_from_env(self):

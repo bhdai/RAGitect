@@ -226,6 +226,45 @@ class TestChatRAGIntegration:
     Story 3.1: Natural Language Querying - AC2, AC3, AC4, AC6
     """
 
+    async def test_chat_request_accepts_provider_parameter(self, async_client, mocker):
+        """Test that ChatRequest accepts provider parameter for runtime override."""
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        from ragitect.services.database.models import Workspace
+
+        mock_workspace = Workspace(id=workspace_id, name="Test")
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        # Mock DocumentRepository to return 0 docs (empty workspace)
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 0
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={
+                "message": "Test message",
+                "provider": "openai",
+            },
+        )
+
+        # Should not return 422 for provider field
+        assert response.status_code == 200
+
     async def test_chat_request_accepts_chat_history(self, async_client, mocker):
         """Test that ChatRequest accepts chat_history parameter (AC5)."""
         workspace_id = uuid.uuid4()
@@ -472,6 +511,237 @@ class TestChatRAGIntegration:
         )
 
         assert response.status_code == 422
+
+
+class TestChatProviderOverride:
+    """Tests for provider override functionality in chat endpoint."""
+
+    async def test_chat_with_provider_override_uses_specified_provider(
+        self, async_client, mocker
+    ):
+        """Test that specifying provider uses that provider's config."""
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        from ragitect.services.database.models import Workspace
+
+        mock_workspace = Workspace(id=workspace_id, name="Test")
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context",
+            return_value=[
+                {
+                    "content": "test",
+                    "document_name": "test.txt",
+                    "chunk_index": 0,
+                    "similarity": 0.85,
+                    "chunk_label": "Chunk 1",
+                }
+            ],
+        )
+
+        async def mock_stream(llm, messages):
+            yield "Test"
+
+        mocker.patch(
+            "ragitect.api.v1.chat.generate_response_stream",
+            side_effect=mock_stream,
+        )
+
+        # Track which provider was requested
+        mock_create_llm = mocker.AsyncMock()
+        mock_create_llm.return_value = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            mock_create_llm,
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "Hello", "provider": "anthropic"},
+        )
+
+        assert response.status_code == 200
+        # Verify the provider was passed to create_llm_with_provider
+        mock_create_llm.assert_called_once()
+        call_kwargs = mock_create_llm.call_args.kwargs
+        assert call_kwargs.get("provider") == "anthropic"
+
+    async def test_chat_with_invalid_provider_returns_400(self, async_client, mocker):
+        """Test that specifying an unconfigured provider returns 400."""
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        from ragitect.services.database.models import Workspace
+
+        mock_workspace = Workspace(id=workspace_id, name="Test")
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context",
+            return_value=[],
+        )
+
+        # Mock create_llm_with_provider to raise ValueError
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            side_effect=ValueError("Provider 'nonexistent' not configured"),
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "Hello", "provider": "nonexistent"},
+        )
+
+        assert response.status_code == 400
+        assert "not configured" in response.json()["detail"].lower()
+
+    async def test_chat_with_inactive_provider_returns_400(self, async_client, mocker):
+        """Test that specifying an inactive provider returns 400."""
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        from ragitect.services.database.models import Workspace
+
+        mock_workspace = Workspace(id=workspace_id, name="Test")
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context",
+            return_value=[],
+        )
+
+        # Mock create_llm_with_provider to raise ValueError for inactive provider
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            side_effect=ValueError("Provider 'openai' is not active"),
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "Hello", "provider": "openai"},
+        )
+
+        assert response.status_code == 400
+        assert "not active" in response.json()["detail"].lower()
+
+    async def test_chat_without_provider_uses_default(self, async_client, mocker):
+        """Test that omitting provider uses default active provider."""
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        from ragitect.services.database.models import Workspace
+
+        mock_workspace = Workspace(id=workspace_id, name="Test")
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context",
+            return_value=[
+                {
+                    "content": "test",
+                    "document_name": "test.txt",
+                    "chunk_index": 0,
+                    "similarity": 0.85,
+                    "chunk_label": "Chunk 1",
+                }
+            ],
+        )
+
+        async def mock_stream(llm, messages):
+            yield "Test"
+
+        mocker.patch(
+            "ragitect.api.v1.chat.generate_response_stream",
+            side_effect=mock_stream,
+        )
+
+        mock_create_llm = mocker.AsyncMock()
+        mock_create_llm.return_value = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            mock_create_llm,
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "Hello"},  # No provider specified
+        )
+
+        assert response.status_code == 200
+        # Verify provider=None was passed (default behavior)
+        mock_create_llm.assert_called_once()
+        call_kwargs = mock_create_llm.call_args.kwargs
+        assert call_kwargs.get("provider") is None
 
 
 class TestRetrievalThresholdFiltering:

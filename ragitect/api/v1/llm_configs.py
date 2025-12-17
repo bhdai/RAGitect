@@ -3,6 +3,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragitect.api.schemas.llm_config import (
@@ -15,8 +16,10 @@ from ragitect.api.schemas.llm_config import (
     LLMProviderConfigResponse,
     LLMProviderConfigValidate,
     LLMProviderConfigValidateResponse,
+    LLMProviderToggleRequest,
 )
 from ragitect.services.database.connection import get_async_session
+from ragitect.services.database.models import LLMProviderConfig
 from ragitect.services.llm_config_service import (
     delete_config,
     get_all_configs,
@@ -268,6 +271,50 @@ async def get_llm_config(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Configuration for provider '{provider_name}' not found",
         )
+
+    return LLMProviderConfigResponse(
+        id=str(config.id),
+        provider_name=config.provider_name,
+        base_url=config.config_data.get("base_url"),
+        model=config.config_data.get("model"),
+        is_active=config.is_active,
+        created_at=config.created_at.isoformat(),
+        updated_at=config.updated_at.isoformat(),
+    )
+
+
+@router.patch(
+    "/{provider_name}/toggle",
+    response_model=LLMProviderConfigResponse,
+    summary="Toggle provider active state",
+    description="Enable or disable a saved provider without requiring API key re-entry",
+)
+async def toggle_llm_config(
+    provider_name: str,
+    request: LLMProviderToggleRequest,
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> LLMProviderConfigResponse:
+    """Toggle provider active state without requiring API key.
+
+    This allows users to enable/disable a saved provider configuration
+    without needing to re-enter their API key.
+    """
+    result = await session.execute(
+        select(LLMProviderConfig).where(
+            LLMProviderConfig.provider_name == provider_name.lower()
+        )
+    )
+    config = result.scalar_one_or_none()
+
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Provider {provider_name} not configured",
+        )
+
+    config.is_active = request.is_active
+    await session.flush()
+    await session.refresh(config)
 
     return LLMProviderConfigResponse(
         id=str(config.id),
