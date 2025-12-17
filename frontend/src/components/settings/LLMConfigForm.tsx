@@ -43,7 +43,9 @@ import {
   type LLMProviderConfig,
   getLLMConfigs,
   saveLLMConfig,
+  updateLLMConfig,
   validateLLMConfig,
+  toggleLLMConfig,
 } from '@/lib/llmConfig';
 import { LLM_PROVIDER_REGISTRY, LLM_PROVIDER_OPTIONS } from '@/lib/providers';
 
@@ -187,15 +189,48 @@ export function LLMConfigForm() {
     setFormState(prev => ({ ...prev, isSaving: true }));
 
     try {
-      const saveData = {
-        providerName: formState.selectedProvider,
-        isActive: formState.isEnabled,
-        model: formState.model || undefined,
-        baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
-        apiKey: currentProvider.requiresApiKey && formState.apiKey ? formState.apiKey : undefined,
-      };
+      // Check if this provider already has a saved config
+      const existingConfig = savedConfigs.find(
+        c => c.providerName === formState.selectedProvider
+      );
 
-      await saveLLMConfig(saveData);
+      if (existingConfig) {
+        // Use PATCH for existing config - API key is optional
+        const updateData: {
+          model?: string;
+          baseUrl?: string;
+          apiKey?: string;
+          isActive?: boolean;
+        } = {
+          isActive: formState.isEnabled,
+        };
+
+        if (formState.model) {
+          updateData.model = formState.model;
+        }
+
+        if (!currentProvider.requiresApiKey && formState.baseUrl) {
+          updateData.baseUrl = formState.baseUrl;
+        }
+
+        // Only include API key if user entered a new one
+        if (currentProvider.requiresApiKey && formState.apiKey) {
+          updateData.apiKey = formState.apiKey;
+        }
+
+        await updateLLMConfig(formState.selectedProvider, updateData);
+      } else {
+        // Use POST for new config - API key required for cloud providers
+        const saveData = {
+          providerName: formState.selectedProvider,
+          isActive: formState.isEnabled,
+          model: formState.model || undefined,
+          baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
+          apiKey: currentProvider.requiresApiKey && formState.apiKey ? formState.apiKey : undefined,
+        };
+
+        await saveLLMConfig(saveData);
+      }
 
       setFormState(prev => ({ 
         ...prev, 
@@ -213,7 +248,38 @@ export function LLMConfigForm() {
       setFormState(prev => ({ ...prev, isSaving: false }));
       toast.error(message);
     }
-  }, [formState.selectedProvider, formState.isEnabled, formState.model, formState.baseUrl, formState.apiKey, currentProvider]);
+  }, [formState.selectedProvider, formState.isEnabled, formState.model, formState.baseUrl, formState.apiKey, currentProvider, savedConfigs]);
+
+  // Handler for toggle switch - uses toggle endpoint for existing configs
+  const handleToggle = useCallback(async (checked: boolean) => {
+    // Check if this provider has a saved config
+    const existingConfig = savedConfigs.find(
+      c => c.providerName === formState.selectedProvider
+    );
+
+    if (existingConfig) {
+      // Use toggle endpoint - no API key needed!
+      try {
+        await toggleLLMConfig(formState.selectedProvider, checked);
+        setFormState(prev => ({ ...prev, isEnabled: checked }));
+        toast.success(`${currentProvider.displayName} ${checked ? 'enabled' : 'disabled'}`);
+
+        // Reload configs to sync state
+        const response = await getLLMConfigs();
+        setSavedConfigs(response.configs);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to toggle provider';
+        toast.error(message);
+      }
+    } else {
+      // No saved config yet - just update form state (user needs to save first)
+      setFormState(prev => ({
+        ...prev,
+        isEnabled: checked,
+        hasChanges: true,
+      }));
+    }
+  }, [formState.selectedProvider, savedConfigs, currentProvider]);
 
   if (isLoading) {
     return (
@@ -377,11 +443,7 @@ export function LLMConfigForm() {
           <Switch
             id="is-active"
             checked={formState.isEnabled}
-            onCheckedChange={(checked) => setFormState(prev => ({
-              ...prev,
-              isEnabled: checked,
-              hasChanges: true,
-            }))}
+            onCheckedChange={handleToggle}
           />
         </div>
 

@@ -19,6 +19,7 @@ import { DocumentSidebar } from '@/components/DocumentSidebar';
 import { ChatPanel } from '@/components/ChatPanel';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { DeleteDocumentDialog } from '@/components/DeleteDocumentDialog';
+import { ProviderSelectionProvider } from '@/contexts/ProviderSelectionContext';
 import type { Upload } from '@/components/UploadProgress';
 import { getWorkspace } from '@/lib/api';
 import { uploadDocuments, getDocumentStatus, deleteDocument, type Document } from '@/lib/documents';
@@ -343,7 +344,9 @@ export default function WorkspacePage() {
             backgroundColor: 'var(--card-chat-bg)'
           }}
         >
-          <ChatPanel workspaceId={workspace.id} />
+          <ProviderSelectionProvider>
+            <ChatPanel workspaceId={workspace.id} />
+          </ProviderSelectionProvider>
         </div>
 
         {/* Right: Document Viewer Card (700px, conditional) */}

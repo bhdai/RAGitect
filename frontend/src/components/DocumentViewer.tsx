@@ -94,18 +94,18 @@ export function DocumentViewer({ documentId, onClose }: DocumentViewerProps) {
                 <ReactMarkdown
                   components={{
                     // Enhanced headings - bigger and bolder
-                    h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-4 mt-6 first:mt-0" {...props} />,
-                    h2: ({node, ...props}) => <h2 className="text-xl font-bold mb-3 mt-6" {...props} />,
-                    h3: ({node, ...props}) => <h3 className="text-lg font-semibold mb-2 mt-4" {...props} />,
-                    h4: ({node, ...props}) => <h4 className="text-base font-semibold mb-2 mt-3" {...props} />,
-                    
+                    h1: (props) => <h1 className="text-2xl font-bold mb-4 mt-6 first:mt-0" {...props} />,
+                    h2: (props) => <h2 className="text-xl font-bold mb-3 mt-6" {...props} />,
+                    h3: (props) => <h3 className="text-lg font-semibold mb-2 mt-4" {...props} />,
+                    h4: (props) => <h4 className="text-base font-semibold mb-2 mt-3" {...props} />,
+
                     // Basic lists
-                    ul: ({node, ...props}) => <ul className="list-disc pl-6 my-3 space-y-1" {...props} />,
-                    ol: ({node, ...props}) => <ol className="list-decimal pl-6 my-3 space-y-1" {...props} />,
-                    li: ({node, ...props}) => <li className="leading-relaxed" {...props} />,
-                    
+                    ul: (props) => <ul className="list-disc pl-6 my-3 space-y-1" {...props} />,
+                    ol: (props) => <ol className="list-decimal pl-6 my-3 space-y-1" {...props} />,
+                    li: (props) => <li className="leading-relaxed" {...props} />,
+
                     // Everything else renders as default/raw
-                    p: ({node, ...props}) => <p className="mb-3" {...props} />,
+                    p: (props) => <p className="mb-3" {...props} />,
                   }}
                 >
                   {document.processedContent}
