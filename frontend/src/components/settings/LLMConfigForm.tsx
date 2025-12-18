@@ -27,11 +27,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ModelCombobox } from '@/components/ui/model-combobox';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  Server, 
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Server,
   Key,
   Eye,
   EyeOff,
@@ -92,10 +92,10 @@ export function LLMConfigForm() {
       try {
         const response = await getLLMConfigs();
         setSavedConfigs(response.configs);
-        
+
         // Load the first active config, or default to ollama
         const activeConfig = response.configs.find(c => c.isActive) || response.configs[0];
-        
+
         if (activeConfig) {
           const provider = LLM_PROVIDER_REGISTRY[activeConfig.providerName];
           setFormState({
@@ -127,7 +127,7 @@ export function LLMConfigForm() {
   const handleProviderChange = useCallback((providerId: string) => {
     const provider = LLM_PROVIDER_REGISTRY[providerId];
     const savedConfig = savedConfigs.find(c => c.providerName === providerId);
-    
+
     setFormState(prev => ({
       ...prev,
       selectedProvider: providerId,
@@ -143,9 +143,9 @@ export function LLMConfigForm() {
 
   // Handler for testing connection
   const handleTestConnection = useCallback(async () => {
-    setFormState(prev => ({ 
-      ...prev, 
-      isValidating: true, 
+    setFormState(prev => ({
+      ...prev,
+      isValidating: true,
       validationStatus: 'idle',
       validationMessage: '',
     }));
@@ -153,7 +153,11 @@ export function LLMConfigForm() {
     try {
       const validateData = {
         providerName: formState.selectedProvider,
-        baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
+        // Include base_url for ollama and openai_compatible
+        baseUrl: (formState.selectedProvider === 'ollama' || formState.selectedProvider === 'openai_compatible')
+          ? formState.baseUrl
+          : undefined,
+        // Include api_key for providers that require it
         apiKey: currentProvider.requiresApiKey ? formState.apiKey : undefined,
         model: formState.model || undefined,
       };
@@ -209,7 +213,8 @@ export function LLMConfigForm() {
           updateData.model = formState.model;
         }
 
-        if (!currentProvider.requiresApiKey && formState.baseUrl) {
+        // Include base_url for ollama and openai_compatible
+        if ((formState.selectedProvider === 'ollama' || formState.selectedProvider === 'openai_compatible') && formState.baseUrl) {
           updateData.baseUrl = formState.baseUrl;
         }
 
@@ -220,26 +225,30 @@ export function LLMConfigForm() {
 
         await updateLLMConfig(formState.selectedProvider, updateData);
       } else {
-        // Use POST for new config - API key required for cloud providers
+        // Use POST for new config
         const saveData = {
           providerName: formState.selectedProvider,
           isActive: formState.isEnabled,
           model: formState.model || undefined,
-          baseUrl: !currentProvider.requiresApiKey ? formState.baseUrl : undefined,
+          // Include base_url for ollama and openai_compatible
+          baseUrl: (formState.selectedProvider === 'ollama' || formState.selectedProvider === 'openai_compatible')
+            ? formState.baseUrl
+            : undefined,
+          // Include api_key for providers that require it
           apiKey: currentProvider.requiresApiKey && formState.apiKey ? formState.apiKey : undefined,
         };
 
         await saveLLMConfig(saveData);
       }
 
-      setFormState(prev => ({ 
-        ...prev, 
-        isSaving: false, 
+      setFormState(prev => ({
+        ...prev,
+        isSaving: false,
         hasChanges: false,
         apiKey: '', // Clear API key after save for security
       }));
       toast.success(`${currentProvider.displayName} configuration saved`);
-      
+
       // Reload configs
       const response = await getLLMConfigs();
       setSavedConfigs(response.configs);
@@ -305,9 +314,20 @@ export function LLMConfigForm() {
     }
   };
 
-  const canTest = currentProvider.requiresApiKey 
-    ? formState.apiKey.trim() !== ''
-    : formState.baseUrl.trim() !== '';
+  // Determine if we can test connection based on provider requirements
+  const canTest = (() => {
+    if (formState.selectedProvider === 'openai_compatible') {
+      // OpenAI compatible needs both base_url and api_key
+      return formState.baseUrl.trim() !== '' && formState.apiKey.trim() !== '';
+    } else if (formState.selectedProvider === 'ollama') {
+      // Ollama only needs base_url
+      return formState.baseUrl.trim() !== '';
+    } else if (currentProvider.requiresApiKey) {
+      // Cloud providers need api_key
+      return formState.apiKey.trim() !== '';
+    }
+    return false;
+  })();
 
   return (
     <Card className={formState.isEnabled ? '' : 'opacity-75'}>
@@ -351,8 +371,32 @@ export function LLMConfigForm() {
           </p>
         </div>
 
-        {/* Base URL or API Key */}
-        {currentProvider.requiresApiKey ? (
+        {/* Base URL - show for Ollama and OpenAI Compatible */}
+        {(formState.selectedProvider === 'ollama' || formState.selectedProvider === 'openai_compatible') && (
+          <div className="space-y-2">
+            <Label htmlFor="base-url">Base URL</Label>
+            <Input
+              id="base-url"
+              type="url"
+              placeholder={currentProvider.defaultBaseUrl || 'https://api.example.com/v1'}
+              value={formState.baseUrl}
+              onChange={(e) => setFormState(prev => ({
+                ...prev,
+                baseUrl: e.target.value,
+                hasChanges: true,
+              }))}
+              disabled={!formState.isEnabled}
+            />
+            <p className="text-xs text-zinc-500">
+              {formState.selectedProvider === 'ollama'
+                ? 'The base URL of your Ollama instance'
+                : 'The base URL of your OpenAI-compatible API endpoint'}
+            </p>
+          </div>
+        )}
+
+        {/* API Key - show for providers that require it */}
+        {currentProvider.requiresApiKey && (
           <div className="space-y-2">
             <Label htmlFor="api-key">API Key</Label>
             <div className="relative">
@@ -361,8 +405,8 @@ export function LLMConfigForm() {
                 type={formState.showApiKey ? 'text' : 'password'}
                 placeholder={currentProvider.apiKeyPlaceholder}
                 value={formState.apiKey}
-                onChange={(e) => setFormState(prev => ({ 
-                  ...prev, 
+                onChange={(e) => setFormState(prev => ({
+                  ...prev,
                   apiKey: e.target.value,
                   hasChanges: true,
                 }))}
@@ -389,25 +433,6 @@ export function LLMConfigForm() {
               {currentProvider.apiKeyPrefix && ` starting with "${currentProvider.apiKeyPrefix}"`}
             </p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <Label htmlFor="base-url">Base URL</Label>
-            <Input
-              id="base-url"
-              type="url"
-              placeholder={currentProvider.defaultBaseUrl}
-              value={formState.baseUrl}
-              onChange={(e) => setFormState(prev => ({ 
-                ...prev, 
-                baseUrl: e.target.value,
-                hasChanges: true,
-              }))}
-              disabled={!formState.isEnabled}
-            />
-            <p className="text-xs text-zinc-500">
-              The base URL of your {currentProvider.displayName} instance
-            </p>
-          </div>
         )}
 
         {/* Model */}
@@ -415,8 +440,8 @@ export function LLMConfigForm() {
           <Label htmlFor="model">Model</Label>
           <ModelCombobox
             value={formState.model}
-            onChange={(model) => setFormState(prev => ({ 
-              ...prev, 
+            onChange={(model) => setFormState(prev => ({
+              ...prev,
               model,
               hasChanges: true,
             }))}
@@ -425,7 +450,7 @@ export function LLMConfigForm() {
             disabled={!formState.isEnabled}
           />
           <p className="text-xs text-zinc-500">
-            {currentProvider.popularModels.length > 0 
+            {currentProvider.popularModels.length > 0
               ? "Select a popular model or type a custom name"
               : "Enter a custom model name"
             }
@@ -451,11 +476,10 @@ export function LLMConfigForm() {
 
         {/* Validation Status */}
         {formState.validationStatus !== 'idle' && (
-          <div className={`flex items-center gap-2 text-sm ${
-            formState.validationStatus === 'success' 
-              ? 'text-green-600 dark:text-green-400' 
-              : 'text-red-600 dark:text-red-400'
-          }`}>
+          <div className={`flex items-center gap-2 text-sm ${formState.validationStatus === 'success'
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-red-600 dark:text-red-400'
+            }`}>
             {formState.validationStatus === 'success' ? (
               <CheckCircle2 className="h-4 w-4" />
             ) : (
