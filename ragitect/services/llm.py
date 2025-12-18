@@ -40,6 +40,7 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
+    OPENAI_COMPATIBLE = "openai_compatible"
 
 
 # =============================================================================
@@ -59,8 +60,13 @@ def _build_litellm_kwargs(config: LLMConfig) -> dict:
     Returns:
         dict: Kwargs ready for ChatLiteLLM constructor
     """
+    # Determine the provider string for litellm
+    # For openai_compatible, we use "openai" as the provider with custom api_base
     if config.custom_provider:
         model_str = f"{config.custom_provider}/{config.model}"
+    elif config.provider.lower() == "openai_compatible":
+        # OpenAI-compatible APIs use "openai" provider with custom base URL
+        model_str = f"openai/{config.model}"
     else:
         model_str = f"{config.provider.lower()}/{config.model}"
 
