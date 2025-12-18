@@ -166,7 +166,7 @@ async def save_config(
         ValueError: If provider_name is invalid or required fields are missing
     """
     # Validate provider_name
-    valid_providers = {"ollama", "openai", "anthropic"}
+    valid_providers = {"ollama", "openai", "anthropic", "gemini", "openai_compatible"}
     if provider_name.lower() not in valid_providers:
         raise ValueError(
             f"Invalid provider_name. Must be one of: {', '.join(valid_providers)}"

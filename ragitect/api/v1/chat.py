@@ -5,10 +5,12 @@ full Retrieval-Augmented Generation (RAG) integration.
 
 Story 3.0: Streaming Infrastructure (Prep)
 Story 3.1: Natural Language Querying
+Story 3.1.2: Multi-Stage Retrieval Pipeline
 """
 
 import json
 import logging
+import time
 from collections.abc import AsyncGenerator
 from uuid import UUID
 
@@ -18,9 +20,19 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ragitect.services.adaptive_k import select_adaptive_k
 from ragitect.services.config import (
     DEFAULT_RETRIEVAL_K,
     DEFAULT_SIMILARITY_THRESHOLD,
+    RETRIEVAL_ADAPTIVE_K_MAX,
+    RETRIEVAL_ADAPTIVE_K_MIN,
+    RETRIEVAL_INITIAL_K,
+    RETRIEVAL_MMR_K,
+    RETRIEVAL_MMR_LAMBDA,
+    RETRIEVAL_RERANKER_TOP_K,
+    RETRIEVAL_USE_ADAPTIVE_K,
+    RETRIEVAL_USE_MMR,
+    RETRIEVAL_USE_RERANKER,
     EmbeddingConfig,
 )
 from ragitect.services.database.connection import get_async_session
@@ -31,7 +43,9 @@ from ragitect.services.embedding import create_embeddings_model, embed_text
 from ragitect.services.llm import generate_response_stream
 from ragitect.services.llm_config_service import get_active_embedding_config
 from ragitect.services.llm_factory import create_llm_with_provider
+from ragitect.services.mmr import mmr_select
 from ragitect.services.query_service import query_with_iterative_fallback
+from ragitect.services.reranker import rerank_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -131,17 +145,27 @@ async def retrieve_context(
     query: str,
     chat_history: list[dict[str, str]],
     provider: str | None = None,
-    k: int = DEFAULT_RETRIEVAL_K,
+    initial_k: int = RETRIEVAL_INITIAL_K,
     similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+    use_reranker: bool = RETRIEVAL_USE_RERANKER,
+    use_mmr: bool = RETRIEVAL_USE_MMR,
+    use_adaptive_k: bool = RETRIEVAL_USE_ADAPTIVE_K,
+    mmr_lambda: float = RETRIEVAL_MMR_LAMBDA,
 ) -> list[dict]:
-    """Retrieve relevant context chunks for RAG using iterative fallback.
+    """Retrieve relevant context chunks using multi-stage retrieval pipeline.
+
+    Story 3.1.2: Multi-Stage Retrieval Pipeline
+
+    Pipeline stages:
+    1. Over-retrieve: Get top-50 candidates (AC1)
+    2. Rerank: Use cross-encoder for accurate relevance scoring (AC2)
+    3. MMR: Apply diversity selection to reduce redundancy (AC3)
+    4. Adaptive-K: Select K based on score distribution gaps (AC4)
 
     Uses query_with_iterative_fallback for intelligent query processing:
     - Classifies query complexity (simple/ambiguous/complex)
     - For simple queries: tries direct search, falls back to reformulation if low relevance
     - For ambiguous/complex: reformulates directly with chat history context
-
-    Story 3.1: Natural Language Querying - AC2
 
     Args:
         session: Database session
@@ -149,7 +173,12 @@ async def retrieve_context(
         query: User query
         chat_history: Previous conversation for context
         provider: Optional provider override for query processing LLM
-        k: Number of chunks to retrieve
+        initial_k: Number of candidates for over-retrieval (default 50)
+        similarity_threshold: Minimum similarity for initial retrieval
+        use_reranker: Whether to apply cross-encoder reranking
+        use_mmr: Whether to apply MMR diversity selection
+        use_adaptive_k: Whether to use adaptive K selection
+        mmr_lambda: Balance between relevance and diversity (0-1)
 
     Returns:
         List of chunks with content and metadata
@@ -174,18 +203,21 @@ async def retrieve_context(
 
     embedding_model = create_embeddings_model(config)
 
-    # Store search results to avoid duplicate retrieval
+    # Store search results and embeddings for pipeline stages
     search_results_cache: dict[str, list[tuple]] = {}
+    query_embedding_cache: dict[str, list[float]] = {}
 
     # Create vector search function for iterative fallback
     async def vector_search_fn(search_query: str) -> list[str]:
         """Perform vector search and return chunk contents (caches full results)."""
         query_embedding = await embed_text(embedding_model, search_query)
+        query_embedding_cache[search_query] = query_embedding
         repo = VectorRepository(session)
+        # Stage 1: Over-retrieve (AC1) - get more candidates for reranking
         chunks_with_scores = await repo.search_similar_chunks(
             workspace_id,
             query_embedding,
-            k=k,
+            k=initial_k,
             similarity_threshold=similarity_threshold,
         )
         # Cache full results for later use
@@ -208,37 +240,90 @@ async def retrieve_context(
 
     # Use cached search results to avoid duplicate retrieval
     chunks_with_scores = search_results_cache.get(final_query, [])
+    query_embedding = query_embedding_cache.get(final_query, [])
 
-    # Log similarity score distribution (AC5)
+    # Log initial retrieval stats (AC6)
     if chunks_with_scores:
         similarities = [1.0 - dist for _, dist in chunks_with_scores]
         logger.info(
-            "Retrieval stats: %d chunks, similarity range [%.3f, %.3f], mean: %.3f",
+            "Initial retrieval: %d chunks, similarity range [%.3f, %.3f], mean: %.3f",
             len(chunks_with_scores),
             min(similarities),
             max(similarities),
             sum(similarities) / len(similarities),
         )
 
-    # Format results with document info
-    results = []
+    # Format chunks for processing pipeline
     doc_repo = DocumentRepository(session)
+    chunks = []
     for chunk, distance in chunks_with_scores:
         # Load the parent document to get filename
         document = await doc_repo.get_by_id(chunk.document_id)
 
-        results.append(
-            {
-                "content": chunk.content,
-                "document_name": document.file_name if document else "Unknown",
-                "document_id": str(chunk.document_id),
-                "chunk_index": chunk.chunk_index,
-                "similarity": 1.0 - distance,  # Convert distance to similarity
-                "chunk_label": f"Chunk {len(results) + 1}",  # For citation binding
-            }
+        chunk_dict = {
+            "content": chunk.content,
+            "document_name": document.file_name if document else "Unknown",
+            "document_id": str(chunk.document_id),
+            "chunk_index": chunk.chunk_index,
+            "similarity": 1.0 - distance,  # Convert distance to similarity
+            "embedding": list(chunk.embedding) if chunk.embedding is not None else [],
+        }
+        chunks.append(chunk_dict)
+
+    # Stage 2: Rerank with cross-encoder (AC2)
+    if use_reranker and chunks:
+        rerank_start = time.time()
+        chunks = await rerank_chunks(
+            final_query, chunks, top_k=RETRIEVAL_RERANKER_TOP_K
+        )
+        rerank_latency = (time.time() - rerank_start) * 1000
+        logger.info(
+            "Reranker latency: %.1fms for %d chunks", rerank_latency, len(chunks)
         )
 
-    logger.info("Retrieved %d context chunks for query", len(results))
+    # Stage 3: MMR diversity selection (AC3)
+    if use_mmr and chunks and query_embedding:
+        chunk_embeddings = [c.get("embedding", []) for c in chunks]
+        # Filter out chunks without embeddings
+        valid_chunks = [(c, e) for c, e in zip(chunks, chunk_embeddings) if len(e) > 0]
+        if valid_chunks:
+            valid_chunk_list = [c for c, _ in valid_chunks]
+            valid_embeddings = [e for _, e in valid_chunks]
+            chunks = mmr_select(
+                query_embedding=query_embedding,
+                chunk_embeddings=valid_embeddings,
+                chunks=valid_chunk_list,
+                k=RETRIEVAL_MMR_K,
+                lambda_param=mmr_lambda,
+            )
+            logger.info(
+                "MMR selected %d diverse chunks (lambda=%.2f)", len(chunks), mmr_lambda
+            )
+
+    # Stage 4: Adaptive-K selection (AC4)
+    if use_adaptive_k and chunks:
+        chunks, k_metadata = select_adaptive_k(
+            chunks,
+            score_key="rerank_score" if use_reranker else "similarity",
+            k_min=RETRIEVAL_ADAPTIVE_K_MIN,
+            k_max=RETRIEVAL_ADAPTIVE_K_MAX,
+        )
+        logger.info(
+            "Adaptive-K: selected %d chunks (gap_found=%s)",
+            k_metadata["adaptive_k"],
+            k_metadata["gap_found"],
+        )
+    elif not use_adaptive_k:
+        chunks = chunks[:DEFAULT_RETRIEVAL_K]  # Fallback to fixed K
+
+    # Clean up: remove embedding from final results (not needed for prompt)
+    results = []
+    for i, chunk in enumerate(chunks):
+        chunk_copy = {k: v for k, v in chunk.items() if k != "embedding"}
+        chunk_copy["chunk_label"] = f"Chunk {i + 1}"  # For citation binding
+        results.append(chunk_copy)
+
+    logger.info("Retrieved %d context chunks after full pipeline", len(results))
     return results
 
 
@@ -274,7 +359,11 @@ def build_rag_prompt(
     # System prompt with research-backed RAG instructions
     system_content = f"""<system_instructions>
 IDENTITY:
-You are a research librarian specializing in technical documentation. Your role is to locate, organize, and accurately cite information from the user's document collection.
+You are a research librarian specializing in technical documentation who helps user research and learn by engaging in focused discussions about documents in their workspace. Your role is to locate, organize, and accurately cite information from the user's document collection.
+
+# CAPABILITIES
+- Access to project information and selected documents (CONTEXT)
+- Can engage in natural dialogue while maintaining academic rigor
 
 ABSOLUTE CONSTRAINTS:
 1. USE ONLY the information within <context>. Your training data does NOT exist for this task.

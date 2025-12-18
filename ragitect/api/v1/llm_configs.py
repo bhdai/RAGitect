@@ -430,6 +430,98 @@ async def validate_llm_provider_config(
                 error=None if is_valid else message,
             )
 
+        elif provider == "openai_compatible":
+            # OpenAI compatible requires base_url
+            if not validation_data.base_url:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error="base_url is required for OpenAI Compatible provider",
+                )
+
+            # Test connectivity to the base URL
+            import httpx
+
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    # Try to hit the /models endpoint (standard OpenAI API)
+                    headers = {}
+                    if validation_data.api_key:
+                        headers["Authorization"] = (
+                            f"Bearer {validation_data.api_key.get_secret_value()}"
+                        )
+                    response = await client.get(
+                        f"{validation_data.base_url.rstrip('/')}/models",
+                        headers=headers,
+                    )
+                    if response.status_code in {200, 401}:
+                        # 200 = success, 401 = auth required but endpoint exists
+                        return LLMProviderConfigValidateResponse(
+                            valid=True,
+                            message="Successfully connected to OpenAI Compatible endpoint",
+                            error=None,
+                        )
+                    else:
+                        return LLMProviderConfigValidateResponse(
+                            valid=False,
+                            message="Validation failed",
+                            error=f"Endpoint returned status code: {response.status_code}",
+                        )
+            except httpx.ConnectError:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error=f"Could not connect to {validation_data.base_url}",
+                )
+            except httpx.TimeoutException:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error="Connection timed out after 5 seconds",
+                )
+
+        elif provider == "gemini":
+            if not validation_data.api_key:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error="api_key is required for Gemini provider",
+                )
+
+            # Validate Gemini API key by calling the models endpoint
+            import httpx
+
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(
+                        "https://generativelanguage.googleapis.com/v1beta/models",
+                        params={"key": validation_data.api_key.get_secret_value()},
+                    )
+                    if response.status_code == 200:
+                        return LLMProviderConfigValidateResponse(
+                            valid=True,
+                            message="Gemini API key is valid",
+                            error=None,
+                        )
+                    else:
+                        return LLMProviderConfigValidateResponse(
+                            valid=False,
+                            message="Validation failed",
+                            error=f"Gemini API returned error: {response.text}",
+                        )
+            except httpx.ConnectError:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error="Could not connect to Gemini API",
+                )
+            except httpx.TimeoutException:
+                return LLMProviderConfigValidateResponse(
+                    valid=False,
+                    message="Validation failed",
+                    error="Connection timed out after 5 seconds",
+                )
+
         elif provider in {"openai", "anthropic"}:
             if not validation_data.api_key:
                 return LLMProviderConfigValidateResponse(

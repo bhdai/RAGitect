@@ -16,8 +16,8 @@ class LLMProviderConfigCreate(BaseModel):
 
     provider_name: str = Field(
         ...,
-        description="Provider name (ollama, openai, anthropic)",
-        examples=["ollama", "openai", "anthropic"],
+        description="Provider name (ollama, openai, anthropic, gemini, openai_compatible)",
+        examples=["ollama", "openai", "anthropic", "gemini", "openai_compatible"],
     )
     base_url: str | None = Field(
         None,
@@ -42,7 +42,13 @@ class LLMProviderConfigCreate(BaseModel):
     @classmethod
     def validate_provider_name(cls, v: str) -> str:
         """Validate provider name is one of the supported providers."""
-        allowed_providers = {"ollama", "openai", "anthropic"}
+        allowed_providers = {
+            "ollama",
+            "openai",
+            "anthropic",
+            "gemini",
+            "openai_compatible",
+        }
         if v.lower() not in allowed_providers:
             raise ValueError(
                 f"Invalid provider_name. Must be one of: {', '.join(allowed_providers)}"
@@ -63,6 +69,7 @@ class LLMProviderConfigCreate(BaseModel):
             raise ValueError("OpenAI API keys must start with 'sk-'")
         elif provider_name == "anthropic" and not api_key_str.startswith("sk-ant-"):
             raise ValueError("Anthropic API keys must start with 'sk-ant-'")
+        # gemini and openai_compatible don't have specific prefixes
 
         return v
 
@@ -70,10 +77,16 @@ class LLMProviderConfigCreate(BaseModel):
         """Validate that required fields are present based on provider."""
         if self.provider_name == "ollama" and not self.base_url:
             raise ValueError("base_url is required for Ollama provider")
-        elif self.provider_name in {"openai", "anthropic"} and not self.api_key:
+        elif self.provider_name == "openai_compatible" and not self.base_url:
+            raise ValueError("base_url is required for OpenAI Compatible provider")
+        elif (
+            self.provider_name in {"openai", "anthropic", "gemini"} and not self.api_key
+        ):
             raise ValueError(
                 f"api_key is required for {self.provider_name.title()} provider"
             )
+        elif self.provider_name == "openai_compatible" and not self.api_key:
+            raise ValueError("api_key is required for OpenAI Compatible provider")
 
 
 class LLMProviderConfigUpdate(BaseModel):

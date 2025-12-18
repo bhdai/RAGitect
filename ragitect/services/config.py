@@ -26,6 +26,22 @@ DEFAULT_SIMILARITY_THRESHOLD: float = float(
 )
 DEFAULT_RETRIEVAL_K: int = int(os.getenv("DEFAULT_RETRIEVAL_K", "10"))
 
+# Multi-stage retrieval pipeline configuration (Story 3.1.2)
+RETRIEVAL_INITIAL_K: int = int(os.getenv("RETRIEVAL_INITIAL_K", "50"))
+RETRIEVAL_USE_RERANKER: bool = (
+    os.getenv("RETRIEVAL_USE_RERANKER", "True").lower() == "true"
+)
+RETRIEVAL_RERANKER_TOP_K: int = int(os.getenv("RETRIEVAL_RERANKER_TOP_K", "30"))
+RETRIEVAL_MMR_K: int = int(os.getenv("RETRIEVAL_MMR_K", "20"))
+RETRIEVAL_USE_MMR: bool = os.getenv("RETRIEVAL_USE_MMR", "True").lower() == "true"
+RETRIEVAL_USE_ADAPTIVE_K: bool = (
+    os.getenv("RETRIEVAL_USE_ADAPTIVE_K", "True").lower() == "true"
+)
+RETRIEVAL_MMR_LAMBDA: float = float(os.getenv("RETRIEVAL_MMR_LAMBDA", "0.7"))
+RETRIEVAL_ADAPTIVE_K_MIN: int = int(os.getenv("RETRIEVAL_ADAPTIVE_K_MIN", "4"))
+RETRIEVAL_ADAPTIVE_K_MAX: int = int(os.getenv("RETRIEVAL_ADAPTIVE_K_MAX", "16"))
+RETRIEVAL_TOKEN_BUDGET: int = int(os.getenv("RETRIEVAL_TOKEN_BUDGET", "4000"))
+
 # Encryption key for API key storage (required for cloud LLM providers)
 ENCRYPTION_KEY: str | None = os.getenv("ENCRYPTION_KEY")
 

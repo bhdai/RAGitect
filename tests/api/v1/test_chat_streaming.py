@@ -748,18 +748,19 @@ class TestRetrievalThresholdFiltering:
     """Tests for similarity threshold filtering.
 
     Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC1, AC2
+    Story 3.1.2: Multi-Stage Retrieval Pipeline - AC1
     """
 
-    def test_retrieve_context_default_k_is_configurable(self):
-        """Test that retrieve_context uses DEFAULT_RETRIEVAL_K from config (AC2)."""
+    def test_retrieve_context_initial_k_is_configurable(self):
+        """Test that retrieve_context uses RETRIEVAL_INITIAL_K for over-retrieval (AC1)."""
         import inspect
         from ragitect.api.v1.chat import retrieve_context
-        from ragitect.services.config import DEFAULT_RETRIEVAL_K
+        from ragitect.services.config import RETRIEVAL_INITIAL_K
 
         sig = inspect.signature(retrieve_context)
-        k_param = sig.parameters.get("k")
-        assert k_param is not None
-        assert k_param.default == DEFAULT_RETRIEVAL_K
+        initial_k_param = sig.parameters.get("initial_k")
+        assert initial_k_param is not None
+        assert initial_k_param.default == RETRIEVAL_INITIAL_K
 
     async def test_retrieve_context_passes_similarity_threshold(self, mocker):
         """Test that retrieve_context passes similarity_threshold=0.3 to vector search (AC1)."""
@@ -847,8 +848,8 @@ class TestRetrievalThresholdFiltering:
         call_args = mock_vector_repo.search_similar_chunks.call_args
         assert call_args.kwargs.get("similarity_threshold") == 0.3
 
-    async def test_retrieve_context_uses_k_parameter(self, mocker):
-        """Test that retrieve_context passes the k parameter correctly (AC2)."""
+    async def test_retrieve_context_uses_initial_k_parameter(self, mocker):
+        """Test that retrieve_context passes the initial_k parameter correctly for over-retrieval (Story 3.1.2 AC1)."""
         from ragitect.api.v1.chat import retrieve_context
 
         workspace_id = uuid.uuid4()
@@ -919,7 +920,7 @@ class TestRetrievalThresholdFiltering:
             side_effect=mock_iterative_fallback,
         )
 
-        # Call retrieve_context with default k (uses DEFAULT_RETRIEVAL_K)
+        # Call retrieve_context with default initial_k (uses RETRIEVAL_INITIAL_K)
         await retrieve_context(
             session=mock_session,
             workspace_id=workspace_id,
@@ -927,12 +928,12 @@ class TestRetrievalThresholdFiltering:
             chat_history=[],
         )
 
-        # Verify search_similar_chunks was called with DEFAULT_RETRIEVAL_K
-        from ragitect.services.config import DEFAULT_RETRIEVAL_K
+        # Verify search_similar_chunks was called with RETRIEVAL_INITIAL_K (over-retrieval)
+        from ragitect.services.config import RETRIEVAL_INITIAL_K
 
         mock_vector_repo.search_similar_chunks.assert_called_once()
         call_args = mock_vector_repo.search_similar_chunks.call_args
-        assert call_args.kwargs.get("k") == DEFAULT_RETRIEVAL_K
+        assert call_args.kwargs.get("k") == RETRIEVAL_INITIAL_K
 
     async def test_retrieve_context_includes_chunk_label(self, mocker):
         """Test that retrieve_context adds chunk_label to results (AC4)."""
@@ -1168,10 +1169,11 @@ class TestRetrievalLogging:
     """Tests for retrieval logging and observability.
 
     Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC5
+    Story 3.1.2: Multi-Stage Retrieval Pipeline - AC6
     """
 
     async def test_retrieval_logs_score_distribution(self, mocker, caplog):
-        """Test that retrieval logs similarity score distribution (AC5)."""
+        """Test that retrieval logs similarity score distribution (AC5, AC6)."""
         import logging
         from ragitect.api.v1.chat import retrieve_context
 
@@ -1210,6 +1212,7 @@ class TestRetrievalLogging:
             mock_chunk.content = f"Chunk {i} content"
             mock_chunk.document_id = uuid.uuid4()
             mock_chunk.chunk_index = i
+            mock_chunk.embedding = [0.1] * 768  # Mock embedding for MMR
             mock_chunks.append((mock_chunk, distance))
 
         mock_vector_repo = mocker.AsyncMock()
@@ -1253,8 +1256,8 @@ class TestRetrievalLogging:
                 chat_history=[],
             )
 
-        # Check that retrieval stats were logged
+        # Check that initial retrieval stats were logged (AC6)
         log_text = caplog.text
-        assert "Retrieval stats" in log_text
+        assert "Initial retrieval" in log_text
         assert "chunks" in log_text
         assert "similarity" in log_text.lower()
