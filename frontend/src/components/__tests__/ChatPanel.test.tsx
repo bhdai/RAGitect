@@ -32,6 +32,7 @@ vi.mock('@/contexts/ProviderSelectionContext', () => ({
     providers: [{ providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true }],
     currentProvider: { providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true },
     isLoading: false,
+    error: null,
   })),
 }));
 
@@ -211,7 +212,7 @@ describe('ChatPanel', () => {
     expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
-  it('disables input when streaming', () => {
+  it('allows typing but disables send button when streaming', () => {
     vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
       status: 'streaming',
       sendMessage: mockSendMessage,
@@ -219,8 +220,14 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel workspaceId="test-workspace" />);
 
+    // User can still type while streaming (type-ahead)
     const input = screen.getByPlaceholderText(/how can i help you today/i);
-    expect(input).toBeDisabled();
+    expect(input).not.toBeDisabled();
+
+    // But cannot send until streaming completes - find by type="submit"
+    const form = input.closest('form')!;
+    const submitButton = form.querySelector('button[type="submit"]');
+    expect(submitButton).toBeDisabled();
   });
 
   it('has proper flex styling', () => {

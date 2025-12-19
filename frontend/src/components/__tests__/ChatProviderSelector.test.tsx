@@ -31,6 +31,7 @@ describe('ChatProviderSelector', () => {
       providers: [],
       currentProvider: undefined,
       isLoading: true,
+      error: null,
     });
 
     render(<ChatProviderSelector />);
@@ -40,6 +41,26 @@ describe('ChatProviderSelector', () => {
     expect(spinner).toBeInTheDocument();
   });
 
+  it('shows error state when loading fails', () => {
+    vi.mocked(useProviderSelectionContext).mockReturnValue({
+      selectedProvider: null,
+      selectProvider: mockSelectProvider,
+      providers: [],
+      currentProvider: undefined,
+      isLoading: false,
+      error: new Error('Network error'),
+    });
+
+    render(<ChatProviderSelector />);
+    
+    // Should show error message
+    expect(screen.getByText('Failed to load models')).toBeInTheDocument();
+    
+    // Should show error icon (AlertCircle)
+    const errorContainer = screen.getByText('Failed to load models').parentElement;
+    expect(errorContainer).toHaveClass('text-destructive');
+  });
+
   it('shows "Configure model" link when no providers available', () => {
     vi.mocked(useProviderSelectionContext).mockReturnValue({
       selectedProvider: null,
@@ -47,6 +68,7 @@ describe('ChatProviderSelector', () => {
       providers: [],
       currentProvider: undefined,
       isLoading: false,
+      error: null,
     });
 
     render(<ChatProviderSelector />);
@@ -67,6 +89,7 @@ describe('ChatProviderSelector', () => {
       ],
       currentProvider: { providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true },
       isLoading: false,
+      error: null,
     });
 
     render(<ChatProviderSelector />);
@@ -86,6 +109,7 @@ describe('ChatProviderSelector', () => {
       ],
       currentProvider: { providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true },
       isLoading: false,
+      error: null,
     });
 
     render(<ChatProviderSelector />);
@@ -111,6 +135,7 @@ describe('ChatProviderSelector', () => {
       ],
       currentProvider: { providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true },
       isLoading: false,
+      error: null,
     });
 
     render(<ChatProviderSelector />);
@@ -144,6 +169,7 @@ describe('ChatProviderSelector', () => {
       ],
       currentProvider: undefined, // No matching provider
       isLoading: false,
+      error: null,
     });
 
     render(<ChatProviderSelector />);
@@ -161,6 +187,7 @@ describe('ChatProviderSelector', () => {
       ],
       currentProvider: { providerName: 'openai', displayName: 'OpenAI', model: 'gpt-4o', isActive: true },
       isLoading: false,
+      error: null,
     });
 
     render(<ChatProviderSelector />);

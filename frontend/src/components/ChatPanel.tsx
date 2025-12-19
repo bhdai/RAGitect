@@ -11,12 +11,19 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo, FormEvent, KeyboardEvent } from 'react';
+// Note: useRef is still used for selectedProviderRef
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { ArrowUp, Plus, Clock } from 'lucide-react';
+import { ArrowUp, Plus, Clock, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from '@/components/ai-elements/conversation';
+import { Shimmer } from '@/components/ai-elements/shimmer';
 
 import { MessageWithCitations } from '@/components/MessageWithCitations';
 import { ChatProviderSelector } from '@/components/ChatProviderSelector';
@@ -41,7 +48,6 @@ export interface ChatPanelProps {
  */
 export function ChatPanel({ workspaceId }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
-  const scrollRef = useRef<HTMLDivElement>(null);
   const { selectedProvider } = useProviderSelectionContext();
 
   // Use a ref to always have the current selectedProvider value in callbacks
@@ -50,9 +56,11 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
     selectedProviderRef.current = selectedProvider;
   }, [selectedProvider]);
 
-  // Create transport with a stable reference - the prepareSendMessagesRequest callback
-  // accesses selectedProviderRef.current only when called (during event handling), not during render
-  /* eslint-disable react-hooks/refs */
+  // Create transport with a stable reference. The prepareSendMessagesRequest callback
+  // accesses selectedProviderRef.current only when invoked (during sendMessage event),
+  // not during the render phase. This pattern prevents transport recreation when
+  // selectedProvider changes, which would reset chat state.
+  /* eslint-disable react-hooks/refs -- ref accessed in callback, not during render */
   const transport = useMemo(() => {
     // This function is called during message send, not during render
     const prepareSendMessagesRequest = ({ messages }: { messages: Array<{ role: string; parts?: Array<{ type: string; text?: string }> }> }) => {
@@ -104,13 +112,6 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
   // Only show thinking indicator when submitted but not yet streaming
   const showThinkingIndicator = status === 'submitted';
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
@@ -132,82 +133,76 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
       data-testid="chat-panel"
       className="h-full flex flex-col min-h-0 overflow-hidden"
     >
-      {/* Messages area - scrollable with flex-1 to take remaining space */}
-      <ScrollArea ref={scrollRef} className="flex-1 min-h-0">
-        {messages.length === 0 ? (
-          // Empty state - placeholder for future summary/suggestion prompts
-          <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
-            <div className="max-w-md text-center space-y-4">
-              <p className="text-lg">Ask a question about your documents</p>
-              <p className="text-sm opacity-70">
-                Start a conversation to explore your uploaded documents.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-3xl mx-auto px-4 pt-6 pb-20 space-y-6">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  'flex flex-col gap-1',
-                  message.role === 'user' ? 'items-end' : 'items-start'
-                )}
-              >
-                {/* Role label */}
-                <span className="text-xs font-medium text-muted-foreground px-1">
-                  {message.role === 'user' ? 'You' : 'Assistant'}
-                </span>
+      {/* Messages area - Conversation handles auto-scroll with StickToBottom */}
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent className="gap-6 p-0 min-h-full">
+          {messages.length === 0 ? (
+            <ConversationEmptyState
+              icon={<MessageSquare className="size-12" />}
+              title="Ask a question about your documents"
+              description="Start a conversation to explore your uploaded documents."
+            />
+          ) : (
+            <div className="w-full max-w-3xl mx-auto px-4 pt-6 pb-24 space-y-6">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    'flex flex-col gap-1',
+                    message.role === 'user' ? 'items-end' : 'items-start'
+                  )}
+                >
+                  {/* Role label */}
+                  <span className="text-xs font-medium text-muted-foreground px-1">
+                    {message.role === 'user' ? 'You' : 'Assistant'}
+                  </span>
 
-                {/* Message content - bubble for user, full width for assistant */}
-                {message.role === 'user' ? (
-                  <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground rounded-br-md">
-                    {message.parts.map((part, idx) => {
-                      if (part.type === 'text') {
-                        return (
-                          <p key={idx} className="whitespace-pre-wrap text-sm">
-                            {part.text}
-                          </p>
-                        );
-                      }
-                      return null;
-                    })}
-                  </div>
-                ) : (
-                  <div className="w-full">
-                    {/* Story 3.2.B: Use MessageWithCitations for all assistant messages to ensure consistent rendering and prevent flicker */}
-                    <MessageWithCitations
-                      content={message.parts
-                        .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-                        .map((part) => part.text)
-                        .join('')}
-                      citations={buildCitationMap(message.parts)}
-                      onCitationClick={(citationId) => {
-                        // Story 3.3 will implement deep-dive navigation
-                        console.log('Citation clicked:', citationId);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Animated thinking indicator - only show before streaming starts */}
-            {showThinkingIndicator && (
-              <div className="flex flex-col gap-1 items-start" data-testid="thinking-indicator">
-                <span className="text-xs font-medium text-muted-foreground px-1">
-                  Assistant
-                </span>
-                <div className="flex gap-1.5 items-center h-5 px-1">
-                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" />
-                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:150ms]" />
-                  <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce [animation-delay:300ms]" />
+                  {/* Message content - bubble for user, full width for assistant */}
+                  {message.role === 'user' ? (
+                    <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground rounded-br-md">
+                      {message.parts.map((part, idx) => {
+                        if (part.type === 'text') {
+                          return (
+                            <p key={idx} className="whitespace-pre-wrap text-sm">
+                              {part.text}
+                            </p>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  ) : (
+                    <div className="w-full">
+                      {/* Story 3.2.B: Use MessageWithCitations for all assistant messages to ensure consistent rendering and prevent flicker */}
+                      <MessageWithCitations
+                        content={message.parts
+                          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+                          .map((part) => part.text)
+                          .join('')}
+                        citations={buildCitationMap(message.parts)}
+                        // TODO: Story 3.3 will implement onCitationClick for deep-dive navigation
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </ScrollArea>
+              ))}
+
+              {/* Animated thinking indicator - only show before streaming starts */}
+              {showThinkingIndicator && (
+                <div className="flex flex-col gap-1 items-start w-full" data-testid="thinking-indicator">
+                  <span className="text-xs font-medium text-muted-foreground px-1">
+                    Assistant
+                  </span>
+                  <Shimmer className="text-sm" duration={1.5}>
+                    Searching your documents...
+                  </Shimmer>
+                </div>
+              )}
+            </div>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       {/* Error message */}
       {error && (
@@ -216,11 +211,11 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
         </div>
       )}
 
-      {/* Input area - anchored at bottom, floating effect with negative margin */}
-      <div className="flex-shrink-0 px-4 pb-4 -mt-6 relative z-10">
+      {/* Input area - floats into message area for visual effect */}
+      <div className="flex-shrink-0 px-4 pb-4 -mt-16 relative z-10">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg transition-all overflow-hidden">
-            {/* Textarea - full width at top */}
+            {/* Textarea - full width at top, NOT disabled during streaming so user can type ahead */}
             <Textarea
               value={inputValue}
               onChange={(e) => {
@@ -233,7 +228,6 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
               onKeyDown={handleKeyDown}
               placeholder="How can I help you today?"
               className="min-h-[44px] max-h-72 resize-none border-0 bg-transparent dark:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-3 px-4 rounded-t-2xl text-sm leading-6 w-full shadow-none"
-              disabled={isLoading}
               rows={1}
             />
 

@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useProviderSelectionContext } from '@/contexts/ProviderSelectionContext';
-import { Loader2, Settings } from 'lucide-react';
+import { AlertCircle, Loader2, Settings } from 'lucide-react';
 import Link from 'next/link';
 
 export function ChatProviderSelector() {
@@ -17,13 +17,26 @@ export function ChatProviderSelector() {
     selectProvider,
     providers,
     currentProvider,
-    isLoading
+    isLoading,
+    error
   } = useProviderSelectionContext();
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 px-2 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div 
+        className="flex items-center gap-2 px-2 text-destructive text-xs"
+        title={error.message}
+      >
+        <AlertCircle className="h-4 w-4" />
+        <span>Failed to load models</span>
       </div>
     );
   }

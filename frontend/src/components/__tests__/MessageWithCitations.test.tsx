@@ -12,13 +12,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { MessageWithCitations } from '../MessageWithCitations';
 import type { CitationMap } from '@/types/citation';
 
-// Mock the MessageResponse component to simplify testing
-vi.mock('@/components/ai-elements/message', () => ({
-  MessageResponse: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="message-response">{children}</div>
-  ),
-}));
-
 describe('MessageWithCitations', () => {
   const mockCitations: CitationMap = {
     'cite-0': {
@@ -48,9 +41,7 @@ describe('MessageWithCitations', () => {
         />
       );
 
-      expect(screen.getByTestId('message-response')).toHaveTextContent(
-        'Python is a powerful language.'
-      );
+      expect(screen.getByText('Python is a powerful language.')).toBeInTheDocument();
     });
 
     it('renders citation badges for [N] markers', () => {
@@ -241,9 +232,7 @@ describe('MessageWithCitations', () => {
       );
 
       // Should just render the text without parsing citations
-      expect(screen.getByTestId('message-response')).toHaveTextContent(
-        'Python is powerful[0].'
-      );
+      expect(screen.getByText('Python is powerful[0].')).toBeInTheDocument();
     });
   });
 
