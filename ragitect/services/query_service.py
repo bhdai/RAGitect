@@ -7,8 +7,14 @@ from datetime import datetime, timezone
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
+from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel
+import xml.sax.saxutils as saxutils
 
+from ragitect.prompts.query_prompts import (
+    build_reformulation_prompt,
+    build_relevance_grading_prompt,
+)
 from ragitect.services.llm import generate_response
 
 logger = logging.getLogger(__name__)
@@ -37,10 +43,10 @@ class QueryReformulationResponse(BaseModel):
 
 
 def _parse_reformulation_response(response: str, original_query: str) -> str:
-    """Parse JSON response with fallback to regex cleanup.
+    """Parse JSON response using LangChain's robust parser.
 
-    Primary: JSON parsing using Pydantic validation
-    Fallback: Regex cleanup if LLM returns plain text
+    Uses JsonOutputParser to handle "LLM chatter" (markdown blocks,
+    conversational filler) and extract the pure JSON object.
 
     Args:
         response: Raw LLM response string
@@ -54,54 +60,29 @@ def _parse_reformulation_response(response: str, original_query: str) -> str:
         logger.warning("Empty response - returning original query")
         return original_query
 
-    # Strategy: Find JSON object by locating balanced braces
-    def extract_json_object(text: str) -> str | None:
-        """Extract first complete JSON object from text."""
-        start = text.find("{")
-        if start == -1:
-            return None
-
-        depth = 0
-        in_string = False
-        escape_next = False
-
-        for i, char in enumerate(text[start:], start):
-            if escape_next:
-                escape_next = False
-                continue
-            if char == "\\":
-                escape_next = True
-                continue
-            if char == '"' and not escape_next:
-                in_string = not in_string
-                continue
-            if in_string:
-                continue
-            if char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    return text[start : i + 1]
-        return None
-
-    # Try to extract and validate JSON using Pydantic
-    json_str = extract_json_object(response)
-    if json_str:
+    try:
+        # 1. Try generic LangChain parser (handles code blocks ` ```json ` or pure JSON)
+        parser = JsonOutputParser(pydantic_object=QueryReformulationResponse)
+        parsed_dict = parser.parse(response)
+        parsed = QueryReformulationResponse.model_validate(parsed_dict)
+        return parsed.reformulated_query.strip()
+    except Exception:
+        # 2. Heuristic extraction: Find outer-most braces if LangChain failed
+        # This handles mixed text cases like: "Here is the result: { "foo": "bar" } Thanks!"
         try:
-            parsed = QueryReformulationResponse.model_validate_json(json_str)
-            query = parsed.reformulated_query.strip()
-            if query:
-                logger.debug(
-                    f"JSON parse successful, was_modified={parsed.was_modified}"
-                )
-                return query
-            else:
-                logger.warning("Pydantic parsed but reformulated_query empty")
+            start = response.find("{")
+            end = response.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                candidate = response[start : end + 1]
+                parser = JsonOutputParser(pydantic_object=QueryReformulationResponse)
+                parsed_dict = parser.parse(candidate)
+                parsed = QueryReformulationResponse.model_validate(parsed_dict)
+                logger.debug("Heuristic substring extraction successful")
+                return parsed.reformulated_query.strip()
         except Exception as e:
-            logger.debug(f"Pydantic validation failed ({e}), using fallback")
+            logger.debug(f"JSON parsing failed: {e}")
 
-    # Fallback: regex cleanup for plain text responses
+    # Fallback: regex cleanup for plain text responses (e.g. if LLM ignored JSON instruction completely)
     cleaned = response.strip()
 
     # Remove parenthetical explanations at the end
@@ -247,6 +228,8 @@ async def _grade_retrieval_relevance(
 ) -> bool:
     """Grade if retrieved documents are relevant to the query.
 
+    Story 3.2.A: Modular Prompt System - Uses centralized prompts module.
+
     Uses LLM to assess whether the top retrieved document contains
     information relevant to answering the user's query.
 
@@ -269,17 +252,8 @@ async def _grade_retrieval_relevance(
     # Take first doc (top result) - first 500 chars
     doc_sample = retrieved_docs[0][:500]
 
-    prompt = f"""You are a relevance grader. Assess if the retrieved document contains information related to the user's query.
-
-Query: {query}
-
-Retrieved Document:
-{doc_sample}
-
-Is this document relevant to answering the query?
-Answer only 'yes' or 'no'.
-
-Relevant:"""
+    # Use modular prompt system (Story 3.2.A)
+    prompt = build_relevance_grading_prompt(query, doc_sample)
 
     try:
         response = await generate_response(
@@ -406,6 +380,8 @@ async def query_with_iterative_fallback(
 def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     """Build a guarded prompt for query reformulation with JSON output.
 
+    Story 3.2.A: Modular Prompt System - Uses centralized prompts module.
+
     Uses research-backed guardrails to prevent over-reformulation:
     - Returns query unchanged if already self-contained
     - Only replaces pronouns that genuinely need history context
@@ -419,61 +395,7 @@ def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     Returns:
         str: complete prompt for the LLM
     """
-    prompt = f"""You are a query preprocessor for semantic search. Your task is to make queries self-contained when needed.
-
-OUTPUT FORMAT:
-Return a JSON object with this exact structure:
-{{"reasoning": "brief explanation", "reformulated_query": "the query", "was_modified": true/false}}
-
-CRITICAL RULES:
-1. If the query is ALREADY SELF-CONTAINED, return it UNCHANGED with was_modified=false
-   - Pronouns in the SAME SENTENCE as their referent do NOT need reformulation
-   - "What is Quickshell and how do I install it?" → "it" refers to "Quickshell" in the same sentence → UNCHANGED
-
-2. ONLY replace pronouns if they refer to something from PREVIOUS CONVERSATION TURNS that cannot be understood from the current query alone
-
-3. NEVER add information that is not explicitly stated in the conversation history
-4. NEVER invent or assume context - only use what is clearly present
-5. Keep reformulated queries concise (1-2 sentences max)
-
-<example>
-History: (empty)
-Query: "What is Quickshell and how do I install it on Ubuntu?"
-Output: {{"reasoning": "Query is self-contained. The pronoun 'it' refers to 'Quickshell' within the same sentence.", "reformulated_query": "What is Quickshell and how do I install it on Ubuntu?", "was_modified": false}}
-</example>
-
-<example>
-History: User asked about FastAPI
-Query: "How do I install it?"
-Output: {{"reasoning": "The pronoun 'it' refers to FastAPI from conversation history.", "reformulated_query": "How do I install FastAPI?", "was_modified": true}}
-</example>
-
-<example>
-History: (empty)
-Query: "Tell me about Python and its features"
-Output: {{"reasoning": "Query is self-contained. The pronoun 'its' refers to 'Python' within the same sentence.", "reformulated_query": "Tell me about Python and its features", "was_modified": false}}
-</example>
-
-<example>
-History: User discussed PostgreSQL setup
-Query: "Is it faster than MySQL?"
-Output: {{"reasoning": "The pronoun 'it' refers to PostgreSQL from conversation history.", "reformulated_query": "Is PostgreSQL faster than MySQL?", "was_modified": true}}
-</example>
-
-<example>
-History: (empty)
-Query: "Compare React and Vue"
-Output: {{"reasoning": "Query is self-contained with no ambiguous references.", "reformulated_query": "Compare React and Vue", "was_modified": false}}
-</example>
-
-Conversation History:
-{formatted_history}
-
-Current Query: {user_query}
-
-Output:"""
-
-    return prompt
+    return build_reformulation_prompt(user_query, formatted_history)
 
 
 async def reformulate_query_with_chat_history(
@@ -608,8 +530,11 @@ def format_chat_history(chat_history: list[dict[str, str]]) -> str:
 
         role = message["role"]
         content = message["content"]
+        # Story 3.2.A: Fix Security Vulnerability (High)
+        # Escape content to prevent prompt injection via XML tags
+        escaped_content = saxutils.escape(content)
 
-        lines.append(f'<message role="{role}">{content}</message>')
+        lines.append(f'<message role="{role}">{escaped_content}</message>')
 
     lines.append("</chat_history>")
 

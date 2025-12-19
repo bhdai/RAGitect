@@ -1034,7 +1034,10 @@ class TestPromptEnhancements:
     """
 
     def test_build_rag_prompt_uses_xml_structure(self, mocker):
-        """Test prompt uses XML structure for context isolation (AC3)."""
+        """Test prompt uses XML structure for context isolation (AC3).
+
+        Story 3.2.A: Updated to use <documents> tag from modular prompt system.
+        """
         from ragitect.api.v1.chat import build_rag_prompt
 
         context_chunks = [
@@ -1051,8 +1054,9 @@ class TestPromptEnhancements:
         system_message = messages[0].content
         assert "<system_instructions>" in system_message
         assert "</system_instructions>" in system_message
-        assert "<context>" in system_message
-        assert "</context>" in system_message
+        # Story 3.2.A: Modular prompt system uses <documents> tag
+        assert "<documents>" in system_message
+        assert "</documents>" in system_message
         # Note: user_query is intentionally NOT in system prompt per review feedback
         # Query comes only as final HumanMessage to respect semantic causal flow
         assert "<user_query>" not in system_message
