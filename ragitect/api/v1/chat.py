@@ -20,6 +20,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ragitect.prompts.rag_prompts import build_rag_system_prompt
 from ragitect.services.adaptive_k import select_adaptive_k
 from ragitect.services.config import (
     DEFAULT_RETRIEVAL_K,
@@ -332,10 +333,11 @@ def build_rag_prompt(
     context_chunks: list[dict],
     chat_history: list[dict[str, str]],
 ) -> list[BaseMessage]:
-    """Build prompt with RAG context for LLM using research-backed patterns.
+    """Build prompt with RAG context for LLM using modular prompt system.
 
     Story 3.1: Natural Language Querying - AC3
     Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC3, AC4
+    Story 3.2.A: Modular Prompt System - ADR-3.2.9
 
     Args:
         user_query: Current user question
@@ -345,54 +347,12 @@ def build_rag_prompt(
     Returns:
         List of messages for LangChain chat model
     """
-    # Format context with indexed chunks for citation binding
-    if context_chunks:
-        context_text = "\n\n".join(
-            [
-                f"[Chunk {i + 1}] (From: {chunk['document_name']}, Similarity: {chunk['similarity']:.2f})\n{chunk['content']}"
-                for i, chunk in enumerate(context_chunks)
-            ]
-        )
-    else:
-        context_text = "No relevant context found in documents."
-
-    # System prompt with research-backed RAG instructions
-    system_content = f"""<system_instructions>
-IDENTITY:
-You are a research librarian specializing in technical documentation who helps user research and learn by engaging in focused discussions about documents in their workspace. Your role is to locate, organize, and accurately cite information from the user's document collection.
-
-# CAPABILITIES
-- Access to project information and selected documents (CONTEXT)
-- Can engage in natural dialogue while maintaining academic rigor
-
-ABSOLUTE CONSTRAINTS:
-1. USE ONLY the information within <context>. Your training data does NOT exist for this task.
-2. DO NOT fabricate, infer, or extrapolate beyond what is explicitly stated.
-3. If the answer cannot be found, respond: "I cannot find information about [topic] in your documents."
-4. If documents contain conflicting information, present BOTH positions with their citations.
-
-CITATION RULES:
-- Cite every factual claim using [N] where N matches the chunk number from [Chunk N] labels.
-- Place citations immediately after the sentence, no space: "sentence.[1]"
-- Maximum 3 citations per sentence.
-- ONLY cite chunks that directly support the claim.
-
-RESPONSE FORMAT:
-1. First, internally assess if <context> contains sufficient information.
-2. If sufficient, provide a comprehensive answer with inline citations.
-3. If partial, answer what you can and explicitly state what information is missing.
-4. If insufficient, refuse politely and suggest what documents might help.
-
-OUTPUT STYLE:
-- Use markdown formatting (headers, bullets, code blocks) for readability.
-- Be thorough but objective. Do not editorialize.
-- Maintain a professional, journalistic tone.
-</system_instructions>
-
-<context>
-{context_text}
-</context>
-"""
+    # Use modular prompt builder (Story 3.2.A)
+    system_content = build_rag_system_prompt(
+        context_chunks=context_chunks,
+        include_citations=True,
+        include_examples=True,
+    )
 
     messages: list[BaseMessage] = [SystemMessage(content=system_content)]
 
