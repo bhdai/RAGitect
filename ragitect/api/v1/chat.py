@@ -6,11 +6,14 @@ full Retrieval-Augmented Generation (RAG) integration.
 Story 3.0: Streaming Infrastructure (Prep)
 Story 3.1: Natural Language Querying
 Story 3.1.2: Multi-Stage Retrieval Pipeline
+Story 3.2.B: Streaming LLM Responses with Citations
 """
 
 import json
 import logging
+import re
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from uuid import UUID
 
@@ -19,6 +22,8 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from ragitect.api.schemas.chat import Citation
 
 from ragitect.prompts.rag_prompts import build_rag_system_prompt
 from ragitect.services.adaptive_k import select_adaptive_k
@@ -102,6 +107,177 @@ async def format_sse_stream(
     # Stream text deltas
     async for chunk in chunks:
         yield f"data: {json.dumps({'type': 'text-delta', 'id': text_id, 'delta': chunk})}\n\n"
+
+    # Text block end
+    yield f"data: {json.dumps({'type': 'text-end', 'id': text_id})}\n\n"
+
+    # Finish message
+    yield f"data: {json.dumps({'type': 'finish', 'finishReason': 'stop'})}\n\n"
+
+
+def build_citation_metadata(context_chunks: list[dict]) -> list[Citation]:
+    """Build citation metadata from context chunks.
+
+    Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2
+
+    NOTE: Prompt engineering for [N] format was done in Story 3.1.1.
+    This function just prepares metadata for frontend consumption.
+
+    Args:
+        context_chunks: Chunks returned from retrieve_context()
+
+    Returns:
+        List of Citation objects for streaming
+    """
+    citations = []
+    for i, chunk in enumerate(context_chunks):
+        citations.append(
+            Citation.from_context_chunk(
+                index=i,
+                document_name=chunk.get("document_name", "Unknown"),
+                chunk_index=chunk.get("chunk_index", 0),
+                similarity=chunk.get("rerank_score") or chunk.get("similarity", 0.0),
+                content=chunk.get("content", ""),
+            )
+        )
+    return citations
+
+
+class CitationStreamParser:
+    """Stateful parser for detecting citations across chunk boundaries.
+
+    Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2
+
+    ADR Decision: Real-time regex streaming with cross-chunk buffering.
+    Handles edge case where LLM outputs '[' in one chunk and '1]' in next.
+
+    The LLM is prompted (Story 3.1.1) to cite using [N] format matching
+    [Chunk N] labels in the context. This parser detects those markers
+    in the streaming output and triggers citation metadata emission.
+    """
+
+    def __init__(self, citations: list[Citation]):
+        """Initialize parser with available citations.
+
+        Args:
+            citations: Pre-built citation metadata from context chunks
+        """
+        self.citations = citations
+        self.buffer = ""  # Buffer for partial citation markers
+        self.emitted_ids: set[str] = set()  # Track which citations already emitted
+        self.pattern = re.compile(r"\[(\d+)\]")
+
+    def parse_chunk(self, chunk: str) -> tuple[str, list[Citation]]:
+        """Parse chunk and detect citation markers.
+
+        Args:
+            chunk: New text chunk from LLM stream
+
+        Returns:
+            Tuple of (text_to_emit, new_citations_found)
+        """
+        # Add chunk to buffer
+        self.buffer += chunk
+
+        # Find all complete citation markers in buffer
+        new_citations = []
+        for match in self.pattern.finditer(self.buffer):
+            cite_idx = int(match.group(1))
+            cite_id = f"cite-{cite_idx}"
+
+            # Validate citation index (ADR: Hallucination Handling)
+            if cite_idx >= len(self.citations):
+                logger.warning(
+                    "LLM cited non-existent source [%d] (only %d chunks available)",
+                    cite_idx,
+                    len(self.citations),
+                )
+                continue  # Graceful degradation - skip invalid citation
+
+            # Emit each citation only once
+            if cite_id not in self.emitted_ids:
+                new_citations.append(self.citations[cite_idx])
+                self.emitted_ids.add(cite_id)
+
+        # Emit text, but keep last 10 chars in buffer for partial markers
+        # Max citation marker length: "[9999]" = 6 chars, buffer 10 for safety
+        if len(self.buffer) > 10:
+            text_to_emit = self.buffer[:-10]
+            self.buffer = self.buffer[-10:]
+        else:
+            text_to_emit = ""
+
+        return text_to_emit, new_citations
+
+    def flush(self) -> str:
+        """Flush remaining buffer at end of stream.
+
+        Returns:
+            Any remaining text in the buffer
+        """
+        remaining = self.buffer
+        self.buffer = ""
+        return remaining
+
+
+async def format_sse_stream_with_citations(
+    chunks: AsyncGenerator[str, None],
+    citations: list[Citation],
+) -> AsyncGenerator[str, None]:
+    """Format LLM chunks with AI SDK UI Message Stream Protocol v1 + citations.
+
+    Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2
+
+    ADR: Real-time regex streaming with cross-chunk buffering.
+    Emits citations as 'source-document' parts for AI SDK useChat.
+
+    Args:
+        chunks: LLM token stream
+        citations: Pre-built citation metadata
+
+    Yields:
+        SSE formatted messages (UI Message Stream Protocol v1):
+        - data: {"type": "start", "messageId": "..."} - Message start
+        - data: {"type": "text-start", "id": "..."} - Text block start
+        - data: {"type": "text-delta", "id": "...", "delta": "..."} - Text chunks
+        - data: {"type": "source-document", "sourceId": "...", ...} - Citations
+        - data: {"type": "text-end", "id": "..."} - Text block end
+        - data: {"type": "finish", "finishReason": "stop"} - Stream end
+    """
+    message_id = str(uuid.uuid4())
+    text_id = str(uuid.uuid4())
+    parser = CitationStreamParser(citations)
+
+    # Message start (protocol requirement)
+    yield f"data: {json.dumps({'type': 'start', 'messageId': message_id})}\n\n"
+
+    # Text block start
+    yield f"data: {json.dumps({'type': 'text-start', 'id': text_id})}\n\n"
+
+    async for chunk in chunks:
+        # Parse chunk for citations
+        text_to_emit, new_citations = parser.parse_chunk(chunk)
+
+        # Emit text delta if we have text
+        if text_to_emit:
+            yield f"data: {json.dumps({'type': 'text-delta', 'id': text_id, 'delta': text_to_emit})}\n\n"
+
+        # Emit source-document parts for detected citations
+        for citation in new_citations:
+            source_doc = citation.to_sse_dict()
+            yield f"data: {json.dumps(source_doc)}\n\n"
+
+    # Flush remaining buffer
+    remaining = parser.flush()
+    if remaining:
+        yield f"data: {json.dumps({'type': 'text-delta', 'id': text_id, 'delta': remaining})}\n\n"
+
+    # Log citation usage for monitoring (ADR: Zero Citations case)
+    if citations and not parser.emitted_ids:
+        logger.info(
+            "LLM response had no citations despite %d available chunks",
+            len(citations),
+        )
 
     # Text block end
     yield f"data: {json.dumps({'type': 'text-end', 'id': text_id})}\n\n"
@@ -321,7 +497,7 @@ async def retrieve_context(
     results = []
     for i, chunk in enumerate(chunks):
         chunk_copy = {k: v for k, v in chunk.items() if k != "embedding"}
-        chunk_copy["chunk_label"] = f"Chunk {i + 1}"  # For citation binding
+        chunk_copy["chunk_label"] = f"Chunk {i}"  # Zero-based for citation binding
         results.append(chunk_copy)
 
     logger.info("Retrieved %d context chunks after full pipeline", len(results))
@@ -433,6 +609,9 @@ async def chat_stream(
         provider=request.provider,
     )
 
+    # Build citation metadata from context chunks (Story 3.2.B - AC1, AC2)
+    citations = build_citation_metadata(context_chunks)
+
     # Build RAG prompt with context (AC3)
     messages = build_rag_prompt(
         request.message,
@@ -446,11 +625,11 @@ async def chat_stream(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Generate streaming response (AC4)
+    # Generate streaming response WITH citation detection (AC4, Story 3.2.B)
     async def generate():
-        """Generate SSE formatted stream."""
+        """Generate SSE formatted stream with citations."""
         chunks = generate_response_stream(llm, messages)
-        async for sse_chunk in format_sse_stream(chunks):
+        async for sse_chunk in format_sse_stream_with_citations(chunks, citations):
             yield sse_chunk
 
     return StreamingResponse(

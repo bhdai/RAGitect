@@ -17,10 +17,12 @@ import { ArrowUp, Plus, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageResponse } from '@/components/ai-elements/message';
+
+import { MessageWithCitations } from '@/components/MessageWithCitations';
 import { ChatProviderSelector } from '@/components/ChatProviderSelector';
 import { useProviderSelectionContext } from '@/contexts/ProviderSelectionContext';
 import { cn } from '@/lib/utils';
+import { buildCitationMap } from '@/types/citation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -173,20 +175,18 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
                   </div>
                 ) : (
                   <div className="w-full">
-                    {message.parts.map((part, idx) => {
-                      if (part.type === 'text') {
-                        // Using AI Elements MessageResponse for proper markdown rendering
-                        // with syntax highlighting and copy-to-clipboard on code blocks
-                        return (
-                          <MessageResponse key={idx}>
-                            {part.text}
-                          </MessageResponse>
-                        );
-                      }
-                      // Future: Handle 'reasoning' parts for chain-of-thought
-                      // Future: Handle 'source-document' parts for citations
-                      return null;
-                    })}
+                    {/* Story 3.2.B: Use MessageWithCitations for all assistant messages to ensure consistent rendering and prevent flicker */}
+                    <MessageWithCitations
+                      content={message.parts
+                        .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+                        .map((part) => part.text)
+                        .join('')}
+                      citations={buildCitationMap(message.parts)}
+                      onCitationClick={(citationId) => {
+                        // Story 3.3 will implement deep-dive navigation
+                        console.log('Citation clicked:', citationId);
+                      }}
+                    />
                   </div>
                 )}
               </div>

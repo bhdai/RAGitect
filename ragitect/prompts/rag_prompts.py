@@ -33,25 +33,26 @@ RAG_CITATION_INSTRUCTIONS = """<citation_rules>
 CRITICAL: Every factual statement from documents MUST have a citation.
 
 FORMAT:
-- Use [N] where N matches the [Chunk N] label from the documents
-- Place citations immediately after the sentence: "sentence. [1]"
-- Multiple sources: "Water boils at 100°C. [1] [3]"
+- Documents are labeled [Chunk 0], [Chunk 1], [Chunk 2], etc.
+- Citations use the SAME indices: [0], [1], [2], etc.
+- Example: To cite [Chunk 0], write [0]. To cite [Chunk 5], write [5].
+- Place citations immediately after the sentence: "sentence. [0]"
+- Multiple sources: "Water boils at 100°C. [0] [2]"
 
 REQUIREMENTS (ALL MANDATORY):
 1. Cite EVERY claim derived from documents
-2. Use ONLY chunk numbers provided in [Chunk N] labels
+2. Use EXACT chunk indices: [Chunk 0] → cite as [0], [Chunk 1] → cite as [1]
 3. NEVER fabricate or guess citation numbers
 4. If multiple sources support a point, cite ALL relevant chunks
-5. Place citations *immediately* following the specific claim they support (even mid-sentence), not just at the end of the sentence or paragraph.
-6. Validate citations against available chunks (e.g., don't cite [99] when only 12 chunks exist)
+5. Place citations *immediately* following the specific claim they support (even mid-sentence)
+6. Validate: If you have chunks [Chunk 0] through [Chunk 10] (11 total), use ONLY [0] through [10], NEVER [11]
 
 EXPLICITLY FORBIDDEN (DO NOT USE):
-- Markdown links: ([1](https://example.com))
-- Parentheses: (Source 1) or ([1])
+- Markdown links: ([0](https://example.com))
+- Parentheses: (Source 0) or ([0])
 - Footnote style: ...¹ or ...²
-- Invalid numbers: [99] when only 12 chunks provided
+- Out-of-bounds indices: [11] when highest chunk is [Chunk 10] (use only [0]-[10])
 - Self-assigned IDs: [source-123] or custom identifiers
-- Modified chunk numbers from original labels
 
 GRACEFUL DEGRADATION:
 - If unsure about a source, DON'T cite rather than guessing
@@ -65,35 +66,42 @@ CORRECT EXAMPLES:
 
 Example 1 - Single Source:
 User: "What is Python?"
-Documents: [Chunk 1] Python is a high-level programming language.
-Response: "Python is a high-level programming language. [1]"
+Documents: [Chunk 0] Python is a high-level programming language.
+Response: "Python is a high-level programming language. [0]"
 
 Example 2 - Multiple Sources:
 User: "What are Python's characteristics?"
 Documents: 
-  [Chunk 1] Python is interpreted.
-  [Chunk 2] Python supports multiple paradigms.
-Response: "Python is an interpreted language [1] that supports multiple programming paradigms [2]."
+  [Chunk 0] Python is interpreted.
+  [Chunk 1] Python supports multiple paradigms.
+Response: "Python is an interpreted language [0] that supports multiple programming paradigms [1]."
 
 Example 3 - Conflicting Information:
 User: "Is Python fast?"
 Documents:
-  [Chunk 1] Python is slower than compiled languages.
-  [Chunk 2] Python with NumPy achieves near-C speeds.
-Response: "Python is generally slower than compiled languages [1], though with libraries like NumPy it can achieve near-C performance [2]."
+  [Chunk 0] Python is slower than compiled languages.
+  [Chunk 1] Python with NumPy achieves near-C speeds.
+Response: "Python is generally slower than compiled languages [0], though with libraries like NumPy it can achieve near-C performance [1]."
+
+Example 4 - Multiple Chunks Available:
+User: "Tell me about Python"
+Documents: [Chunk 0] through [Chunk 10] available (11 total chunks)
+Response: "Python is great [0]... more info [5]... details [10]"
+         (Valid range: [0] through [10])
+         (NEVER use [11] - that would be out of bounds!)
 
 INCORRECT EXAMPLES (DO NOT USE):
 
- "Python is fast." 
+ ✗ "Python is fast." 
   (No citation - fabricated claim not in documents)
 
- "Python is a language. ([1](https://python.org))" 
+ ✗ "Python is a language. ([0](https://python.org))" 
   (Markdown link format - forbidden)
 
- "Python is popular. [99]" 
-  (Citation [99] exceeds available chunks)
+ ✗ "Python is popular. [11]" when you have [Chunk 0] through [Chunk 10]
+  (Citation [11] exceeds available range - use [0]-[10] only)
 
- "Python was created in 1991." 
+ ✗ "Python was created in 1991." 
   (Fact not in documents - using parametric knowledge inappropriately)
 </citation_examples>"""
 
@@ -133,11 +141,11 @@ def build_rag_system_prompt(
     Returns:
         Complete system prompt string with all components
     """
-    # Format context with chunk labels
+    # Format context with chunk labels (ZERO-BASED to match citation indices)
     if context_chunks:
         context_text = "\n\n".join(
             [
-                f"[Chunk {i + 1}] (From: {chunk['document_name']}, Similarity: {chunk['similarity']:.2f})\n{saxutils.escape(chunk['content'])}"
+                f"[Chunk {i}] (From: {chunk['document_name']}, Similarity: {chunk['similarity']:.2f})\n{saxutils.escape(chunk['content'])}"
                 for i, chunk in enumerate(context_chunks)
             ]
         )
