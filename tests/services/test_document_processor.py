@@ -122,9 +122,7 @@ More detailed information in another subsection.
 
 The final section with concluding remarks.
 """
-        chunks = split_document(
-            markdown_text, chunk_size=1000, overlap=150, file_type=".md"
-        )
+        chunks = split_document(markdown_text, chunk_size=1000, overlap=150)
 
         # Verify chunks were created
         assert len(chunks) > 0
@@ -160,11 +158,11 @@ The final section with concluding remarks.
     def test_markdown_splitting_handles_empty_text(self):
         """Test that markdown splitting efficiently handles empty text"""
         # Test completely empty string
-        chunks = split_document("", file_type=".md")
+        chunks = split_document("")
         assert chunks == []
 
         # Test whitespace-only string
-        chunks_whitespace = split_document("   \n\t  ", file_type=".md")
+        chunks_whitespace = split_document("   \n\t  ")
         assert chunks_whitespace == []
 
     def test_markdown_splitting_respects_chunk_size(self):
@@ -173,9 +171,7 @@ The final section with concluding remarks.
         large_section = "# Big Section\n\n" + ("word " * 500)
         chunk_size = 1000
         overlap = 150
-        chunks = split_document(
-            large_section, chunk_size=chunk_size, overlap=overlap, file_type=".md"
-        )
+        chunks = split_document(large_section, chunk_size=chunk_size, overlap=overlap)
 
         # Should be split into multiple chunks due to size
         assert len(chunks) >= 2
@@ -190,25 +186,19 @@ The final section with concluding remarks.
                 f"Chunk size {len(chunk)} exceeds max expected {max_expected_size}"
             )
 
-    def test_plain_text_uses_recursive_splitter(self):
-        """Test that non-markdown files use standard recursive splitting"""
+    def test_plain_text_splitting(self):
+        """Test that plain text is split using markdown-aware splitter"""
         text = "a" * 2000
-        chunks = split_document(text, chunk_size=1000, overlap=150, file_type=".txt")
+        chunks = split_document(text, chunk_size=1000, overlap=150)
 
         # Should split into multiple chunks
         assert len(chunks) >= 2
-
-        # Test with no file_type (default behavior)
-        chunks_default = split_document(text, chunk_size=1000, overlap=150)
-        assert len(chunks_default) >= 2
 
     def test_markdown_splitting_fallback_on_error(self):
         """Test that markdown splitting falls back to recursive on parsing errors"""
         # Normal text without markdown structure should still work
         plain_text = "This is just plain text without any markdown structure. " * 50
-        chunks = split_document(
-            plain_text, chunk_size=1000, overlap=150, file_type=".md"
-        )
+        chunks = split_document(plain_text, chunk_size=1000, overlap=150)
 
         # Should still produce chunks via fallback
         assert len(chunks) > 0

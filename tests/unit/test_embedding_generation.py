@@ -166,7 +166,7 @@ More content under header 2.
 
 Content under header 3.
 """
-        chunks = split_document(markdown, chunk_size=500, overlap=50, file_type=".md")
+        chunks = split_document(markdown, chunk_size=500, overlap=50)
 
         # Should split by markdown structure
         assert len(chunks) >= 1

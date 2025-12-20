@@ -121,12 +121,14 @@ class DocumentProcessingService:
             doc_config = load_document_config()
 
             # Split text into chunks
-            file_type = metadata.get("file_type")
+            # All documents are in Markdown format at this point:
+            # - DoclingProcessor converts complex formats (PDF, DOCX, etc.) to Markdown
+            # - SimpleProcessor keeps text-based formats (.txt, .md) as-is
+            # Therefore, always use Markdown-aware splitting for optimal structure preservation
             chunks = split_document(
                 text,
                 chunk_size=doc_config.chunk_size,
                 overlap=doc_config.chunk_overlap,
-                file_type=file_type,
             )
             logger.info(f"Split into {len(chunks)} chunks for document {document_id}")
 

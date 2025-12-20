@@ -116,29 +116,26 @@ def split_document(
     raw_text: str,
     chunk_size: int = 1000,
     overlap: int = 150,
-    file_type: str | None = None,
 ) -> list[str]:
-    """split raw text into chunks with optional markdown awareness
+    """Split text into chunks using Markdown-aware splitting
+
+    All documents are processed to Markdown format before chunking:
+    - DoclingProcessor converts PDF/DOCX/PPTX/etc. to Markdown
+    - SimpleProcessor keeps TXT/MD files as-is
+
+    Therefore, we always use Markdown-aware splitting to preserve document
+    structure (headers, sections) regardless of the original file type.
 
     Args:
-        raw_text: raw text string
-        chunk_size: chunk size
-        overlap: overlap size
-        file_type: File extension (e.g., '.md', '.txt') for format-aware splitting
+        raw_text: raw text string (in Markdown format)
+        chunk_size: chunk size in characters
+        overlap: overlap size in characters
 
     Returns:
-        list of text chunks
+        list of text chunks with preserved Markdown structure
     """
-    # Use markdown-aware splitting for markdown files
-    if file_type and file_type.lower() in [".md", ".markdown"]:
-        return split_markdown_document(raw_text, chunk_size, overlap)
-
-    # Default: recursive character splitting
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size, chunk_overlap=overlap
-    )
-    all_splits = text_splitter.split_text(raw_text)
-    return all_splits
+    # Always use Markdown-aware splitting since all documents are in Markdown format
+    return split_markdown_document(raw_text, chunk_size, overlap)
 
 
 def process_file_bytes(file_bytes: bytes, file_name: str) -> tuple[str, dict[str, str]]:

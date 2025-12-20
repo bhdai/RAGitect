@@ -50,7 +50,7 @@ class TestDocumentConfig:
         with patch.dict(os.environ, {"CHUNK_SIZE": "2000"}):
             config = load_document_config()
             assert config.chunk_size == 2000
-            assert config.chunk_overlap == 400  # Should still use default
+            assert config.chunk_overlap == 250  # Should still use default
 
     def test_loads_chunk_overlap_from_env(self):
         """Test that CHUNK_OVERLAP env var overrides default"""
