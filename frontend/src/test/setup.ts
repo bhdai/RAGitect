@@ -1,5 +1,13 @@
 import '@testing-library/jest-dom'
 
+// Mock ResizeObserver (needed by use-stick-to-bottom)
+// See: https://github.com/jsdom/jsdom/issues/3368
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // Polyfill for Radix UI components (hasPointerCapture not implemented in JSDOM)
 // See: https://github.com/radix-ui/primitives/issues/1207
 if (!Element.prototype.hasPointerCapture) {

@@ -19,6 +19,7 @@ interface ProviderSelectionContextValue {
   providers: ProviderOption[];
   currentProvider: ProviderOption | undefined;
   isLoading: boolean;
+  error: Error | null;
 }
 
 const ProviderSelectionContext = createContext<ProviderSelectionContextValue | null>(null);
@@ -27,11 +28,13 @@ export function ProviderSelectionProvider({ children }: { children: ReactNode })
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   // Load available providers on mount
   useEffect(() => {
     const loadProviders = async () => {
       try {
+        setError(null);
         const response = await getLLMConfigs();
 
         // Map to display format with model names
@@ -56,8 +59,9 @@ export function ProviderSelectionProvider({ children }: { children: ReactNode })
         } else if (activeProviders.length > 0) {
           setSelectedProvider(activeProviders[0].providerName);
         }
-      } catch (error) {
-        console.error('Failed to load providers:', error);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Failed to load LLM providers');
+        setError(error);
       } finally {
         setIsLoading(false);
       }
@@ -82,6 +86,7 @@ export function ProviderSelectionProvider({ children }: { children: ReactNode })
         providers,
         currentProvider,
         isLoading,
+        error,
       }}
     >
       {children}
