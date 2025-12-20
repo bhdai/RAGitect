@@ -1,6 +1,7 @@
 """Chat API schemas for streaming citations.
 
 Story 3.2.B: Streaming LLM Responses with Citations
+Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
 
 Pydantic models for citation metadata in AI SDK streaming responses.
 Uses camelCase serialization for frontend compatibility.
@@ -15,13 +16,16 @@ from pydantic.alias_generators import to_camel
 class CitationMetadata(BaseModel):
     """Custom RAGitect citation metadata for providerMetadata.ragitect.
 
+    Story 3.3.A: Added document_id for frontend navigation (AC1, AC2)
+
     This data is embedded in AI SDK source-document parts under providerMetadata.
-    Frontend extracts this for tooltip display.
+    Frontend extracts this for tooltip display and document navigation.
 
     Attributes:
         chunk_index: Index of the chunk within the document
         similarity: Relevance score 0-1 from vector search/reranking
         preview: Full chunk content for tooltip preview
+        document_id: Document UUID for navigation (NEW in 3.3.A)
     """
 
     model_config = ConfigDict(
@@ -32,6 +36,7 @@ class CitationMetadata(BaseModel):
     chunk_index: int = Field(..., description="Chunk index within document")
     similarity: float = Field(..., ge=0.0, le=1.0, description="Relevance score 0-1")
     preview: str = Field(..., description="Full chunk content for tooltip preview")
+    document_id: str = Field(..., description="Document UUID for navigation")
 
 
 class Citation(BaseModel):
@@ -80,6 +85,7 @@ class Citation(BaseModel):
     def from_context_chunk(
         cls,
         index: int,
+        document_id: str,
         document_name: str,
         chunk_index: int,
         similarity: float,
@@ -87,8 +93,11 @@ class Citation(BaseModel):
     ) -> "Citation":
         """Create a Citation from a RAG context chunk.
 
+        Story 3.3.A: Added document_id parameter (AC1, AC2)
+
         Args:
             index: Citation index (0, 1, 2, ...)
+            document_id: Document UUID for navigation
             document_name: Source document filename
             chunk_index: Chunk index within document
             similarity: Relevance score from retrieval
@@ -106,6 +115,7 @@ class Citation(BaseModel):
                     "chunkIndex": chunk_index,
                     "similarity": similarity,
                     "preview": content,
+                    "documentId": document_id,
                 }
             },
         )

@@ -28,7 +28,8 @@ class TestLLMJudge:
         ]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="yes"
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "yes"}',
         ):
             result = await _grade_retrieval_relevance(mock_llm, query, relevant_docs)
 
@@ -44,7 +45,8 @@ class TestLLMJudge:
         ]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="no"
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "no"}',
         ):
             result = await _grade_retrieval_relevance(mock_llm, query, irrelevant_docs)
 
@@ -70,7 +72,8 @@ class TestLLMJudge:
         docs = ["Python is a programming language."]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="yes"
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "yes"}',
         ):
             result = await _grade_retrieval_relevance(mock_llm, query, docs)
 
@@ -84,7 +87,8 @@ class TestLLMJudge:
         docs = ["Python is a programming language."]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="yes."
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "yes"}',
         ):
             result = await _grade_retrieval_relevance(mock_llm, query, docs)
 
@@ -99,7 +103,7 @@ class TestLLMJudge:
 
         with patch(
             "ragitect.services.query_service.generate_response",
-            return_value="yes, the document is relevant",
+            return_value='{"score": "yes"}',
         ):
             result = await _grade_retrieval_relevance(mock_llm, query, docs)
 
@@ -113,7 +117,8 @@ class TestLLMJudge:
         docs = ["Chocolate cake recipe."]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="no"
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "no"}',
         ):
             result = await _grade_retrieval_relevance(mock_llm, query, docs)
 
@@ -127,7 +132,8 @@ class TestLLMJudge:
         docs = ["Python is a programming language."]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="YES"
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "YES"}',
         ):
             result = await _grade_retrieval_relevance(mock_llm, query, docs)
 
@@ -192,7 +198,8 @@ class TestLLMJudge:
         docs = [long_doc]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="yes"
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "yes"}',
         ) as mock_gen:
             result = await _grade_retrieval_relevance(mock_llm, query, docs)
 
@@ -212,10 +219,71 @@ class TestLLMJudge:
         ]
 
         with patch(
-            "ragitect.services.query_service.generate_response", return_value="yes"
+            "ragitect.services.query_service.generate_response",
+            return_value='{"score": "yes"}',
         ) as mock_gen:
             result = await _grade_retrieval_relevance(mock_llm, query, docs)
 
         assert result is True
         # Only called once with first doc
         mock_gen.assert_called_once()
+
+    # ========== JSON PARSING TESTS ==========
+
+    async def test_plain_text_yes_fallback(self):
+        """Test backward compatibility with plain text 'yes' response."""
+        mock_llm = AsyncMock()
+
+        query = "What is Python?"
+        docs = ["Python is a programming language."]
+
+        with patch(
+            "ragitect.services.query_service.generate_response", return_value="yes"
+        ):
+            result = await _grade_retrieval_relevance(mock_llm, query, docs)
+
+        assert result is True
+
+    async def test_plain_text_no_fallback(self):
+        """Test backward compatibility with plain text 'no' response."""
+        mock_llm = AsyncMock()
+
+        query = "What is Python?"
+        docs = ["Chocolate cake recipe."]
+
+        with patch(
+            "ragitect.services.query_service.generate_response", return_value="no"
+        ):
+            result = await _grade_retrieval_relevance(mock_llm, query, docs)
+
+        assert result is False
+
+    async def test_markdown_wrapped_json(self):
+        """Test parsing JSON wrapped in markdown code blocks."""
+        mock_llm = AsyncMock()
+
+        query = "What is Python?"
+        docs = ["Python is a programming language."]
+
+        with patch(
+            "ragitect.services.query_service.generate_response",
+            return_value='```json\n{"score": "yes"}\n```',
+        ):
+            result = await _grade_retrieval_relevance(mock_llm, query, docs)
+
+        assert result is True
+
+    async def test_json_with_preamble(self):
+        """Test parsing JSON with conversational preamble."""
+        mock_llm = AsyncMock()
+
+        query = "What is Python?"
+        docs = ["Python is a programming language."]
+
+        with patch(
+            "ragitect.services.query_service.generate_response",
+            return_value='Here is my assessment: {"score": "yes"}',
+        ):
+            result = await _grade_retrieval_relevance(mock_llm, query, docs)
+
+        assert result is True

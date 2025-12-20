@@ -37,6 +37,15 @@ class QueryReformulationResponse(BaseModel):
     was_modified: bool
 
 
+class RelevanceGradingResponse(BaseModel):
+    """Structured response for relevance grading.
+
+    JSON schema for LLM to return binary relevance score.
+    """
+
+    score: str  # "yes" or "no"
+
+
 # =============================================================================
 # Response Parsing
 # =============================================================================
@@ -260,11 +269,45 @@ async def _grade_retrieval_relevance(
             llm_model, messages=[HumanMessage(content=prompt)]
         )
 
-        grade = response.strip().lower()
-        is_relevant = grade == "yes" or grade.startswith("yes")
+        # Parse JSON response using LangChain's robust parser
+        try:
+            parser = JsonOutputParser(pydantic_object=RelevanceGradingResponse)
+            parsed_dict = parser.parse(response)
+            parsed = RelevanceGradingResponse.model_validate(parsed_dict)
+            score = parsed.score.strip().lower()
+            is_relevant = score == "yes"
 
-        logger.info(f"Relevance grade: {grade}")
-        return is_relevant
+            logger.info(f"Relevance grade: {score}")
+            return is_relevant
+
+        except Exception as parse_error:
+            # Fallback: try heuristic extraction if parser failed
+            logger.debug(
+                f"JSON parsing failed: {parse_error}, trying heuristic extraction"
+            )
+
+            try:
+                start = response.find("{")
+                end = response.rfind("}")
+                if start != -1 and end != -1 and end > start:
+                    candidate = response[start : end + 1]
+                    parser = JsonOutputParser(pydantic_object=RelevanceGradingResponse)
+                    parsed_dict = parser.parse(candidate)
+                    parsed = RelevanceGradingResponse.model_validate(parsed_dict)
+                    score = parsed.score.strip().lower()
+                    is_relevant = score == "yes"
+
+                    logger.info(f"Relevance grade (heuristic): {score}")
+                    return is_relevant
+            except Exception:
+                pass
+
+            # Final fallback: string matching for backward compatibility
+            grade = response.strip().lower()
+            is_relevant = grade == "yes" or grade.startswith("yes")
+
+            logger.warning(f"Used fallback string matching - grade: {grade}")
+            return is_relevant
 
     except Exception as e:
         logger.error(f"Grading failed: {e}")

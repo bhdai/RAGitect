@@ -1,14 +1,19 @@
-"""Tests for config.py"""
+"""Tests for config.py
+
+Story 3.3.A: Updated for token-based chunking configuration
+"""
 
 import os
 from unittest.mock import patch
 
 from ragitect.services.config import (
     DocumentConfig,
+    EmbeddingConfig,
     LLMConfig,
     get_default_config,
     load_config_from_env,
     load_document_config,
+    load_embedding_config,
 )
 
 
@@ -36,35 +41,79 @@ class TestLLMConfig:
 
 
 class TestDocumentConfig:
-    """Test DocumentConfig dataclass"""
+    """Test DocumentConfig dataclass with token-based chunking (Story 3.3.A)"""
 
     def test_default_values(self):
+        """Test default values use token-based sizing"""
         config = DocumentConfig()
         assert config.enable_docling is True
         assert config.enable_unstructure is False
-        assert config.chunk_size == 1000
-        assert config.chunk_overlap == 150
+        assert config.chunk_size == 512  # Tokens (Story 3.3.A)
+        assert config.chunk_overlap == 50  # Tokens (Story 3.3.A)
+        assert config.min_chunk_size == 64  # Tokens (Story 3.3.A)
 
     def test_loads_chunk_size_from_env(self):
-        """Test that CHUNK_SIZE env var overrides default"""
-        with patch.dict(os.environ, {"CHUNK_SIZE": "2000"}):
+        """Test that CHUNK_SIZE_TOKENS env var overrides default"""
+        with patch.dict(os.environ, {"CHUNK_SIZE_TOKENS": "256"}):
             config = load_document_config()
-            assert config.chunk_size == 2000
-            assert config.chunk_overlap == 250  # Should still use default
+            assert config.chunk_size == 256
+            assert config.chunk_overlap == 50  # Should still use default
 
     def test_loads_chunk_overlap_from_env(self):
-        """Test that CHUNK_OVERLAP env var overrides default"""
-        with patch.dict(os.environ, {"CHUNK_OVERLAP": "300"}):
+        """Test that CHUNK_OVERLAP_TOKENS env var overrides default"""
+        with patch.dict(os.environ, {"CHUNK_OVERLAP_TOKENS": "100"}):
             config = load_document_config()
-            assert config.chunk_size == 2000  # Should still use default
-            assert config.chunk_overlap == 300
+            assert config.chunk_size == 512  # Should still use default
+            assert config.chunk_overlap == 100
 
     def test_loads_both_chunk_params_from_env(self):
         """Test that both chunk env vars can be set together"""
-        with patch.dict(os.environ, {"CHUNK_SIZE": "1500", "CHUNK_OVERLAP": "200"}):
+        with patch.dict(
+            os.environ,
+            {"CHUNK_SIZE_TOKENS": "1024", "CHUNK_OVERLAP_TOKENS": "100"},
+        ):
             config = load_document_config()
-            assert config.chunk_size == 1500
-            assert config.chunk_overlap == 200
+            assert config.chunk_size == 1024
+            assert config.chunk_overlap == 100
+
+    def test_loads_min_chunk_size_from_env(self):
+        """Test that MIN_CHUNK_SIZE_TOKENS env var overrides default (Story 3.3.A)"""
+        with patch.dict(os.environ, {"MIN_CHUNK_SIZE_TOKENS": "32"}):
+            config = load_document_config()
+            assert config.min_chunk_size == 32
+
+
+class TestEmbeddingConfig:
+    """Test EmbeddingConfig dataclass with batch processing (Story 3.3.A)"""
+
+    def test_default_values(self):
+        """Test default values including batch_size"""
+        config = EmbeddingConfig()
+        assert config.provider == "ollama"
+        assert config.model == "qwen3-embedding:0.6b"  # Updated default
+        assert config.base_url == "http://localhost:11434"
+        assert config.dimension == 1536  # Updated for qwen3-embedding
+        assert config.batch_size == 32  # Story 3.3.A
+
+    def test_batch_size_configurable(self):
+        """Test that batch_size can be customized"""
+        config = EmbeddingConfig(batch_size=16)
+        assert config.batch_size == 16
+
+    def test_load_embedding_config_from_env(self):
+        """Test that load_embedding_config reads from environment"""
+        with patch.dict(
+            os.environ,
+            {
+                "EMBEDDING_PROVIDER": "openai",
+                "EMBEDDING_MODEL": "text-embedding-3-small",
+                "EMBEDDING_BATCH_SIZE": "64",
+            },
+        ):
+            config = load_embedding_config()
+            assert config.provider == "openai"
+            assert config.model == "text-embedding-3-small"
+            assert config.batch_size == 64
 
 
 class TestGetDefaultConfig:

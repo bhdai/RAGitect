@@ -40,6 +40,9 @@ RETRIEVAL_USE_ADAPTIVE_K: bool = (
 RETRIEVAL_MMR_LAMBDA: float = float(os.getenv("RETRIEVAL_MMR_LAMBDA", "0.7"))
 RETRIEVAL_ADAPTIVE_K_MIN: int = int(os.getenv("RETRIEVAL_ADAPTIVE_K_MIN", "4"))
 RETRIEVAL_ADAPTIVE_K_MAX: int = int(os.getenv("RETRIEVAL_ADAPTIVE_K_MAX", "16"))
+RETRIEVAL_ADAPTIVE_K_GAP_THRESHOLD: float = float(
+    os.getenv("RETRIEVAL_ADAPTIVE_K_GAP_THRESHOLD", "0.15")
+)
 RETRIEVAL_TOKEN_BUDGET: int = int(os.getenv("RETRIEVAL_TOKEN_BUDGET", "4000"))
 
 # Encryption key for API key storage (required for cloud LLM providers)
@@ -72,15 +75,21 @@ class LLMConfig:
 
 @dataclass
 class DocumentConfig:
-    """Document processing configuration
+    """Document processing configuration with token-based chunking.
+
+    Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
+
+    Token-based chunking provides consistent sizing across embedding models
+    and prevents semantic fragmentation from orphan headers.
 
     Note: To load from environment variables, use load_document_config()
     """
 
     enable_docling: bool = True
     enable_unstructure: bool = False
-    chunk_size: int = 1000
-    chunk_overlap: int = 150
+    chunk_size: int = 512  # Tokens (was characters, now token-based)
+    chunk_overlap: int = 50  # Tokens (10% overlap)
+    min_chunk_size: int = 64  # Tokens - prevents micro-chunks/orphan headers
 
 
 def load_document_config() -> DocumentConfig:
@@ -92,8 +101,9 @@ def load_document_config() -> DocumentConfig:
     return DocumentConfig(
         enable_docling=os.getenv("ENABLE_DOCLING", "true").lower() == "true",
         enable_unstructure=os.getenv("ENABLE_UNSTRUCTURE", "false").lower() == "true",
-        chunk_size=int(os.getenv("CHUNK_SIZE", "2000")),
-        chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "400")),
+        chunk_size=int(os.getenv("CHUNK_SIZE_TOKENS", "512")),
+        chunk_overlap=int(os.getenv("CHUNK_OVERLAP_TOKENS", "50")),
+        min_chunk_size=int(os.getenv("MIN_CHUNK_SIZE_TOKENS", "64")),
     )
 
 
@@ -101,19 +111,39 @@ def load_document_config() -> DocumentConfig:
 class EmbeddingConfig:
     """Configuration for embedding model settings
 
+    Story 3.3.A: Added batch_size for embedding batch processing
+
     Attributes:
         provider: Embedding provider ('ollama', 'openai', etc.)
-        model: Model identifier (e.g., 'nomic-embed-text', 'text-embedding-3-small')
+        model: Model identifier (e.g., 'qwen3-embedding:0.6b', 'text-embedding-3-small')
         base_url: Base URL for API (used for Ollama/local deployments)
         api_key: API key for cloud provider (optional)
-        dimension: Embedding vector dimension (default: 768 for nomic-embed-text)
+        dimension: Embedding vector dimension
+        batch_size: Max embeddings per API call (default: 32, prevents API limits)
     """
 
     provider: str = "ollama"
-    model: str = "nomic-embed-text"
+    model: str = "qwen3-embedding:0.6b"  # Changed from nomic-embed-text
     base_url: str | None = "http://localhost:11434"
     api_key: str | None = None
     dimension: int = 768
+    batch_size: int = 32
+
+
+def load_embedding_config() -> EmbeddingConfig:
+    """Load embedding configuration from environment variables
+
+    Returns:
+        EmbeddingConfig with values from env vars or defaults
+    """
+    return EmbeddingConfig(
+        provider=os.getenv("EMBEDDING_PROVIDER", "ollama"),
+        model=os.getenv("EMBEDDING_MODEL", "qwen3-embedding:0.6b"),
+        base_url=os.getenv("EMBEDDING_BASE_URL", "http://localhost:11434"),
+        api_key=os.getenv("EMBEDDING_API_KEY"),
+        dimension=int(os.getenv("EMBEDDING_DIMENSION", "768")),
+        batch_size=int(os.getenv("EMBEDDING_BATCH_SIZE", "32")),
+    )
 
 
 def load_config_from_env() -> LLMConfig:

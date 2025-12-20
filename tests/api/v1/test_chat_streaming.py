@@ -1308,8 +1308,8 @@ class TestCitationStreaming:
         from ragitect.api.schemas.chat import Citation
 
         citations = [
-            Citation.from_context_chunk(0, "doc1.pdf", 0, 0.9, "Content 1"),
-            Citation.from_context_chunk(1, "doc2.pdf", 1, 0.8, "Content 2"),
+            Citation.from_context_chunk(0, "doc-id-1", "doc1.pdf", 0, 0.9, "Content 1"),
+            Citation.from_context_chunk(1, "doc-id-2", "doc2.pdf", 1, 0.8, "Content 2"),
         ]
 
         parser = CitationStreamParser(citations)
@@ -1331,7 +1331,7 @@ class TestCitationStreaming:
         from ragitect.api.schemas.chat import Citation
 
         citations = [
-            Citation.from_context_chunk(0, "doc.pdf", 0, 0.9, "Content"),
+            Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
         ]
 
         parser = CitationStreamParser(citations)
@@ -1353,7 +1353,7 @@ class TestCitationStreaming:
         from ragitect.api.schemas.chat import Citation
 
         citations = [
-            Citation.from_context_chunk(0, "doc.pdf", 0, 0.9, "Content"),
+            Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
         ]
 
         parser = CitationStreamParser(citations)
@@ -1374,7 +1374,7 @@ class TestCitationStreaming:
         from ragitect.api.schemas.chat import Citation
 
         citations = [
-            Citation.from_context_chunk(0, "doc.pdf", 0, 0.9, "Content"),
+            Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
         ]
 
         parser = CitationStreamParser(citations)
@@ -1394,7 +1394,9 @@ class TestCitationStreaming:
         from ragitect.api.schemas.chat import Citation
 
         citations = [
-            Citation.from_context_chunk(0, "intro.pdf", 0, 0.95, "Python is..."),
+            Citation.from_context_chunk(
+                0, "doc-uuid", "intro.pdf", 0, 0.95, "Python is..."
+            ),
         ]
 
         async def mock_chunks():
@@ -1426,7 +1428,7 @@ class TestCitationStreaming:
 
         # Citations available but LLM doesn't use them
         citations = [
-            Citation.from_context_chunk(0, "doc.pdf", 0, 0.9, "Content"),
+            Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
         ]
 
         async def mock_chunks():

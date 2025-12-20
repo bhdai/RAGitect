@@ -104,7 +104,7 @@ class DocumentProcessingService:
 
             logger.info(
                 f"Extracted {len(text)} characters from {document.file_name} "
-                f"(file_type: {metadata.get('file_type')})"
+                + f"(file_type: {metadata.get('file_type')})"
             )
 
             # Store processed content

@@ -101,8 +101,34 @@ If the document contains keywords or semantic meaning related to the question, g
 """
 
 RELEVANCE_OUTPUT_FORMAT = """
-Give a binary score 'yes' or 'no'. 'yes' means that the document is relevant to the question.
-Provide the binary score as a JSON with a single key 'score' and no preamble or explanation.
+OUTPUT FORMAT:
+Return a JSON object with this exact structure:
+{"score": "yes"} or {"score": "no"}
+
+- "yes" means the document is relevant to the question
+- "no" means the document is NOT relevant to the question
+
+CRITICAL: Return ONLY the JSON object. No preamble, no explanation, no markdown code blocks.
+"""
+
+RELEVANCE_EXAMPLES = """
+<example>
+Question: "What is FastAPI?"
+Document: "FastAPI is a modern web framework for building APIs with Python 3.7+"
+Output: {"score": "yes"}
+</example>
+
+<example>
+Question: "How do I install Docker?"
+Document: "Kubernetes is a container orchestration platform that manages Docker containers."
+Output: {"score": "yes"}
+</example>
+
+<example>
+Question: "What is FastAPI?"
+Document: "Chocolate cake is a delicious dessert made with cocoa powder."
+Output: {"score": "no"}
+</example>
 """
 
 
@@ -123,6 +149,9 @@ def build_relevance_grading_prompt(query: str, document: str) -> str:
         RELEVANCE_GRADING_INSTRUCTIONS
         + "\n"
         + RELEVANCE_OUTPUT_FORMAT
+        + "\n"
+        + RELEVANCE_EXAMPLES
         + f"\n\nHere is the retrieved document:\n{document}"
         + f"\n\nHere is the user question: {query}"
+        + "\n\nOutput:"
     )
