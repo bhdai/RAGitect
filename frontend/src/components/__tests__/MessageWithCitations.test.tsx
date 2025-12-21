@@ -1,8 +1,6 @@
 /**
  * Tests for MessageWithCitations component
  *
- * Story 3.2.B: Streaming LLM Responses with Citations
- *
  * Tests citation parsing, badge rendering, and graceful degradation.
  */
 

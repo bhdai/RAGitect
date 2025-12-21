@@ -1,7 +1,6 @@
 /**
  * TypeScript types and API client for LLM Configuration
- * 
- * Story 1.4: LLM Provider Configuration (Ollama & API Keys)
+ *
  * Note: These match the camelCase serialization from the backend API
  */
 
@@ -61,7 +60,7 @@ class LLMConfigApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -163,15 +162,15 @@ export const llmConfigApiClient = new LLMConfigApiClient();
 
 // Export individual functions for convenience
 export const getLLMConfigs = () => llmConfigApiClient.getLLMConfigs();
-export const getLLMConfig = (providerName: string) => 
+export const getLLMConfig = (providerName: string) =>
   llmConfigApiClient.getLLMConfig(providerName);
-export const saveLLMConfig = (data: LLMProviderConfigCreateRequest) => 
+export const saveLLMConfig = (data: LLMProviderConfigCreateRequest) =>
   llmConfigApiClient.saveLLMConfig(data);
 export const updateLLMConfig = (providerName: string, data: Partial<LLMProviderConfigCreateRequest>) =>
   llmConfigApiClient.updateLLMConfig(providerName, data);
-export const deleteLLMConfig = (providerName: string) => 
+export const deleteLLMConfig = (providerName: string) =>
   llmConfigApiClient.deleteLLMConfig(providerName);
-export const validateLLMConfig = (data: LLMProviderConfigValidateRequest) => 
+export const validateLLMConfig = (data: LLMProviderConfigValidateRequest) =>
   llmConfigApiClient.validateLLMConfig(data);
 export const toggleLLMConfig = (providerName: string, isActive: boolean) =>
   llmConfigApiClient.toggleLLMConfig(providerName, isActive);
@@ -211,7 +210,7 @@ export interface EmbeddingConfigValidateRequest {
 }
 
 // Embedding API functions (reusing same client and response type)
-export const getEmbeddingConfigs = () => 
+export const getEmbeddingConfigs = () =>
   llmConfigApiClient.request<EmbeddingConfigListResponse>('/api/v1/llm-configs/embedding-configs');
 
 export const saveEmbeddingConfig = (data: EmbeddingConfigCreateRequest) =>

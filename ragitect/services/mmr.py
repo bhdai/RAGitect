@@ -1,7 +1,5 @@
 """Maximum Marginal Relevance (MMR) for diverse chunk selection.
 
-Story 3.1.2: Multi-Stage Retrieval Pipeline - AC3
-
 MMR balances relevance to the query with diversity from already-selected chunks,
 reducing redundancy in retrieved context while maintaining relevance.
 

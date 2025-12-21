@@ -1,7 +1,5 @@
 """Adaptive-K selection based on score gap detection.
 
-Story 3.1.2: Multi-Stage Retrieval Pipeline - AC4
-
 This module implements dynamic K selection based on score distribution.
 Instead of using a fixed K, it finds the largest gap in reranked similarity
 scores and cuts there, returning between k_min and k_max chunks.

@@ -1,8 +1,6 @@
 /**
  * Message content renderer with inline citation badges
  *
- * Story 3.2.B: Streaming LLM Responses with Citations - AC3, AC4, AC5
- *
  * Renders LLM response text with [N] markers replaced by interactive
  * citation badges. Each badge shows a hover card with source preview.
  */
@@ -32,7 +30,6 @@ export interface MessageWithCitationsProps {
   content: string;
   /** Map of citation IDs (cite-0, cite-1) to citation data */
   citations: CitationMap;
-  /** Optional callback when citation is clicked (for Story 3.3 deep-dive) */
   onCitationClick?: (citationId: string) => void;
 }
 

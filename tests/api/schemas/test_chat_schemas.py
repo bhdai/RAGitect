@@ -1,8 +1,4 @@
 """Tests for Chat API schemas.
-
-Story 3.2.B: Streaming LLM Responses with Citations - Task 1.2
-Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
-
 Tests for Citation model serialization and factory methods.
 """
 

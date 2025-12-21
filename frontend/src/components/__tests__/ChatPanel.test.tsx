@@ -1,9 +1,6 @@
 /**
  * Tests for ChatPanel component with Vercel AI SDK
  *
- * Story 3.0: Streaming Infrastructure - AC3
- * Story 3.1: Natural Language Querying - AC1, AC4
- *
  * These tests mock the @ai-sdk/react useChat hook
  */
 

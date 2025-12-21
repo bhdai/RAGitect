@@ -1,8 +1,5 @@
 """RAG prompt templates for citation-based Q&A.
 
-Story 3.2.A: Modular Prompt System
-ADR-3.2.9: Modular Prompt System (Inspired by SurfSense)
-
 Architecture:
 - Base prompt: Core librarian persona and constraints
 - Citation instructions: Enhanced rules with negative constraints

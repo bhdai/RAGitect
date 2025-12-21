@@ -1,7 +1,5 @@
 """Embedding service with batch processing support.
 
-Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
-
 Implements:
 - Multi-provider embedding model support (Ollama, OpenAI, Vertex AI)
 - Batch processing to prevent API limits with large documents
@@ -253,8 +251,6 @@ async def embed_documents(
     model: Embeddings, texts: list[str], batch_size: int = 32
 ) -> list[list[float]]:
     """Embeds multiple texts with batching to avoid API limits.
-
-    Story 3.3.A: ADR 4 - Embedding Batch Processing
 
     Args:
         model: embedding model (supports any LangChain Embeddings implementation)

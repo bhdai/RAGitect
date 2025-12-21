@@ -12,8 +12,6 @@ Import chain:
   llm_config_service.py -> llm.py (for validate_llm_config)
   llm_factory.py -> llm.py (for create_llm, LLMConfig)
   llm_factory.py -> llm_config_service.py (for get_active_config)
-
-Story 3.0: Streaming Infrastructure - Circular import fix
 """
 
 import logging

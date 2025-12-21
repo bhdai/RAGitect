@@ -1,10 +1,8 @@
 /**
  * Document sidebar component for three-panel layout
- * 
+ *
  * Collapsible sidebar with document list and "Add Source" button.
  * Uses modal for document upload per UX spec.
- * 
- * Story 3.0: Streaming Infrastructure - AC3, AC4
  */
 
 'use client';
@@ -44,7 +42,7 @@ export interface DocumentSidebarProps {
 
 /**
  * Collapsible document sidebar for the three-panel workspace layout.
- * 
+ *
  * Displays:
  * - Collapse/expand toggle at top
  * - "Add Source" button (opens upload modal)

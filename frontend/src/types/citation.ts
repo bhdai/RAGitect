@@ -1,17 +1,12 @@
 /**
  * Citation types for AI SDK streaming integration
  *
- * Story 3.2.B: Streaming LLM Responses with Citations
- * Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
- *
  * These types match the backend Citation model from ragitect/api/schemas/chat.py
  * and are compatible with AI SDK source-document parts.
  */
 
 /**
  * RAGitect-specific citation metadata embedded in providerMetadata.ragitect
- *
- * Story 3.3.A: Added documentId for navigation (AC3)
  */
 export interface RagitectCitationMetadata {
   /** Index of chunk within the document */
@@ -26,8 +21,6 @@ export interface RagitectCitationMetadata {
 
 /**
  * Citation data structure for rendering inline citations
- *
- * Story 3.3.A: Added documentId for navigation (AC3)
  *
  * Mapped from AI SDK source-document parts to a flat structure
  * for easier consumption by MessageWithCitations component.
@@ -84,8 +77,6 @@ export function isSourceDocumentPart(
 
 /**
  * Extract CitationData from a source-document part
- *
- * Story 3.3.A: Added documentId extraction (AC3)
  *
  * @param part - AI SDK source-document part
  * @returns CitationData for use in MessageWithCitations

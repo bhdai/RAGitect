@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+import xml.sax.saxutils as saxutils
 from collections.abc import Callable
 from datetime import datetime, timezone
 
@@ -9,7 +10,6 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel
-import xml.sax.saxutils as saxutils
 
 from ragitect.prompts.query_prompts import (
     build_reformulation_prompt,
@@ -237,8 +237,6 @@ async def _grade_retrieval_relevance(
 ) -> bool:
     """Grade if retrieved documents are relevant to the query.
 
-    Story 3.2.A: Modular Prompt System - Uses centralized prompts module.
-
     Uses LLM to assess whether the top retrieved document contains
     information relevant to answering the user's query.
 
@@ -261,7 +259,7 @@ async def _grade_retrieval_relevance(
     # Take first doc (top result) - first 500 chars
     doc_sample = retrieved_docs[0][:500]
 
-    # Use modular prompt system (Story 3.2.A)
+    # Use modular prompt system
     prompt = build_relevance_grading_prompt(query, doc_sample)
 
     try:
@@ -423,8 +421,6 @@ async def query_with_iterative_fallback(
 def _build_reformulation_prompt(user_query: str, formatted_history: str) -> str:
     """Build a guarded prompt for query reformulation with JSON output.
 
-    Story 3.2.A: Modular Prompt System - Uses centralized prompts module.
-
     Uses research-backed guardrails to prevent over-reformulation:
     - Returns query unchanged if already self-contained
     - Only replaces pronouns that genuinely need history context
@@ -573,7 +569,6 @@ def format_chat_history(chat_history: list[dict[str, str]]) -> str:
 
         role = message["role"]
         content = message["content"]
-        # Story 3.2.A: Fix Security Vulnerability (High)
         # Escape content to prevent prompt injection via XML tags
         escaped_content = saxutils.escape(content)
 

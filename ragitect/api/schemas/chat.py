@@ -1,8 +1,5 @@
 """Chat API schemas for streaming citations.
 
-Story 3.2.B: Streaming LLM Responses with Citations
-Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
-
 Pydantic models for citation metadata in AI SDK streaming responses.
 Uses camelCase serialization for frontend compatibility.
 """
@@ -15,8 +12,6 @@ from pydantic.alias_generators import to_camel
 
 class CitationMetadata(BaseModel):
     """Custom RAGitect citation metadata for providerMetadata.ragitect.
-
-    Story 3.3.A: Added document_id for frontend navigation (AC1, AC2)
 
     This data is embedded in AI SDK source-document parts under providerMetadata.
     Frontend extracts this for tooltip display and document navigation.
@@ -44,8 +39,6 @@ class Citation(BaseModel):
 
     This model represents a source-document part in the streaming protocol.
     Each citation corresponds to a context chunk from RAG retrieval.
-
-    Story 3.2.B: AC1 (backend embeds citation markers), AC2 (citations have metadata)
 
     Protocol Reference:
     - type: "source-document" (AI SDK standard)
@@ -92,8 +85,6 @@ class Citation(BaseModel):
         content: str,
     ) -> "Citation":
         """Create a Citation from a RAG context chunk.
-
-        Story 3.3.A: Added document_id parameter (AC1, AC2)
 
         Args:
             index: Citation index (0, 1, 2, ...)

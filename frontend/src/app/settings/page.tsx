@@ -1,8 +1,6 @@
 /**
  * Settings Page
- * 
- * Story 1.4: LLM Provider Configuration (Ollama & API Keys)
- * 
+ *
  * Allows users to configure application settings including
  * LLM provider configurations.
  */
@@ -66,7 +64,7 @@ export default function SettingsPage() {
                 Chat Model Configuration
               </h2>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Configure your preferred AI models for chat and RAG tasks. Enable one or more providers 
+                Configure your preferred AI models for chat and RAG tasks. Enable one or more providers
                 and save your settings. Your API keys are encrypted and stored securely.
               </p>
             </div>
@@ -79,7 +77,7 @@ export default function SettingsPage() {
                 Embedding Model Configuration
               </h2>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Configure your preferred embedding models for document processing and semantic search. 
+                Configure your preferred embedding models for document processing and semantic search.
                 Your API keys are encrypted and stored securely.
               </p>
             </div>

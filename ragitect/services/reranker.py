@@ -1,7 +1,5 @@
 """Cross-encoder reranking service for RAG retrieval.
 
-Story 3.1.2: Multi-Stage Retrieval Pipeline - AC2
-
 This module provides cross-encoder based reranking to improve retrieval
 quality by reordering candidates based on query-document relevance scores.
 Cross-encoders are significantly more accurate than bi-encoders for relevance

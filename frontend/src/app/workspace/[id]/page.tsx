@@ -1,12 +1,10 @@
 /**
  * Workspace detail page - Three-panel layout
- * 
+ *
  * Displays a single workspace with:
  * - Left sidebar (280px): Document upload and listing
- * - Center panel (flex): Chat interface (placeholder for Story 3.1)
+ * - Center panel (flex): Chat interface
  * - Right panel (700px, conditional): Document viewer
- * 
- * Story 3.0: Streaming Infrastructure - AC3, AC4, AC5
  */
 
 'use client';
@@ -36,7 +34,7 @@ export default function WorkspacePage() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   // Use ref for polling intervals to avoid stale closure issues
   const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  
+
   // Document viewing and deletion state
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
@@ -47,7 +45,7 @@ export default function WorkspacePage() {
     async function fetchWorkspace() {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const data = await getWorkspace(id);
         setWorkspace(data);
@@ -74,17 +72,17 @@ export default function WorkspacePage() {
   const pollDocumentStatus = useCallback(async (documentId: string, fileName: string) => {
     try {
       const status = await getDocumentStatus(documentId);
-      
+
       // Update upload status based on processing state
       setUploads(prev =>
         prev.map(upload =>
           upload.fileName === fileName
             ? {
                 ...upload,
-                status: (status.status === 'processing' || status.status === 'embedding') ? 'uploading' : 
+                status: (status.status === 'processing' || status.status === 'embedding') ? 'uploading' :
                         status.status === 'ready' ? 'success' :
                         status.status === 'error' ? 'error' : upload.status,
-                progress: (status.status === 'processing' || status.status === 'embedding') ? 95 : 
+                progress: (status.status === 'processing' || status.status === 'embedding') ? 95 :
                          status.status === 'ready' ? 100 : upload.progress,
                 phase: status.phase ?? undefined, // Pass phase for detailed progress indicator
               }
@@ -99,7 +97,7 @@ export default function WorkspacePage() {
           clearInterval(interval);
           pollingIntervalsRef.current.delete(documentId);
         }
-        
+
         // Refresh document list when status becomes terminal
         setDocumentListRefresh(prev => prev + 1);
 
@@ -116,7 +114,7 @@ export default function WorkspacePage() {
 
   const handleUploadComplete = useCallback((documents: Document[]) => {
     // Update uploads to show upload complete (100%)
-    setUploads(prev => 
+    setUploads(prev =>
       prev.map(upload => ({
         ...upload,
         progress: 100,
@@ -125,10 +123,10 @@ export default function WorkspacePage() {
     );
 
     toast.success(`Uploaded ${documents.length} ${documents.length === 1 ? 'file' : 'files'} - parsing...`);
-    
+
     // Refresh document list after upload
     setDocumentListRefresh(prev => prev + 1);
-    
+
     // Start polling for each document
     documents.forEach(doc => {
       const interval = setInterval(() => {
@@ -140,7 +138,7 @@ export default function WorkspacePage() {
       // Initial poll
       pollDocumentStatus(doc.id, doc.fileName);
     });
-    
+
     // Don't auto-clear uploads anymore - wait for processing to complete
   }, [pollDocumentStatus]);
 
@@ -177,7 +175,7 @@ export default function WorkspacePage() {
       status: 'uploading' as const,
       size: file.size,
     }));
-    
+
     setUploads(newUploads);
 
     try {
@@ -193,7 +191,7 @@ export default function WorkspacePage() {
 
       // Perform the upload
       const response = await uploadDocuments(workspace.id, files);
-      
+
       clearInterval(progressInterval);
       handleUploadComplete(response.documents);
     } catch (err) {
@@ -221,12 +219,12 @@ export default function WorkspacePage() {
     try {
       await deleteDocument(documentToDelete.id);
       toast.success(`Deleted ${documentToDelete.fileName}`);
-      
+
       // Close viewer if deleted document was being viewed
       if (selectedDocumentId === documentToDelete.id) {
         setSelectedDocumentId(null);
       }
-      
+
       // Refresh document list
       setDocumentListRefresh(prev => prev + 1);
       setDocumentToDelete(null);
@@ -288,7 +286,7 @@ export default function WorkspacePage() {
       <header className="flex-shrink-0" style={{ backgroundColor: 'var(--workspace-bg)' }}>
         <div className="px-[var(--workspace-padding)] pt-[var(--workspace-padding)] pb-2 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link 
+            <Link
               href="/"
               className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             >
@@ -310,14 +308,14 @@ export default function WorkspacePage() {
       </header>
 
       {/* Main content: three-panel floating cards layout */}
-      <div 
+      <div
         className="flex-1 flex min-h-0 px-[var(--workspace-padding)] pb-[var(--workspace-padding)]"
         style={{ gap: 'var(--panel-gap)' }}
       >
         {/* Left: Document Sidebar Card */}
-        <div 
+        <div
           className="flex-shrink-0 overflow-hidden"
-          style={{ 
+          style={{
             borderRadius: 'var(--card-radius)',
             backgroundColor: 'var(--card-sidebar-bg)'
           }}
@@ -337,9 +335,9 @@ export default function WorkspacePage() {
         </div>
 
         {/* Center: Chat Panel Card (flex-1) */}
-        <div 
+        <div
           className="flex-1 min-w-0 overflow-hidden"
-          style={{ 
+          style={{
             borderRadius: 'var(--card-radius)',
             backgroundColor: 'var(--card-chat-bg)'
           }}
@@ -351,9 +349,9 @@ export default function WorkspacePage() {
 
         {/* Right: Document Viewer Card (700px, conditional) */}
         {selectedDocumentId && (
-          <div 
+          <div
             className="w-[700px] flex-shrink-0 overflow-hidden"
-            style={{ 
+            style={{
               borderRadius: 'var(--card-radius)',
               backgroundColor: 'var(--card-viewer-bg)'
             }}

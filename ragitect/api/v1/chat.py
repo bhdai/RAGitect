@@ -2,11 +2,6 @@
 
 This module provides the SSE streaming endpoint for chat functionality with
 full Retrieval-Augmented Generation (RAG) integration.
-
-Story 3.0: Streaming Infrastructure (Prep)
-Story 3.1: Natural Language Querying
-Story 3.1.2: Multi-Stage Retrieval Pipeline
-Story 3.2.B: Streaming LLM Responses with Citations
 """
 
 import json
@@ -24,7 +19,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragitect.api.schemas.chat import Citation
-
 from ragitect.prompts.rag_prompts import build_rag_system_prompt
 from ragitect.services.adaptive_k import select_adaptive_k
 from ragitect.services.config import (
@@ -119,10 +113,7 @@ async def format_sse_stream(
 def build_citation_metadata(context_chunks: list[dict]) -> list[Citation]:
     """Build citation metadata from context chunks.
 
-    Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2
-    Story 3.3.A: Added document_id for frontend navigation - AC1, AC2
-
-    NOTE: Prompt engineering for [N] format was done in Story 3.1.1.
+    NOTE: Prompt engineering for [N] format
     This function just prepares metadata for frontend consumption.
 
     Args:
@@ -149,12 +140,10 @@ def build_citation_metadata(context_chunks: list[dict]) -> list[Citation]:
 class CitationStreamParser:
     """Stateful parser for detecting citations across chunk boundaries.
 
-    Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2
-
     ADR Decision: Real-time regex streaming with cross-chunk buffering.
     Handles edge case where LLM outputs '[' in one chunk and '1]' in next.
 
-    The LLM is prompted (Story 3.1.1) to cite using [N] format matching
+    The LLM is prompted to cite using [N] format matching
     [Chunk N] labels in the context. This parser detects those markers
     in the streaming output and triggers citation metadata emission.
     """
@@ -229,8 +218,6 @@ async def format_sse_stream_with_citations(
 ) -> AsyncGenerator[str, None]:
     """Format LLM chunks with AI SDK UI Message Stream Protocol v1 + citations.
 
-    Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2
-
     ADR: Real-time regex streaming with cross-chunk buffering.
     Emits citations as 'source-document' parts for AI SDK useChat.
 
@@ -293,7 +280,6 @@ async def empty_workspace_response() -> AsyncGenerator[str, None]:
     """Return SSE stream for empty workspace message using AI SDK protocol.
 
     Returns helpful message when user queries a workspace with no documents.
-    Story 3.1: Natural Language Querying - AC6
 
     Yields:
         SSE formatted message following Data Stream Protocol
@@ -333,8 +319,6 @@ async def retrieve_context(
     mmr_lambda: float = RETRIEVAL_MMR_LAMBDA,
 ) -> list[dict]:
     """Retrieve relevant context chunks using multi-stage retrieval pipeline.
-
-    Story 3.1.2: Multi-Stage Retrieval Pipeline
 
     Pipeline stages:
     1. Over-retrieve: Get top-50 candidates (AC1)
@@ -515,10 +499,6 @@ def build_rag_prompt(
 ) -> list[BaseMessage]:
     """Build prompt with RAG context for LLM using modular prompt system.
 
-    Story 3.1: Natural Language Querying - AC3
-    Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC3, AC4
-    Story 3.2.A: Modular Prompt System - ADR-3.2.9
-
     Args:
         user_query: Current user question
         context_chunks: Retrieved document chunks
@@ -527,7 +507,7 @@ def build_rag_prompt(
     Returns:
         List of messages for LangChain chat model
     """
-    # Use modular prompt builder (Story 3.2.A)
+    # Use modular prompt builder
     system_content = build_rag_system_prompt(
         context_chunks=context_chunks,
         include_citations=True,
@@ -558,8 +538,6 @@ async def chat_stream(
     session: AsyncSession = Depends(get_async_session),
 ) -> StreamingResponse:
     """Stream RAG-enhanced chat response using Server-Sent Events.
-
-    Story 3.1: Natural Language Querying - AC1, AC2, AC3, AC4, AC6
 
     Args:
         workspace_id: UUID of the workspace
@@ -613,7 +591,7 @@ async def chat_stream(
         provider=request.provider,
     )
 
-    # Build citation metadata from context chunks (Story 3.2.B - AC1, AC2)
+    # Build citation metadata from context chunks
     citations = build_citation_metadata(context_chunks)
 
     # Build RAG prompt with context (AC3)
@@ -629,7 +607,7 @@ async def chat_stream(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Generate streaming response WITH citation detection (AC4, Story 3.2.B)
+    # Generate streaming response WITH citation detection
     async def generate():
         """Generate SSE formatted stream with citations."""
         chunks = generate_response_stream(llm, messages)

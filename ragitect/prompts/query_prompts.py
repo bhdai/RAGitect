@@ -1,8 +1,5 @@
 """Query processing prompts for reformulation and relevance grading.
 
-Story 3.2.A: Modular Prompt System
-ADR-3.2.9: Modular Prompt System - Comprehensive centralization
-
 Components:
 - Query reformulation: Context-aware query rewriting with JSON output
 - Relevance grading: Binary assessment of document relevance

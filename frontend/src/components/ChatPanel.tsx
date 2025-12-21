@@ -1,7 +1,7 @@
 /**
  * Chat panel for natural language querying of documents
  *
- * Story 3.1: Natural Language Querying
+ * Natural Language Querying
  * - Uses Vercel AI SDK useChat hook for native streaming support
  * - Supports future COT/citation features via message.parts
  *
@@ -173,14 +173,14 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
                     </div>
                   ) : (
                     <div className="w-full">
-                      {/* Story 3.2.B: Use MessageWithCitations for all assistant messages to ensure consistent rendering and prevent flicker */}
+                      {/* Use MessageWithCitations for all assistant messages to ensure consistent rendering and prevent flicker */}
                       <MessageWithCitations
                         content={message.parts
                           .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
                           .map((part) => part.text)
                           .join('')}
                         citations={buildCitationMap(message.parts)}
-                        // TODO: Story 3.3 will implement onCitationClick for deep-dive navigation
+                        // TODO: will implement onCitationClick for deep-dive navigation
                       />
                     </div>
                   )}

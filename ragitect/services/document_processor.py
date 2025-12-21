@@ -1,7 +1,5 @@
 """Document processing with token-based markdown chunking.
 
-Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
-
 Implements:
 - Hybrid tokenization (tiktoken for BPE models, transformers for BERT/WordPiece)
 - Orphan header merging (prevents small header-only chunks)
@@ -54,8 +52,6 @@ OLLAMA_TO_HF_TOKENIZER: dict[str, str] = {
 
 def get_tokenizer_for_embedding_model(config: EmbeddingConfig | None = None):
     """Get the correct tokenizer for the active embedding model.
-
-    Story 3.3.A: ADR 2 - Hybrid Tokenization Strategy
 
     - OpenAI/Qwen models: Use tiktoken (BPE)
     - HuggingFace/Ollama BERT-based: Use transformers AutoTokenizer (WordPiece)
@@ -115,8 +111,6 @@ def get_tokenizer_for_embedding_model(config: EmbeddingConfig | None = None):
 def count_tokens(text: str) -> int:
     """Count tokens using the active model's tokenizer strategy.
 
-    Story 3.3.A: Uses hybrid tokenization based on embedding model.
-
     Args:
         text: Text to count tokens for
 
@@ -175,8 +169,6 @@ def split_markdown_document(
     min_chunk_size: int = 64,
 ) -> list[str]:
     """Split markdown with Hybrid Tokenization and Orphan Header Merging.
-
-    Story 3.3.A: ADR 3 - Orphan Header Merging Strategy
 
     Algorithm (2-step, single-pass):
     1. Split by headers (structural split)
@@ -317,8 +309,6 @@ def split_document(
     overlap: int = 50,
 ) -> list[str]:
     """Split text into chunks using token-based Markdown-aware splitting.
-
-    Story 3.3.A: Updated to use token-based sizing
 
     All documents are processed to Markdown format before chunking:
     - DoclingProcessor converts PDF/DOCX/PPTX/etc. to Markdown

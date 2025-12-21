@@ -26,7 +26,7 @@ DEFAULT_SIMILARITY_THRESHOLD: float = float(
 )
 DEFAULT_RETRIEVAL_K: int = int(os.getenv("DEFAULT_RETRIEVAL_K", "10"))
 
-# Multi-stage retrieval pipeline configuration (Story 3.1.2)
+# Multi-stage retrieval pipeline configuration
 RETRIEVAL_INITIAL_K: int = int(os.getenv("RETRIEVAL_INITIAL_K", "50"))
 RETRIEVAL_USE_RERANKER: bool = (
     os.getenv("RETRIEVAL_USE_RERANKER", "True").lower() == "true"
@@ -77,8 +77,6 @@ class LLMConfig:
 class DocumentConfig:
     """Document processing configuration with token-based chunking.
 
-    Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
-
     Token-based chunking provides consistent sizing across embedding models
     and prevents semantic fragmentation from orphan headers.
 
@@ -110,8 +108,6 @@ def load_document_config() -> DocumentConfig:
 @dataclass
 class EmbeddingConfig:
     """Configuration for embedding model settings
-
-    Story 3.3.A: Added batch_size for embedding batch processing
 
     Attributes:
         provider: Embedding provider ('ollama', 'openai', etc.)

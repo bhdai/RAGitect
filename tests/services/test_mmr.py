@@ -1,7 +1,4 @@
-"""Tests for Maximum Marginal Relevance (MMR) diversity selection.
-
-Story 3.1.2: Multi-Stage Retrieval Pipeline - AC3
-"""
+"""Tests for Maximum Marginal Relevance (MMR) diversity selection."""
 
 import numpy as np
 import pytest

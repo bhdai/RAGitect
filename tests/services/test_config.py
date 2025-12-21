@@ -1,7 +1,4 @@
-"""Tests for config.py
-
-Story 3.3.A: Updated for token-based chunking configuration
-"""
+"""Tests for config.py"""
 
 import os
 from unittest.mock import patch
@@ -41,16 +38,16 @@ class TestLLMConfig:
 
 
 class TestDocumentConfig:
-    """Test DocumentConfig dataclass with token-based chunking (Story 3.3.A)"""
+    """Test DocumentConfig dataclass with token-based chunking"""
 
     def test_default_values(self):
         """Test default values use token-based sizing"""
         config = DocumentConfig()
         assert config.enable_docling is True
         assert config.enable_unstructure is False
-        assert config.chunk_size == 512  # Tokens (Story 3.3.A)
-        assert config.chunk_overlap == 50  # Tokens (Story 3.3.A)
-        assert config.min_chunk_size == 64  # Tokens (Story 3.3.A)
+        assert config.chunk_size == 512
+        assert config.chunk_overlap == 50
+        assert config.min_chunk_size == 64
 
     def test_loads_chunk_size_from_env(self):
         """Test that CHUNK_SIZE_TOKENS env var overrides default"""
@@ -77,14 +74,14 @@ class TestDocumentConfig:
             assert config.chunk_overlap == 100
 
     def test_loads_min_chunk_size_from_env(self):
-        """Test that MIN_CHUNK_SIZE_TOKENS env var overrides default (Story 3.3.A)"""
+        """Test that MIN_CHUNK_SIZE_TOKENS env var overrides default"""
         with patch.dict(os.environ, {"MIN_CHUNK_SIZE_TOKENS": "32"}):
             config = load_document_config()
             assert config.min_chunk_size == 32
 
 
 class TestEmbeddingConfig:
-    """Test EmbeddingConfig dataclass with batch processing (Story 3.3.A)"""
+    """Test EmbeddingConfig dataclass with batch processing"""
 
     def test_default_values(self):
         """Test default values including batch_size"""

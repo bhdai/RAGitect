@@ -1,7 +1,4 @@
-"""Tests for Adaptive-K selection based on score gap detection.
-
-Story 3.1.2: Multi-Stage Retrieval Pipeline - AC4
-"""
+"""Tests for Adaptive-K selection based on score gap detection."""
 
 import pytest
 

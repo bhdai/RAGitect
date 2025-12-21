@@ -1,8 +1,5 @@
 """Tests for RAG prompt composition module.
 
-Story 3.2.A: Modular Prompt System
-Task 0.6.3: Add tests for modular prompt system
-
 Tests the modular prompt system following TDD approach.
 """
 

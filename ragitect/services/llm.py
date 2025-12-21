@@ -87,8 +87,6 @@ def _build_litellm_kwargs(config: LLMConfig) -> dict:
 def _log_llm_metrics(operation: str, latency_ms: float, success: bool, **extra) -> None:
     """Log LLM operation metrics in structured JSON format.
 
-    Follows Story 2.5 pattern for structured logging.
-
     Args:
         operation: Type of LLM operation (validate, generate, stream)
         latency_ms: Operation duration in milliseconds

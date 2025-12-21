@@ -1,7 +1,6 @@
 /**
  * LLMConfigForm Component Tests
  *
- * Story 1.4: LLM Provider Configuration - Phase 1 (Unified Form + Gemini)
  * Updated for unified form with provider dropdown
  */
 

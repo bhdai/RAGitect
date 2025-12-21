@@ -1,7 +1,5 @@
 """Tests for token-based markdown chunking with orphan header merging.
 
-Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
-
 Tests:
 - Token counting with hybrid tokenization (AC4)
 - Orphan header merging (AC5)
@@ -11,12 +9,12 @@ Tests:
 
 import pytest
 
+from ragitect.services.config import EmbeddingConfig
 from ragitect.services.document_processor import (
     count_tokens,
     get_tokenizer_for_embedding_model,
     split_markdown_document,
 )
-from ragitect.services.config import EmbeddingConfig
 
 
 class TestTokenCounting:

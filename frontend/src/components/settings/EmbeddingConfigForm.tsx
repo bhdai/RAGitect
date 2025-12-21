@@ -1,8 +1,6 @@
 /**
  * Embedding Configuration Form Component
  *
- * Story 1.4: LLM Provider Configuration - Phase 3
- *
  * Unified form with provider dropdown supporting:
  * - Ollama, OpenAI, Vertex AI, OpenAI Compatible
  * - Auto-fill base URL and dimension on provider/model selection

@@ -1,18 +1,16 @@
 """Tests for embedding batch processing.
 
-Story 3.3.A: Backend Citation Metadata & Markdown Chunking Improvements
-
 Tests:
 - Batch processing for large datasets (AC8)
 - Single batch for small datasets
 - Correct embedding count returned
 """
 
+from unittest.mock import AsyncMock, Mock
+
 import pytest
-from unittest.mock import Mock, AsyncMock
 
 from ragitect.services.embedding import embed_documents
-
 
 pytestmark = [pytest.mark.asyncio]
 

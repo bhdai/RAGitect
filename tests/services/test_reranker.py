@@ -1,7 +1,4 @@
-"""Tests for the cross-encoder reranker service.
-
-Story 3.1.2: Multi-Stage Retrieval Pipeline - AC2
-"""
+"""Tests for the cross-encoder reranker service."""
 
 import pytest
 
@@ -21,6 +18,7 @@ class TestRerankerService:
     def mock_cross_encoder(self):
         """Mock the CrossEncoder class to avoid loading real models."""
         from unittest.mock import MagicMock, patch
+
         import numpy as np
 
         with patch("ragitect.services.reranker.CrossEncoder") as mock:
@@ -42,10 +40,9 @@ class TestRerankerService:
 
     async def test_rerank_adds_rerank_score_to_chunks(self, mock_cross_encoder):
         """Each chunk should have rerank_score after reranking."""
-        from ragitect.services.reranker import get_reranker, rerank_chunks
-
         # Reset singleton to ensure mock is used
         import ragitect.services.reranker
+        from ragitect.services.reranker import get_reranker, rerank_chunks
 
         ragitect.services.reranker._reranker_instance = None
 
@@ -69,10 +66,10 @@ class TestRerankerService:
     async def test_rerank_orders_by_relevance(self, mock_cross_encoder):
         """Chunks should be ordered by relevance to query (highest first)."""
         import numpy as np
-        from ragitect.services.reranker import get_reranker, rerank_chunks
 
         # Reset singleton
         import ragitect.services.reranker
+        from ragitect.services.reranker import get_reranker, rerank_chunks
 
         ragitect.services.reranker._reranker_instance = None
 
@@ -103,10 +100,9 @@ class TestRerankerService:
 
     async def test_rerank_respects_top_k(self):
         """Should return only top_k results."""
-        from ragitect.services.reranker import rerank_chunks
-
         # Reset singleton
         import ragitect.services.reranker
+        from ragitect.services.reranker import rerank_chunks
 
         ragitect.services.reranker._reranker_instance = None
 
@@ -120,10 +116,9 @@ class TestRerankerService:
 
     async def test_rerank_preserves_original_chunk_data(self):
         """Original chunk data should be preserved after reranking."""
-        from ragitect.services.reranker import rerank_chunks
-
         # Reset singleton
         import ragitect.services.reranker
+        from ragitect.services.reranker import rerank_chunks
 
         ragitect.services.reranker._reranker_instance = None
 
@@ -150,10 +145,10 @@ class TestRerankerSingleton:
     def test_get_reranker_returns_cross_encoder(self):
         """get_reranker should return a CrossEncoder instance."""
         from unittest.mock import patch
-        from ragitect.services.reranker import get_reranker
 
         # Reset singleton
         import ragitect.services.reranker
+        from ragitect.services.reranker import get_reranker
 
         ragitect.services.reranker._reranker_instance = None
 
@@ -165,10 +160,10 @@ class TestRerankerSingleton:
     def test_get_reranker_returns_same_instance(self):
         """Singleton pattern: same instance returned on multiple calls."""
         from unittest.mock import patch
-        from ragitect.services.reranker import get_reranker
 
         # Reset singleton
         import ragitect.services.reranker
+        from ragitect.services.reranker import get_reranker
 
         ragitect.services.reranker._reranker_instance = None
 

@@ -5,15 +5,11 @@ Tests verify:
 - Endpoint streams data in SSE format (data: ...)
 - Workspace validation (404 for invalid workspace)
 - Empty message handling
-- RAG retrieval from workspace documents (Story 3.1)
-- Context used in LLM prompt (Story 3.1)
-- Empty workspace handling (Story 3.1)
-- Chat history support (Story 3.1)
-- Citation streaming with source-document parts (Story 3.2.B)
-
-Story 3.0: Streaming Infrastructure (Prep)
-Story 3.1: Natural Language Querying
-Story 3.2.B: Streaming LLM Responses with Citations
+- RAG retrieval from workspace documents
+- Context used in LLM prompt
+- Empty workspace handling
+- Chat history support
+- Citation streaming with source-document parts
 """
 
 import uuid
@@ -29,8 +25,9 @@ class TestChatStreamEndpoint:
 
     async def test_stream_returns_sse_content_type(self, async_client, mocker):
         """Test endpoint returns text/event-stream content type."""
-        from ragitect.services.database.models import Workspace
         from datetime import datetime, timezone
+
+        from ragitect.services.database.models import Workspace
 
         workspace_id = uuid.uuid4()
         now = datetime.now(timezone.utc)
@@ -101,8 +98,9 @@ class TestChatStreamEndpoint:
 
     async def test_stream_format_is_sse(self, async_client, mocker):
         """Test response is formatted as Server-Sent Events."""
-        from ragitect.services.database.models import Workspace
         from datetime import datetime, timezone
+
+        from ragitect.services.database.models import Workspace
 
         workspace_id = uuid.uuid4()
         now = datetime.now(timezone.utc)
@@ -223,10 +221,7 @@ class TestChatStreamEndpoint:
 
 
 class TestChatRAGIntegration:
-    """Tests for RAG pipeline integration in chat endpoint.
-
-    Story 3.1: Natural Language Querying - AC2, AC3, AC4, AC6
-    """
+    """Tests for RAG pipeline integration in chat endpoint."""
 
     async def test_chat_request_accepts_provider_parameter(self, async_client, mocker):
         """Test that ChatRequest accepts provider parameter for runtime override."""
@@ -747,15 +742,12 @@ class TestChatProviderOverride:
 
 
 class TestRetrievalThresholdFiltering:
-    """Tests for similarity threshold filtering.
-
-    Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC1, AC2
-    Story 3.1.2: Multi-Stage Retrieval Pipeline - AC1
-    """
+    """Tests for similarity threshold filtering."""
 
     def test_retrieve_context_initial_k_is_configurable(self):
         """Test that retrieve_context uses RETRIEVAL_INITIAL_K for over-retrieval (AC1)."""
         import inspect
+
         from ragitect.api.v1.chat import retrieve_context
         from ragitect.services.config import RETRIEVAL_INITIAL_K
 
@@ -851,7 +843,7 @@ class TestRetrievalThresholdFiltering:
         assert call_args.kwargs.get("similarity_threshold") == 0.3
 
     async def test_retrieve_context_uses_initial_k_parameter(self, mocker):
-        """Test that retrieve_context passes the initial_k parameter correctly for over-retrieval (Story 3.1.2 AC1)."""
+        """Test that retrieve_context passes the initial_k parameter correctly for over-retrieval"""
         from ragitect.api.v1.chat import retrieve_context
 
         workspace_id = uuid.uuid4()
@@ -1030,16 +1022,10 @@ class TestRetrievalThresholdFiltering:
 
 
 class TestPromptEnhancements:
-    """Tests for prompt structure and citation format.
-
-    Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC3, AC4
-    """
+    """Tests for prompt structure and citation format."""
 
     def test_build_rag_prompt_uses_xml_structure(self, mocker):
-        """Test prompt uses XML structure for context isolation (AC3).
-
-        Story 3.2.A: Updated to use <documents> tag from modular prompt system.
-        """
+        """Test prompt uses XML structure for context isolation (AC3)."""
         from ragitect.api.v1.chat import build_rag_prompt
 
         context_chunks = [
@@ -1056,7 +1042,6 @@ class TestPromptEnhancements:
         system_message = messages[0].content
         assert "<system_instructions>" in system_message
         assert "</system_instructions>" in system_message
-        # Story 3.2.A: Modular prompt system uses <documents> tag
         assert "<documents>" in system_message
         assert "</documents>" in system_message
         # Note: user_query is intentionally NOT in system prompt per review feedback
@@ -1172,15 +1157,12 @@ class TestPromptEnhancements:
 
 
 class TestRetrievalLogging:
-    """Tests for retrieval logging and observability.
-
-    Story 3.1.1: Retrieval Tuning & Prompt Enhancement - AC5
-    Story 3.1.2: Multi-Stage Retrieval Pipeline - AC6
-    """
+    """Tests for retrieval logging and observability."""
 
     async def test_retrieval_logs_score_distribution(self, mocker, caplog):
         """Test that retrieval logs similarity score distribution (AC5, AC6)."""
         import logging
+
         from ragitect.api.v1.chat import retrieve_context
 
         workspace_id = uuid.uuid4()
@@ -1270,10 +1252,7 @@ class TestRetrievalLogging:
 
 
 class TestCitationStreaming:
-    """Tests for citation detection and streaming.
-
-    Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2, AC6
-    """
+    """Tests for citation detection and streaming."""
 
     async def test_build_citation_metadata_creates_citations_from_chunks(self):
         """Test that build_citation_metadata creates Citation objects from context chunks (AC1, AC2)."""
@@ -1304,8 +1283,8 @@ class TestCitationStreaming:
 
     async def test_citation_stream_parser_detects_markers(self):
         """Test that CitationStreamParser detects [N] markers in text (AC1)."""
-        from ragitect.api.v1.chat import CitationStreamParser
         from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import CitationStreamParser
 
         citations = [
             Citation.from_context_chunk(0, "doc-id-1", "doc1.pdf", 0, 0.9, "Content 1"),
@@ -1327,8 +1306,8 @@ class TestCitationStreaming:
 
     async def test_citation_stream_parser_handles_split_markers(self):
         """Test that parser handles citation markers split across chunks (AC1)."""
-        from ragitect.api.v1.chat import CitationStreamParser
         from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import CitationStreamParser
 
         citations = [
             Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
@@ -1349,8 +1328,9 @@ class TestCitationStreaming:
     async def test_citation_stream_parser_ignores_invalid_citations(self, caplog):
         """Test that parser logs warning for invalid citation indices (AC6 - hallucination handling)."""
         import logging
-        from ragitect.api.v1.chat import CitationStreamParser
+
         from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import CitationStreamParser
 
         citations = [
             Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
@@ -1370,8 +1350,8 @@ class TestCitationStreaming:
 
     async def test_citation_stream_emits_each_citation_once(self):
         """Test that each citation is only emitted once even if marker appears multiple times."""
-        from ragitect.api.v1.chat import CitationStreamParser
         from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import CitationStreamParser
 
         citations = [
             Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
@@ -1390,8 +1370,8 @@ class TestCitationStreaming:
 
     async def test_format_sse_stream_with_citations_emits_source_documents(self):
         """Test that format_sse_stream_with_citations emits source-document events (AC1, AC2)."""
-        from ragitect.api.v1.chat import format_sse_stream_with_citations
         from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import format_sse_stream_with_citations
 
         citations = [
             Citation.from_context_chunk(
@@ -1423,8 +1403,9 @@ class TestCitationStreaming:
     ):
         """Test that stream works when LLM doesn't cite any sources (AC6)."""
         import logging
-        from ragitect.api.v1.chat import format_sse_stream_with_citations
+
         from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import format_sse_stream_with_citations
 
         # Citations available but LLM doesn't use them
         citations = [

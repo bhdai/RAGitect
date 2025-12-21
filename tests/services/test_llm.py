@@ -1,6 +1,6 @@
 """Unit tests for LLM service functions.
 
-Comprehensive tests for the LLM service rewrite (Story 3.0).
+Comprehensive tests for the LLM service rewrite
 Covers:
 - DRY helper function `_build_litellm_kwargs()`
 - Structured logging with `_log_llm_metrics()`
@@ -9,9 +9,9 @@ Covers:
 """
 
 import json
+import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-import uuid
 
 import pytest
 

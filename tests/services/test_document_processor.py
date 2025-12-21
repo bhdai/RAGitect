@@ -1,7 +1,4 @@
-"""Tests for document_processor.py
-
-Story 3.3.A: Updated tests for token-based chunking with orphan header merging
-"""
+"""Tests for document_processor.py"""
 
 import pytest
 from langchain_core.documents import Document
@@ -58,7 +55,7 @@ class TestCreateDocuments:
 
 
 class TestSplitDocument:
-    """Test text splitting functionality with token-based chunking (Story 3.3.A)"""
+    """Test text splitting functionality with token-based chunking"""
 
     def test_splits_text_into_chunks(self):
         text = "word " * 500  # ~500 tokens
@@ -74,7 +71,7 @@ class TestSplitDocument:
             assert count_tokens(chunk) <= max_allowed
 
     def test_respects_chunk_size(self):
-        """Test that chunks respect token-based size limits (Story 3.3.A)"""
+        """Test that chunks respect token-based size limits"""
         text = "word " * 500  # ~500 tokens
         chunk_size = 128  # Valid: chunk_size > min_chunk_size
         overlap = 15
@@ -121,7 +118,7 @@ class TestSplitDocument:
             assert count_tokens(chunk) <= max_allowed
 
     def test_default_parameters(self):
-        """Test that default parameters use token-based sizing (Story 3.3.A)"""
+        """Test that default parameters use token-based sizing"""
         text = "word " * 1000  # ~1000 tokens
         chunks = split_document(text)
 
@@ -200,7 +197,7 @@ The final section with concluding remarks.
         assert chunks_whitespace == []
 
     def test_markdown_splitting_respects_chunk_size(self):
-        """Test that markdown splitting enforces token-based limits (Story 3.3.A)"""
+        """Test that markdown splitting enforces token-based limits"""
         # Create a large markdown section (~600 tokens)
         large_section = "# Big Section\n\n" + ("word " * 600)
         chunk_size = 256  # tokens

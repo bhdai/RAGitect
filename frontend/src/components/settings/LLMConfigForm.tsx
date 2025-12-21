@@ -1,8 +1,6 @@
 /**
  * LLM Configuration Form Component
- * 
- * Story 1.4: LLM Provider Configuration - Phase 1
- * 
+ *
  * Unified form with provider dropdown supporting:
  * - Ollama, OpenAI, Anthropic, Gemini
  * - Auto-fill base URL on provider selection

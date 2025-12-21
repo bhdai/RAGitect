@@ -1,7 +1,6 @@
 /**
  * Tests for DocumentSidebar component
- * 
- * Story 3.0: Streaming Infrastructure - AC3, AC4
+ *
  * Updated for collapsible sidebar with modal upload
  */
 
@@ -46,7 +45,7 @@ describe('DocumentSidebar', () => {
 
   it('renders the sidebar with correct structure', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     // Should have the sidebar container
     const sidebar = screen.getByTestId('document-sidebar');
     expect(sidebar).toBeInTheDocument();
@@ -54,33 +53,33 @@ describe('DocumentSidebar', () => {
 
   it('renders the collapse toggle button', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     expect(screen.getByTestId('sidebar-toggle')).toBeInTheDocument();
   });
 
   it('renders Add Source button', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     expect(screen.getByTestId('add-source-button')).toBeInTheDocument();
     expect(screen.getByText('Add Source')).toBeInTheDocument();
   });
 
   it('opens upload modal when Add Source is clicked', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     // Modal should not be visible initially
     expect(screen.queryByTestId('upload-modal')).not.toBeInTheDocument();
-    
+
     // Click Add Source
     fireEvent.click(screen.getByTestId('add-source-button'));
-    
+
     // Modal should now be visible
     expect(screen.getByTestId('upload-modal')).toBeInTheDocument();
   });
 
   it('renders document list', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     expect(screen.getByTestId('document-list')).toBeInTheDocument();
   });
 
@@ -89,29 +88,29 @@ describe('DocumentSidebar', () => {
       ...defaultProps,
       uploads: [{ fileName: 'test.pdf', progress: 50, status: 'uploading' as const, size: 1000 }],
     };
-    
+
     // Should render without errors even with uploads (no longer displays UploadProgress)
     render(<DocumentSidebar {...propsWithUploads} />);
-    
+
     expect(screen.getByTestId('document-sidebar')).toBeInTheDocument();
   });
 
   it('does not render upload progress component', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     // UploadProgress has been removed - status is now shown via DocumentList color coding
     expect(screen.queryByTestId('upload-progress')).not.toBeInTheDocument();
   });
 
   it('renders Documents heading', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     expect(screen.getByRole('heading', { name: 'Documents' })).toBeInTheDocument();
   });
 
   it('has proper structure for content layout', () => {
     render(<DocumentSidebar {...defaultProps} />);
-    
+
     const sidebar = screen.getByTestId('document-sidebar');
     expect(sidebar).toHaveClass('flex-shrink-0');
     expect(sidebar).toHaveClass('h-full');

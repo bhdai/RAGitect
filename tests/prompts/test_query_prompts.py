@@ -1,8 +1,5 @@
 """Tests for query prompt composition module.
 
-Story 3.2.A: Modular Prompt System
-Task 0.6.7: Add tests for query prompt composition
-
 Tests the modular query prompt system following TDD approach.
 """
 

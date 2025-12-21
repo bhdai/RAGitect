@@ -1,9 +1,6 @@
 /**
  * Chat types and utilities for Vercel AI SDK integration
  *
- * Story 3.0: Streaming Infrastructure
- * Story 3.1: Natural Language Querying
- *
  * Note: The useChat hook from @ai-sdk/react handles SSE parsing via
  * DefaultChatTransport. This file provides shared types only.
  */

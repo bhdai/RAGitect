@@ -1,7 +1,7 @@
 """Document Upload Service
 
 Handles document upload operations including file validation and storage.
-Separated from document_processor.py which handles text extraction (Story 2.2).
+Separated from document_processor.py which handles text extraction
 """
 
 import logging
@@ -31,8 +31,6 @@ class DocumentUploadService:
     - File type validation using ProcessorFactory
     - Raw file storage
     - Document metadata creation with status="uploaded"
-
-    Text extraction and processing happens in Story 2.2.
     """
 
     def __init__(self, session: AsyncSession):
