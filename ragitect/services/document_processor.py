@@ -131,7 +131,7 @@ def count_tokens(text: str) -> int:
     if _TOKENIZER_TYPE == "tiktoken":
         return len(_TOKENIZER.encode(text))
     else:  # transformers
-        return len(_TOKENIZER.encode(text, add_special_tokens=False))
+        return len(_TOKENIZER.encode(text, add_special_tokens=False))  # type: ignore[call-arg]
 
 
 def load_document(file_path: str) -> str:
@@ -178,10 +178,9 @@ def split_markdown_document(
 
     Story 3.3.A: ADR 3 - Orphan Header Merging Strategy
 
-    Algorithm:
+    Algorithm (2-step, single-pass):
     1. Split by headers (structural split)
-    2. Merge chunks smaller than min_chunk_size with subsequent chunk
-    3. Apply recursive split to enforce size limits
+    2. Process each chunk: size check → split if needed → forward-merge orphans inline
 
     Args:
         raw_text: Raw markdown text
@@ -213,97 +212,79 @@ def split_markdown_document(
         md_splits = markdown_splitter.split_text(raw_text)
         structural_chunks = [doc.page_content for doc in md_splits]
 
-        # Step 2: MERGE ORPHAN HEADERS (ADR 3)
-        # Chunks smaller than min_chunk_size are merged with the next chunk
-        merged_chunks: list[str] = []
-        buffer = ""
-
-        for chunk in structural_chunks:
-            chunk_tokens = count_tokens(chunk)
-
-            if chunk_tokens < min_chunk_size:
-                # Accumulate small orphan chunks into buffer
-                buffer += "\n\n" + chunk if buffer else chunk
-            else:
-                # Always merge buffer to preserve context
-                if buffer:
-                    merged_chunks.append(buffer + "\n\n" + chunk)
-                    buffer = ""
-                else:
-                    merged_chunks.append(chunk)
-
-        # Flush remaining buffer
-        if buffer:
-            if merged_chunks:
-                merged_chunks[-1] = merged_chunks[-1] + "\n\n" + buffer
-            else:
-                merged_chunks.append(buffer)
-
-        # Log token statistics (AC7)
-        total_tokens = sum(count_tokens(c) for c in merged_chunks)
         logger.info(
-            "Markdown chunking: %d structural chunks merged to %d, total tokens: %d",
+            "Markdown chunking: %d structural chunks from header split",
             len(structural_chunks),
-            len(merged_chunks),
-            total_tokens,
         )
 
-        # Step 3: Recursive Split (Uses Dynamic Tokenizer)
+        # Recursive splitter for oversized chunks
+        # Separator order: paragraph > line > sentence > clause > word > char
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=overlap,
-            length_function=count_tokens,  # Handles both BPE and WordPiece
-            separators=["\n\n", "\n", " ", ""],
+            length_function=count_tokens,
+            separators=["\n\n", "\n", ". ", ", ", " ", ""],
         )
 
+        # Step 2: Single-pass processing with inline orphan handling (forward merge)
+        # Buffer accumulates orphan chunks to merge with the next non-orphan chunk
         final_chunks: list[str] = []
-        for chunk in merged_chunks:
-            sub_chunks = text_splitter.split_text(chunk)
-            final_chunks.extend(sub_chunks)
+        orphan_buffer = ""
 
-        # Step 4: Enforce minimum chunk size (AC6)
-        # RecursiveCharacterTextSplitter only enforces max size, not min
-        # Merge any chunks smaller than min_chunk_size with neighbors
-        if final_chunks and min_chunk_size > 0:
-            # Keep merging until no chunks are below minimum
-            # (merging can create new chunks that need merging)
-            max_iterations = 10  # Prevent infinite loops
-            iteration = 0
+        for structural_chunk in structural_chunks:
+            tokens = count_tokens(structural_chunk)
 
-            while iteration < max_iterations:
-                enforced_chunks: list[str] = []
-                made_changes = False
-                i = 0
+            # Case 1: Chunk is too small (orphan) - buffer for forward merge
+            if tokens < min_chunk_size:
+                orphan_buffer += (
+                    "\n\n" + structural_chunk if orphan_buffer else structural_chunk
+                )
+                continue
 
-                while i < len(final_chunks):
-                    current_chunk = final_chunks[i]
-                    current_tokens = count_tokens(current_chunk)
+            # Case 2: Chunk is good size (within bounds)
+            if tokens <= chunk_size:
+                # Prepend any buffered orphans
+                if orphan_buffer:
+                    final_chunks.append(orphan_buffer + "\n\n" + structural_chunk)
+                    orphan_buffer = ""
+                else:
+                    final_chunks.append(structural_chunk)
+                continue
 
-                    # If chunk is too small and there's a next chunk, merge forward
-                    if current_tokens < min_chunk_size and i + 1 < len(final_chunks):
-                        next_chunk = final_chunks[i + 1]
-                        merged = current_chunk + "\n\n" + next_chunk
-                        enforced_chunks.append(merged)
-                        made_changes = True
-                        i += 2  # Skip both chunks since we merged them
-                    # If this is the last chunk and it's too small, merge backward
-                    elif current_tokens < min_chunk_size and enforced_chunks:
-                        enforced_chunks[-1] = (
-                            enforced_chunks[-1] + "\n\n" + current_chunk
-                        )
-                        made_changes = True
-                        i += 1
+            # Case 3: Chunk is too large - needs recursive splitting
+            # First, prepend any buffered orphans to the chunk before splitting
+            chunk_to_split = (
+                orphan_buffer + "\n\n" + structural_chunk
+                if orphan_buffer
+                else structural_chunk
+            )
+            orphan_buffer = ""
+
+            sub_chunks = text_splitter.split_text(chunk_to_split)
+
+            # Process sub-chunks with inline orphan handling
+            for sub_chunk in sub_chunks:
+                sub_tokens = count_tokens(sub_chunk)
+
+                if sub_tokens < min_chunk_size:
+                    # Sub-chunk is orphan, buffer for forward merge
+                    orphan_buffer += "\n\n" + sub_chunk if orphan_buffer else sub_chunk
+                else:
+                    # Prepend any buffered orphans
+                    if orphan_buffer:
+                        final_chunks.append(orphan_buffer + "\n\n" + sub_chunk)
+                        orphan_buffer = ""
                     else:
-                        # Chunk is acceptable size, keep it
-                        enforced_chunks.append(current_chunk)
-                        i += 1
+                        final_chunks.append(sub_chunk)
 
-                final_chunks = enforced_chunks
-                iteration += 1
-
-                # If no changes were made, we're done
-                if not made_changes:
-                    break
+        # Flush remaining orphan buffer
+        if orphan_buffer:
+            if final_chunks:
+                # Merge with last chunk (backward merge as fallback for trailing orphans)
+                final_chunks[-1] = final_chunks[-1] + "\n\n" + orphan_buffer
+            else:
+                # Edge case: entire document is orphan-sized
+                final_chunks.append(orphan_buffer)
 
         # Log final statistics
         if final_chunks:
@@ -325,7 +306,7 @@ def split_markdown_document(
             chunk_size=chunk_size,
             chunk_overlap=overlap,
             length_function=count_tokens,
-            separators=["\n\n", "\n", " ", ""],
+            separators=["\n\n", "\n", ". ", ", ", " ", ""],
         )
         return text_splitter.split_text(raw_text)
 
