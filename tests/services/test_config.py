@@ -92,8 +92,8 @@ class TestEmbeddingConfig:
         assert config.provider == "ollama"
         assert config.model == "qwen3-embedding:0.6b"  # Updated default
         assert config.base_url == "http://localhost:11434"
-        assert config.dimension == 1536  # Updated for qwen3-embedding
-        assert config.batch_size == 32  # Story 3.3.A
+        assert config.dimension == 768
+        assert config.batch_size == 32
 
     def test_batch_size_configurable(self):
         """Test that batch_size can be customized"""

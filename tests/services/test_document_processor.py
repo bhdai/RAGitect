@@ -62,22 +62,33 @@ class TestSplitDocument:
 
     def test_splits_text_into_chunks(self):
         text = "word " * 500  # ~500 tokens
-        chunks = split_document(text, chunk_size=100, overlap=10)
+        chunk_size = 256  # Valid: chunk_size > min_chunk_size
+        overlap = 25
+        min_chunk_size = 64  # MIN_CHUNK_SIZE_TOKENS from config
+        chunks = split_document(text, chunk_size=chunk_size, overlap=overlap)
 
         assert len(chunks) > 1
-        # All chunks should respect token limit (with some tolerance)
+        # Maximum possible: chunk_size + min_chunk_size (when last chunk is merged backward)
+        max_allowed = chunk_size + min_chunk_size
         for chunk in chunks:
-            assert count_tokens(chunk) <= 120  # Allow some tolerance
+            assert count_tokens(chunk) <= max_allowed
 
     def test_respects_chunk_size(self):
         """Test that chunks respect token-based size limits (Story 3.3.A)"""
-        text = "word " * 200  # ~200 tokens
-        chunks = split_document(text, chunk_size=50, overlap=5)
+        text = "word " * 500  # ~500 tokens
+        chunk_size = 128  # Valid: chunk_size > min_chunk_size
+        overlap = 15
+        min_chunk_size = 64  # MIN_CHUNK_SIZE_TOKENS from config
+        chunks = split_document(text, chunk_size=chunk_size, overlap=overlap)
 
-        # All chunks should be within token limits (with tolerance)
+        assert len(chunks) > 1
+        # Maximum possible: chunk_size + min_chunk_size (when last chunk is merged backward)
+        max_allowed = chunk_size + min_chunk_size
         for chunk in chunks:
             token_count = count_tokens(chunk)
-            assert token_count <= 70, f"Chunk has {token_count} tokens, expected <= 70"
+            assert token_count <= max_allowed, (
+                f"Chunk has {token_count} tokens, expected <= {max_allowed}"
+            )
 
     def test_handles_small_text(self):
         text = "short text"
@@ -91,11 +102,23 @@ class TestSplitDocument:
         assert chunks == []
 
     def test_overlap_creates_redundancy(self):
-        text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ " * 20  # ~140 tokens
-        chunks = split_document(text, chunk_size=50, overlap=10)
+        text = (
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ " * 30
+        )  # ~210 tokens (enough for multiple chunks)
+        chunk_size = 100  # Valid: chunk_size > min_chunk_size
+        overlap = 20
+        min_chunk_size = 64  # MIN_CHUNK_SIZE_TOKENS from config
+        chunks = split_document(text, chunk_size=chunk_size, overlap=overlap)
 
-        # With overlap, chunks should share content
-        assert len(chunks) >= 2
+        # With overlap, should create multiple chunks with shared content
+        assert len(chunks) >= 2, (
+            "Text should be split into multiple chunks with overlap"
+        )
+
+        # Maximum possible: chunk_size + min_chunk_size (when last chunk is merged backward)
+        max_allowed = chunk_size + min_chunk_size
+        for chunk in chunks:
+            assert count_tokens(chunk) <= max_allowed
 
     def test_default_parameters(self):
         """Test that default parameters use token-based sizing (Story 3.3.A)"""
