@@ -30,6 +30,7 @@ from ragitect.services.adaptive_k import select_adaptive_k
 from ragitect.services.config import (
     DEFAULT_RETRIEVAL_K,
     DEFAULT_SIMILARITY_THRESHOLD,
+    RETRIEVAL_ADAPTIVE_K_GAP_THRESHOLD,
     RETRIEVAL_ADAPTIVE_K_MAX,
     RETRIEVAL_ADAPTIVE_K_MIN,
     RETRIEVAL_INITIAL_K,
@@ -119,6 +120,7 @@ def build_citation_metadata(context_chunks: list[dict]) -> list[Citation]:
     """Build citation metadata from context chunks.
 
     Story 3.2.B: Streaming LLM Responses with Citations - AC1, AC2
+    Story 3.3.A: Added document_id for frontend navigation - AC1, AC2
 
     NOTE: Prompt engineering for [N] format was done in Story 3.1.1.
     This function just prepares metadata for frontend consumption.
@@ -134,6 +136,7 @@ def build_citation_metadata(context_chunks: list[dict]) -> list[Citation]:
         citations.append(
             Citation.from_context_chunk(
                 index=i,
+                document_id=str(chunk.get("document_id", "")),
                 document_name=chunk.get("document_name", "Unknown"),
                 chunk_index=chunk.get("chunk_index", 0),
                 similarity=chunk.get("rerank_score") or chunk.get("similarity", 0.0),
@@ -484,6 +487,7 @@ async def retrieve_context(
             score_key="rerank_score" if use_reranker else "similarity",
             k_min=RETRIEVAL_ADAPTIVE_K_MIN,
             k_max=RETRIEVAL_ADAPTIVE_K_MAX,
+            gap_threshold=RETRIEVAL_ADAPTIVE_K_GAP_THRESHOLD,
         )
         logger.info(
             "Adaptive-K: selected %d chunks (gap_found=%s)",

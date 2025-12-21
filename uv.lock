@@ -3293,6 +3293,8 @@ dependencies = [
     { name = "python-multipart" },
     { name = "sentence-transformers" },
     { name = "sqlalchemy" },
+    { name = "tiktoken" },
+    { name = "transformers" },
     { name = "uvicorn" },
 ]
 
@@ -3332,6 +3334,8 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "sentence-transformers", specifier = ">=5.2.0" },
     { name = "sqlalchemy", specifier = ">=2.0.44" },
+    { name = "tiktoken", specifier = ">=0.12.0" },
+    { name = "transformers", specifier = ">=4.57.1" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
 

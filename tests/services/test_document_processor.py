@@ -1,12 +1,17 @@
-"""Tests for document_processor.py"""
+"""Tests for document_processor.py
+
+Story 3.3.A: Updated tests for token-based chunking with orphan header merging
+"""
 
 import pytest
 from langchain_core.documents import Document
 
 from ragitect.services.document_processor import (
+    count_tokens,
     create_documents,
     process_file_bytes,
     split_document,
+    split_markdown_document,
 )
 
 
@@ -53,21 +58,37 @@ class TestCreateDocuments:
 
 
 class TestSplitDocument:
-    """Test text splitting functionality"""
+    """Test text splitting functionality with token-based chunking (Story 3.3.A)"""
 
     def test_splits_text_into_chunks(self):
-        text = "a" * 1000
-        chunks = split_document(text, chunk_size=100, overlap=10)
+        text = "word " * 500  # ~500 tokens
+        chunk_size = 256  # Valid: chunk_size > min_chunk_size
+        overlap = 25
+        min_chunk_size = 64  # MIN_CHUNK_SIZE_TOKENS from config
+        chunks = split_document(text, chunk_size=chunk_size, overlap=overlap)
 
         assert len(chunks) > 1
-        assert all(len(chunk) <= 100 for chunk in chunks)
+        # Maximum possible: chunk_size + min_chunk_size (when last chunk is merged backward)
+        max_allowed = chunk_size + min_chunk_size
+        for chunk in chunks:
+            assert count_tokens(chunk) <= max_allowed
 
     def test_respects_chunk_size(self):
-        text = "word " * 200
-        chunks = split_document(text, chunk_size=50, overlap=5)
+        """Test that chunks respect token-based size limits (Story 3.3.A)"""
+        text = "word " * 500  # ~500 tokens
+        chunk_size = 128  # Valid: chunk_size > min_chunk_size
+        overlap = 15
+        min_chunk_size = 64  # MIN_CHUNK_SIZE_TOKENS from config
+        chunks = split_document(text, chunk_size=chunk_size, overlap=overlap)
 
-        # Most chunks should be close to chunk_size
-        assert all(len(chunk) <= 60 for chunk in chunks)  # Allow some tolerance
+        assert len(chunks) > 1
+        # Maximum possible: chunk_size + min_chunk_size (when last chunk is merged backward)
+        max_allowed = chunk_size + min_chunk_size
+        for chunk in chunks:
+            token_count = count_tokens(chunk)
+            assert token_count <= max_allowed, (
+                f"Chunk has {token_count} tokens, expected <= {max_allowed}"
+            )
 
     def test_handles_small_text(self):
         text = "short text"
@@ -81,17 +102,30 @@ class TestSplitDocument:
         assert chunks == []
 
     def test_overlap_creates_redundancy(self):
-        text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        chunks = split_document(text, chunk_size=10, overlap=3)
+        text = (
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ " * 30
+        )  # ~210 tokens (enough for multiple chunks)
+        chunk_size = 100  # Valid: chunk_size > min_chunk_size
+        overlap = 20
+        min_chunk_size = 64  # MIN_CHUNK_SIZE_TOKENS from config
+        chunks = split_document(text, chunk_size=chunk_size, overlap=overlap)
 
-        # With overlap, chunks should share content
-        assert len(chunks) >= 2
+        # With overlap, should create multiple chunks with shared content
+        assert len(chunks) >= 2, (
+            "Text should be split into multiple chunks with overlap"
+        )
+
+        # Maximum possible: chunk_size + min_chunk_size (when last chunk is merged backward)
+        max_allowed = chunk_size + min_chunk_size
+        for chunk in chunks:
+            assert count_tokens(chunk) <= max_allowed
 
     def test_default_parameters(self):
-        text = "a" * 2000
+        """Test that default parameters use token-based sizing (Story 3.3.A)"""
+        text = "word " * 1000  # ~1000 tokens
         chunks = split_document(text)
 
-        # Default is chunk_size=1000, overlap=150
+        # Default is chunk_size=512 tokens, overlap=50
         assert len(chunks) >= 2
 
     def test_markdown_splitting_preserves_structure(self):
@@ -122,9 +156,7 @@ More detailed information in another subsection.
 
 The final section with concluding remarks.
 """
-        chunks = split_document(
-            markdown_text, chunk_size=1000, overlap=150, file_type=".md"
-        )
+        chunks = split_document(markdown_text, chunk_size=512, overlap=50)
 
         # Verify chunks were created
         assert len(chunks) > 0
@@ -152,7 +184,7 @@ The final section with concluding remarks.
             ), "Subsection headers separated from their content"
 
         # Verify markdown splitting produces different results than plain splitting
-        plain_chunks = split_document(markdown_text, chunk_size=1000, overlap=150)
+        plain_chunks = split_document(markdown_text, chunk_size=512, overlap=50)
         # Markdown splitting should respect structure, potentially creating different boundaries
         # This is a soft check - at minimum, both should produce reasonable chunking
         assert len(chunks) > 0 and len(plain_chunks) > 0
@@ -160,55 +192,45 @@ The final section with concluding remarks.
     def test_markdown_splitting_handles_empty_text(self):
         """Test that markdown splitting efficiently handles empty text"""
         # Test completely empty string
-        chunks = split_document("", file_type=".md")
+        chunks = split_document("")
         assert chunks == []
 
         # Test whitespace-only string
-        chunks_whitespace = split_document("   \n\t  ", file_type=".md")
+        chunks_whitespace = split_document("   \n\t  ")
         assert chunks_whitespace == []
 
     def test_markdown_splitting_respects_chunk_size(self):
-        """Test that markdown splitting still enforces size limits"""
-        # Create a large markdown section
-        large_section = "# Big Section\n\n" + ("word " * 500)
-        chunk_size = 1000
-        overlap = 150
-        chunks = split_document(
-            large_section, chunk_size=chunk_size, overlap=overlap, file_type=".md"
-        )
+        """Test that markdown splitting enforces token-based limits (Story 3.3.A)"""
+        # Create a large markdown section (~600 tokens)
+        large_section = "# Big Section\n\n" + ("word " * 600)
+        chunk_size = 256  # tokens
+        overlap = 50
+        chunks = split_document(large_section, chunk_size=chunk_size, overlap=overlap)
 
         # Should be split into multiple chunks due to size
         assert len(chunks) >= 2
 
-        # Each chunk should be roughly within size limits with tolerance for:
-        # - Overlap between chunks
-        # - RecursiveCharacterTextSplitter adding buffer
-        # - Markdown structure preservation may extend slightly
-        max_expected_size = chunk_size + overlap + 50  # 1000 + 150 + 50 = 1200
+        # Each chunk should respect token limits
         for chunk in chunks:
-            assert len(chunk) <= max_expected_size, (
-                f"Chunk size {len(chunk)} exceeds max expected {max_expected_size}"
+            token_count = count_tokens(chunk)
+            max_expected = chunk_size + overlap + 20  # Allow tolerance
+            assert token_count <= max_expected, (
+                f"Chunk has {token_count} tokens, exceeds max expected {max_expected}"
             )
 
-    def test_plain_text_uses_recursive_splitter(self):
-        """Test that non-markdown files use standard recursive splitting"""
-        text = "a" * 2000
-        chunks = split_document(text, chunk_size=1000, overlap=150, file_type=".txt")
+    def test_plain_text_splitting(self):
+        """Test that plain text is split using markdown-aware splitter"""
+        text = "word " * 1000  # ~1000 tokens
+        chunks = split_document(text, chunk_size=256, overlap=50)
 
         # Should split into multiple chunks
         assert len(chunks) >= 2
-
-        # Test with no file_type (default behavior)
-        chunks_default = split_document(text, chunk_size=1000, overlap=150)
-        assert len(chunks_default) >= 2
 
     def test_markdown_splitting_fallback_on_error(self):
         """Test that markdown splitting falls back to recursive on parsing errors"""
         # Normal text without markdown structure should still work
         plain_text = "This is just plain text without any markdown structure. " * 50
-        chunks = split_document(
-            plain_text, chunk_size=1000, overlap=150, file_type=".md"
-        )
+        chunks = split_document(plain_text, chunk_size=256, overlap=50)
 
         # Should still produce chunks via fallback
         assert len(chunks) > 0
