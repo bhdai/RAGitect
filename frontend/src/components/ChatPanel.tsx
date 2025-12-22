@@ -25,17 +25,19 @@ import {
 } from '@/components/ai-elements/conversation';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 
-import { MessageWithCitations } from '@/components/MessageWithCitations';
 import { ChatProviderSelector } from '@/components/ChatProviderSelector';
+import { AssistantMessage } from '@/components/AssistantMessage';
 import { useProviderSelectionContext } from '@/contexts/ProviderSelectionContext';
 import { cn } from '@/lib/utils';
-import { buildCitationMap } from '@/types/citation';
+import { type CitationData } from '@/types/citation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface ChatPanelProps {
   /** Workspace ID for chat operations */
   workspaceId: string;
+  /** Callback when user clicks a citation badge*/
+  onCitationClick?: (citation: CitationData) => void;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface ChatPanelProps {
  * - Message parts rendering for future COT/citation support
  * - Auto-scroll and loading states
  */
-export function ChatPanel({ workspaceId }: ChatPanelProps) {
+export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const { selectedProvider } = useProviderSelectionContext();
 
@@ -172,17 +174,10 @@ export function ChatPanel({ workspaceId }: ChatPanelProps) {
                       })}
                     </div>
                   ) : (
-                    <div className="w-full">
-                      {/* Use MessageWithCitations for all assistant messages to ensure consistent rendering and prevent flicker */}
-                      <MessageWithCitations
-                        content={message.parts
-                          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-                          .map((part) => part.text)
-                          .join('')}
-                        citations={buildCitationMap(message.parts)}
-                        // TODO: will implement onCitationClick for deep-dive navigation
-                      />
-                    </div>
+                    <AssistantMessage
+                      message={message}
+                      onCitationClick={onCitationClick}
+                    />
                   )}
                 </div>
               ))}
