@@ -23,6 +23,7 @@ import { getWorkspace } from '@/lib/api';
 import { uploadDocuments, getDocumentStatus, deleteDocument, type Document } from '@/lib/documents';
 import { toast } from 'sonner';
 import type { Workspace } from '@/lib/types';
+import type { CitationData } from '@/types/citation';
 
 export default function WorkspacePage() {
   // Next.js App Router: use useParams hook for client components
@@ -40,6 +41,7 @@ export default function WorkspacePage() {
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [documentListRefresh, setDocumentListRefresh] = useState(0);
+
 
   useEffect(() => {
     async function fetchWorkspace() {
@@ -78,14 +80,14 @@ export default function WorkspacePage() {
         prev.map(upload =>
           upload.fileName === fileName
             ? {
-                ...upload,
-                status: (status.status === 'processing' || status.status === 'embedding') ? 'uploading' :
-                        status.status === 'ready' ? 'success' :
-                        status.status === 'error' ? 'error' : upload.status,
-                progress: (status.status === 'processing' || status.status === 'embedding') ? 95 :
-                         status.status === 'ready' ? 100 : upload.progress,
-                phase: status.phase ?? undefined, // Pass phase for detailed progress indicator
-              }
+              ...upload,
+              status: (status.status === 'processing' || status.status === 'embedding') ? 'uploading' :
+                status.status === 'ready' ? 'success' :
+                  status.status === 'error' ? 'error' : upload.status,
+              progress: (status.status === 'processing' || status.status === 'embedding') ? 95 :
+                status.status === 'ready' ? 100 : upload.progress,
+              phase: status.phase ?? undefined, // Pass phase for detailed progress indicator
+            }
             : upload
         )
       );
@@ -205,6 +207,19 @@ export default function WorkspacePage() {
   const handleSelectDocument = (doc: Document) => {
     setSelectedDocumentId(doc.id);
   };
+
+  // Handle citation click for deep-dive navigation
+  // Opens the document viewer for the cited document
+  const handleCitationClick = useCallback((citation: CitationData) => {
+    // AC6: Validate documentId exists
+    if (!citation.documentId) {
+      toast.error('Citation is missing document reference');
+      return;
+    }
+
+    // AC1, AC5: Open viewer with correct document
+    setSelectedDocumentId(citation.documentId);
+  }, []);
 
   // Handle document deletion request (opens dialog)
   const handleDeleteDocument = (doc: Document) => {
@@ -343,7 +358,7 @@ export default function WorkspacePage() {
           }}
         >
           <ProviderSelectionProvider>
-            <ChatPanel workspaceId={workspace.id} />
+            <ChatPanel workspaceId={workspace.id} onCitationClick={handleCitationClick} />
           </ProviderSelectionProvider>
         </div>
 

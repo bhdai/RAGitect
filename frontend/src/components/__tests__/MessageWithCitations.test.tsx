@@ -19,6 +19,7 @@ describe('MessageWithCitations', () => {
       chunkIndex: 0,
       similarity: 0.95,
       preview: 'Python is a powerful programming language used worldwide...',
+      documentId: 'doc-uuid-1',
     },
     'cite-1': {
       id: 'cite-1',
@@ -27,6 +28,7 @@ describe('MessageWithCitations', () => {
       chunkIndex: 5,
       similarity: 0.87,
       preview: 'Python supports multiple programming paradigms including OOP...',
+      documentId: 'doc-uuid-2',
     },
   };
 
@@ -125,7 +127,7 @@ describe('MessageWithCitations', () => {
       const button = screen.getByRole('button');
       await user.click(button);
 
-      expect(handleClick).toHaveBeenCalledWith('cite-0');
+      expect(handleClick).toHaveBeenCalledWith(mockCitations['cite-0']);
     });
   });
 

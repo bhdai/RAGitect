@@ -30,7 +30,8 @@ export interface MessageWithCitationsProps {
   content: string;
   /** Map of citation IDs (cite-0, cite-1) to citation data */
   citations: CitationMap;
-  onCitationClick?: (citationId: string) => void;
+  /** Callback when user clicks a citation badge*/
+  onCitationClick?: (citation: CitationData) => void;
 }
 
 /**
@@ -74,7 +75,7 @@ function CitationBadge({
 }: {
   citationIndex: number;
   citation: CitationData;
-  onCitationClick?: (citationId: string) => void;
+  onCitationClick?: (citation: CitationData) => void;
 }) {
   const relevancePercent = Math.round(citation.similarity * 100);
 
@@ -92,7 +93,7 @@ function CitationBadge({
             'align-super transition-colors',
             'focus:outline-none focus:ring-2 focus:ring-primary/50'
           )}
-          onClick={() => onCitationClick?.(citation.id)}
+          onClick={() => onCitationClick?.(citation)}
           aria-label={`Citation ${citationIndex}: ${citation.title}`}
         >
           {citationIndex}
@@ -139,7 +140,7 @@ function CitationBadge({
 function processTextWithCitations(
   text: string,
   citations: CitationMap,
-  onCitationClick?: (citationId: string) => void
+  onCitationClick?: (citation: CitationData) => void
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   const pattern = /\[(\d+)\]/g;
@@ -233,7 +234,7 @@ export const MessageWithCitations = memo(function MessageWithCitations({
   }
 
   // Custom components for Streamdown that inject citation badges
-  const components = hasCitations ? {
+  const components = React.useMemo(() => hasCitations ? {
     p: ({ children, ...props }: React.ComponentPropsWithoutRef<'p'>) => {
       const processedChildren = processChildren(children);
       return <p {...props}>{processedChildren}</p>;
@@ -250,7 +251,7 @@ export const MessageWithCitations = memo(function MessageWithCitations({
       const processedChildren = processChildren(children);
       return <em {...props}>{processedChildren}</em>;
     },
-  } : undefined;
+  } : undefined, [hasCitations, citations, onCitationClick]);
 
   return (
     <Streamdown

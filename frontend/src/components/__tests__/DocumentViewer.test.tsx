@@ -53,7 +53,7 @@ describe('DocumentViewer', () => {
 
   it('displays loading state during fetch', async () => {
     const { getDocument } = await import('@/lib/documents');
-    vi.mocked(getDocument).mockReturnValue(new Promise(() => {})); // Never resolves
+    vi.mocked(getDocument).mockReturnValue(new Promise(() => { })); // Never resolves
 
     render(<DocumentViewer documentId="1" onClose={vi.fn()} />);
 
