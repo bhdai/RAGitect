@@ -217,7 +217,7 @@ export const MessageWithCitations = memo(function MessageWithCitations({
   const hasCitations = Object.keys(citations).length > 0;
 
   // Process children to replace text containing [N] with citation badges
-  function processChildren(children: React.ReactNode): React.ReactNode {
+  const processChildren = React.useCallback((children: React.ReactNode): React.ReactNode => {
     if (typeof children === 'string') {
       return processTextWithCitations(children, citations, onCitationClick);
     }
@@ -231,7 +231,7 @@ export const MessageWithCitations = memo(function MessageWithCitations({
       });
     }
     return children;
-  }
+  }, [citations, onCitationClick]);
 
   // Custom components for Streamdown that inject citation badges
   const components = React.useMemo(() => hasCitations ? {
@@ -251,7 +251,7 @@ export const MessageWithCitations = memo(function MessageWithCitations({
       const processedChildren = processChildren(children);
       return <em {...props}>{processedChildren}</em>;
     },
-  } : undefined, [hasCitations, citations, onCitationClick]);
+  } : undefined, [hasCitations, processChildren]);
 
   return (
     <Streamdown

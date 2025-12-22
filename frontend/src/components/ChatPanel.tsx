@@ -29,7 +29,7 @@ import { ChatProviderSelector } from '@/components/ChatProviderSelector';
 import { AssistantMessage } from '@/components/AssistantMessage';
 import { useProviderSelectionContext } from '@/contexts/ProviderSelectionContext';
 import { cn } from '@/lib/utils';
-import { buildCitationMap, type CitationData } from '@/types/citation';
+import { type CitationData } from '@/types/citation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
