@@ -44,10 +44,10 @@ describe('MessageWithCitations', () => {
       expect(screen.getByText('Python is a powerful language.')).toBeInTheDocument();
     });
 
-    it('renders citation badges for [N] markers', () => {
+    it('renders citation badges for [cite: N] markers', () => {
       render(
         <MessageWithCitations
-          content="Python is powerful[0] and versatile[1]."
+          content="Python is powerful[cite: 0] and versatile[cite: 1]."
           citations={mockCitations}
         />
       );
@@ -59,10 +59,23 @@ describe('MessageWithCitations', () => {
       expect(buttons[1]).toHaveTextContent('1');
     });
 
+    it('does not match old bare [N] format (AC5)', () => {
+      render(
+        <MessageWithCitations
+          content="Python is powerful[0] and versatile[1]."
+          citations={mockCitations}
+        />
+      );
+
+      // Should NOT render citation buttons - old format should not match
+      const buttons = screen.queryAllByRole('button');
+      expect(buttons).toHaveLength(0);
+    });
+
     it('handles multiple citations in sequence', () => {
       render(
         <MessageWithCitations
-          content="This fact is supported by multiple sources[0][1]."
+          content="This fact is supported by multiple sources[cite: 0][cite: 1]."
           citations={mockCitations}
         />
       );
@@ -74,7 +87,7 @@ describe('MessageWithCitations', () => {
     it('handles citation at start of text', () => {
       render(
         <MessageWithCitations
-          content="[0] Python is great."
+          content="[cite: 0] Python is great."
           citations={mockCitations}
         />
       );
@@ -86,7 +99,7 @@ describe('MessageWithCitations', () => {
     it('handles citation at end of text', () => {
       render(
         <MessageWithCitations
-          content="Python is great [0]"
+          content="Python is great [cite: 0]"
           citations={mockCitations}
         />
       );
@@ -94,13 +107,25 @@ describe('MessageWithCitations', () => {
       const button = screen.getByRole('button');
       expect(button).toHaveTextContent('0');
     });
+
+    it('handles citation with space variations [cite:0] and [cite: 0]', () => {
+      render(
+        <MessageWithCitations
+          content="Python[cite:0] and JavaScript[cite: 1]."
+          citations={mockCitations}
+        />
+      );
+
+      const buttons = screen.getAllByRole('button');
+      expect(buttons).toHaveLength(2);
+    });
   });
 
   describe('citation badge interaction', () => {
     it('has correct aria-label for accessibility', () => {
       render(
         <MessageWithCitations
-          content="Python is powerful[0]."
+          content="Python is powerful[cite: 0]."
           citations={mockCitations}
         />
       );
@@ -118,7 +143,7 @@ describe('MessageWithCitations', () => {
 
       render(
         <MessageWithCitations
-          content="Python is powerful[0]."
+          content="Python is powerful[cite: 0]."
           citations={mockCitations}
           onCitationClick={handleClick}
         />
@@ -137,7 +162,7 @@ describe('MessageWithCitations', () => {
 
       render(
         <MessageWithCitations
-          content="Python is powerful[0]."
+          content="Python is powerful[cite: 0]."
           citations={mockCitations}
         />
       );
@@ -155,7 +180,7 @@ describe('MessageWithCitations', () => {
 
       render(
         <MessageWithCitations
-          content="Python is powerful[0]."
+          content="Python is powerful[cite: 0]."
           citations={mockCitations}
         />
       );
@@ -173,7 +198,7 @@ describe('MessageWithCitations', () => {
 
       render(
         <MessageWithCitations
-          content="Python is powerful[0]."
+          content="Python is powerful[cite: 0]."
           citations={mockCitations}
         />
       );
@@ -193,7 +218,7 @@ describe('MessageWithCitations', () => {
     it('renders invalid citation as plain text', () => {
       render(
         <MessageWithCitations
-          content="Python is powerful[99]."
+          content="Python is powerful[cite: 99]."
           citations={mockCitations}
         />
       );
@@ -209,7 +234,7 @@ describe('MessageWithCitations', () => {
     it('handles mixed valid and invalid citations', () => {
       render(
         <MessageWithCitations
-          content="Fact one[0] and fact two[99]."
+          content="Fact one[cite: 0] and fact two[cite: 99]."
           citations={mockCitations}
         />
       );
@@ -226,13 +251,13 @@ describe('MessageWithCitations', () => {
     it('handles empty citations map', () => {
       render(
         <MessageWithCitations
-          content="Python is powerful[0]."
+          content="Python is powerful[cite: 0]."
           citations={{}}
         />
       );
 
       // Should just render the text without parsing citations
-      expect(screen.getByText('Python is powerful[0].')).toBeInTheDocument();
+      expect(screen.getByText('Python is powerful[cite: 0].')).toBeInTheDocument();
     });
   });
 

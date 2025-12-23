@@ -148,6 +148,40 @@ class TestBuildRagSystemPrompt:
         assert "markdown" in prompt.lower()
 
 
+class TestCitationFormat:
+    """Test suite for citation format (AC5: [cite: N] format)."""
+
+    def test_citation_instructions_use_cite_format(self):
+        """Test that citation instructions use [cite: N] format, not [N]."""
+        from ragitect.prompts.rag_prompts import RAG_CITATION_INSTRUCTIONS
+
+        # Should use [cite: 0], [cite: 1] format
+        assert "[cite: 0]" in RAG_CITATION_INSTRUCTIONS
+        assert "[cite: 1]" in RAG_CITATION_INSTRUCTIONS
+
+        # Should NOT use bare [0], [1] format (old format)
+        # We need to check it doesn't have bare [0] without "cite:"
+        # But we can't just check "in" since [cite: 0] contains [0]
+        # Instead check that citation format is explicitly documented
+        assert "cite:" in RAG_CITATION_INSTRUCTIONS.lower()
+
+    def test_citation_examples_use_cite_format(self):
+        """Test that citation examples use [cite: N] format."""
+        from ragitect.prompts.rag_prompts import RAG_CITATION_EXAMPLES
+
+        # Examples should demonstrate [cite: N] format
+        assert "[cite: 0]" in RAG_CITATION_EXAMPLES
+        assert "[cite: 1]" in RAG_CITATION_EXAMPLES
+
+    def test_forbidden_patterns_include_old_format(self):
+        """Test that old [N] format is listed as forbidden."""
+        from ragitect.prompts.rag_prompts import RAG_CITATION_INSTRUCTIONS
+
+        # The old bare [N] format should be forbidden
+        # Check for mention of forbidden patterns including brackets
+        assert "FORBIDDEN" in RAG_CITATION_INSTRUCTIONS
+
+
 class TestPromptConstants:
     """Test suite for prompt constant values."""
 

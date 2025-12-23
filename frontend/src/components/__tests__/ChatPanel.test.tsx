@@ -242,4 +242,73 @@ describe('ChatPanel', () => {
     const panel = screen.getByTestId('chat-panel');
     expect(panel).toHaveClass('overflow-hidden');
   });
+
+  describe('Chat Management (AC1, AC2)', () => {
+    it('calls setMessages([]) when Clear Chat button is clicked (AC1)', async () => {
+      const user = userEvent.setup();
+      const mockSetMessages = vi.fn();
+
+      vi.mocked(useChat).mockReturnValue({
+        ...createMockUseChatReturn({
+          messages: [
+            {
+              id: 'msg-1',
+              role: 'user',
+              parts: [{ type: 'text', text: 'Hello' }],
+            },
+          ],
+          sendMessage: mockSendMessage,
+        }),
+        setMessages: mockSetMessages,
+      } as unknown as ReturnType<typeof useChat>);
+
+      render(<ChatPanel workspaceId="test-workspace" />);
+
+      const clearButton = screen.getByRole('button', { name: /clear chat/i });
+      await user.click(clearButton);
+
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
+
+    it('calls setMessages([]) when Refresh Context button is clicked (AC2)', async () => {
+      const user = userEvent.setup();
+      const mockSetMessages = vi.fn();
+
+      vi.mocked(useChat).mockReturnValue({
+        ...createMockUseChatReturn({
+          messages: [
+            {
+              id: 'msg-1',
+              role: 'user',
+              parts: [{ type: 'text', text: 'Hello' }],
+            },
+          ],
+          sendMessage: mockSendMessage,
+        }),
+        setMessages: mockSetMessages,
+      } as unknown as ReturnType<typeof useChat>);
+
+      render(<ChatPanel workspaceId="test-workspace" />);
+
+      const refreshButton = screen.getByRole('button', { name: /refresh context/i });
+      await user.click(refreshButton);
+
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
+
+    it('disables Clear and Refresh buttons when loading', () => {
+      vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
+        status: 'streaming',
+        sendMessage: mockSendMessage,
+      }));
+
+      render(<ChatPanel workspaceId="test-workspace" />);
+
+      const clearButton = screen.getByRole('button', { name: /clear chat/i });
+      const refreshButton = screen.getByRole('button', { name: /refresh context/i });
+
+      expect(clearButton).toBeDisabled();
+      expect(refreshButton).toBeDisabled();
+    });
+  });
 });

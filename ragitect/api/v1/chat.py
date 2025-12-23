@@ -141,11 +141,10 @@ class CitationStreamParser:
     """Stateful parser for detecting citations across chunk boundaries.
 
     ADR Decision: Real-time regex streaming with cross-chunk buffering.
-    Handles edge case where LLM outputs '[' in one chunk and '1]' in next.
+    Handles edge case where LLM outputs '[cite:' in one chunk and '0]' in next.
 
-    The LLM is prompted to cite using [N] format matching
-    [Chunk N] labels in the context. This parser detects those markers
-    in the streaming output and triggers citation metadata emission.
+    ADR-3.4.1: Citation format changed from [N] to [cite: N] to avoid
+    false positives with markdown lists and array indices.
     """
 
     def __init__(self, citations: list[Citation]):
@@ -157,7 +156,8 @@ class CitationStreamParser:
         self.citations = citations
         self.buffer = ""  # Buffer for partial citation markers
         self.emitted_ids: set[str] = set()  # Track which citations already emitted
-        self.pattern = re.compile(r"\[(\d+)\]")
+        # ADR-3.4.1: Updated pattern from [N] to [cite: N] format
+        self.pattern = re.compile(r"\[cite:\s*(\d+)\]")
 
     def parse_chunk(self, chunk: str) -> tuple[str, list[Citation]]:
         """Parse chunk and detect citation markers.

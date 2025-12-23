@@ -26,29 +26,31 @@ ABSOLUTE CONSTRAINTS:
 </system_instructions>"""
 
 # Enhanced citation instructions with SurfSense-inspired negative constraints
+# ADR-3.4.1: Citation format [cite: N] to avoid false positives with [N] (markdown lists, array indices)
 RAG_CITATION_INSTRUCTIONS = """<citation_rules>
 CRITICAL: Every factual statement from documents MUST have a citation.
 
 FORMAT:
 - Documents are labeled [Chunk 0], [Chunk 1], [Chunk 2], etc.
-- Citations use the SAME indices: [0], [1], [2], etc.
-- Example: To cite [Chunk 0], write [0]. To cite [Chunk 5], write [5].
-- Place citations immediately after the sentence: "sentence. [0]"
-- Multiple sources: "Water boils at 100°C. [0] [2]"
+- Citations use: [cite: 0], [cite: 1], [cite: 2], etc.
+- Example: To cite [Chunk 0], write [cite: 0]. To cite [Chunk 5], write [cite: 5].
+- Place citations immediately after the sentence: "sentence. [cite: 0]"
+- Multiple sources: "Water boils at 100°C. [cite: 0] [cite: 2]"
 
 REQUIREMENTS (ALL MANDATORY):
 1. Cite EVERY claim derived from documents
-2. Use EXACT chunk indices: [Chunk 0] → cite as [0], [Chunk 1] → cite as [1]
+2. Use EXACT chunk indices: [Chunk 0] → cite as [cite: 0], [Chunk 1] → cite as [cite: 1]
 3. NEVER fabricate or guess citation numbers
 4. If multiple sources support a point, cite ALL relevant chunks
 5. Place citations *immediately* following the specific claim they support (even mid-sentence)
-6. Validate: If you have chunks [Chunk 0] through [Chunk 10] (11 total), use ONLY [0] through [10], NEVER [11]
+6. Validate: If you have chunks [Chunk 0] through [Chunk 10] (11 total), use ONLY [cite: 0] through [cite: 10], NEVER [cite: 11]
 
 EXPLICITLY FORBIDDEN (DO NOT USE):
-- Markdown links: ([0](https://example.com))
-- Parentheses: (Source 0) or ([0])
+- Bare bracket format: [0], [1], [2] (use [cite: 0], [cite: 1] instead)
+- Markdown links: ([cite: 0](https://example.com))
+- Parentheses: (Source 0) or ([cite: 0])
 - Footnote style: ...¹ or ...²
-- Out-of-bounds indices: [11] when highest chunk is [Chunk 10] (use only [0]-[10])
+- Out-of-bounds indices: [cite: 11] when highest chunk is [Chunk 10] (use only [cite: 0]-[cite: 10])
 - Self-assigned IDs: [source-123] or custom identifiers
 
 GRACEFUL DEGRADATION:
@@ -58,45 +60,49 @@ GRACEFUL DEGRADATION:
 </citation_rules>"""
 
 # Few-shot examples (correct vs incorrect)
+# ADR-3.4.1: Updated to use [cite: N] format
 RAG_CITATION_EXAMPLES = """<citation_examples>
 CORRECT EXAMPLES:
 
 Example 1 - Single Source:
 User: "What is Python?"
 Documents: [Chunk 0] Python is a high-level programming language.
-Response: "Python is a high-level programming language. [0]"
+Response: "Python is a high-level programming language. [cite: 0]"
 
 Example 2 - Multiple Sources:
 User: "What are Python's characteristics?"
 Documents: 
   [Chunk 0] Python is interpreted.
   [Chunk 1] Python supports multiple paradigms.
-Response: "Python is an interpreted language [0] that supports multiple programming paradigms [1]."
+Response: "Python is an interpreted language [cite: 0] that supports multiple programming paradigms [cite: 1]."
 
 Example 3 - Conflicting Information:
 User: "Is Python fast?"
 Documents:
   [Chunk 0] Python is slower than compiled languages.
   [Chunk 1] Python with NumPy achieves near-C speeds.
-Response: "Python is generally slower than compiled languages [0], though with libraries like NumPy it can achieve near-C performance [1]."
+Response: "Python is generally slower than compiled languages [cite: 0], though with libraries like NumPy it can achieve near-C performance [cite: 1]."
 
 Example 4 - Multiple Chunks Available:
 User: "Tell me about Python"
 Documents: [Chunk 0] through [Chunk 10] available (11 total chunks)
-Response: "Python is great [0]... more info [5]... details [10]"
-         (Valid range: [0] through [10])
-         (NEVER use [11] - that would be out of bounds!)
+Response: "Python is great [cite: 0]... more info [cite: 5]... details [cite: 10]"
+         (Valid range: [cite: 0] through [cite: 10])
+         (NEVER use [cite: 11] - that would be out of bounds!)
 
 INCORRECT EXAMPLES (DO NOT USE):
 
  ✗ "Python is fast." 
   (No citation - fabricated claim not in documents)
 
- ✗ "Python is a language. ([0](https://python.org))" 
+ ✗ "Python is a language. [0]" 
+  (Wrong format - use [cite: 0] instead of bare [0])
+
+ ✗ "Python is a language. ([cite: 0](https://python.org))" 
   (Markdown link format - forbidden)
 
- ✗ "Python is popular. [11]" when you have [Chunk 0] through [Chunk 10]
-  (Citation [11] exceeds available range - use [0]-[10] only)
+ ✗ "Python is popular. [cite: 11]" when you have [Chunk 0] through [Chunk 10]
+  (Citation [cite: 11] exceeds available range - use [cite: 0]-[cite: 10] only)
 
  ✗ "Python was created in 1991." 
   (Fact not in documents - using parametric knowledge inappropriately)

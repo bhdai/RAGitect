@@ -1254,6 +1254,47 @@ class TestRetrievalLogging:
 class TestCitationStreaming:
     """Tests for citation detection and streaming."""
 
+    async def test_citation_parser_uses_cite_format(self):
+        """Test that CitationStreamParser uses [cite: N] format"""
+        from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import CitationStreamParser
+
+        citations = [
+            Citation.from_context_chunk(0, "doc-id-1", "doc1.pdf", 0, 0.9, "Content 1"),
+            Citation.from_context_chunk(1, "doc-id-2", "doc2.pdf", 1, 0.8, "Content 2"),
+        ]
+
+        parser = CitationStreamParser(citations)
+
+        # Parse chunks with [cite: N] format
+        text1, found1 = parser.parse_chunk("Python is great[cite: 0] and ")
+        text2, found2 = parser.parse_chunk("versatile[cite: 1].")
+        remaining = parser.flush()
+
+        # Should find both citations with new format
+        assert len(found1) == 1
+        assert found1[0].source_id == "cite-0"
+        assert len(found2) == 1
+        assert found2[0].source_id == "cite-1"
+
+    async def test_citation_parser_ignores_old_bare_bracket_format(self):
+        """Test that parser does NOT match old [N] format"""
+        from ragitect.api.schemas.chat import Citation
+        from ragitect.api.v1.chat import CitationStreamParser
+
+        citations = [
+            Citation.from_context_chunk(0, "doc-id-1", "doc1.pdf", 0, 0.9, "Content 1"),
+        ]
+
+        parser = CitationStreamParser(citations)
+
+        # Parse chunks with OLD bare [N] format - should NOT match
+        text1, found1 = parser.parse_chunk("Python is great[0] but this won't match.")
+        remaining = parser.flush()
+
+        # Should NOT find the citation with old format
+        assert len(found1) == 0
+
     async def test_build_citation_metadata_creates_citations_from_chunks(self):
         """Test that build_citation_metadata creates Citation objects from context chunks (AC1, AC2)."""
         from ragitect.api.v1.chat import build_citation_metadata
@@ -1293,9 +1334,9 @@ class TestCitationStreaming:
 
         parser = CitationStreamParser(citations)
 
-        # Parse chunks with citation markers
-        text1, found1 = parser.parse_chunk("Python is great[0] and ")
-        text2, found2 = parser.parse_chunk("versatile[1].")
+        # Parse chunks with citation markers using [cite: N] format
+        text1, found1 = parser.parse_chunk("Python is great[cite: 0] and ")
+        text2, found2 = parser.parse_chunk("versatile[cite: 1].")
         remaining = parser.flush()
 
         # Should find both citations
@@ -1315,9 +1356,9 @@ class TestCitationStreaming:
 
         parser = CitationStreamParser(citations)
 
-        # Split "[0]" across chunks
-        text1, found1 = parser.parse_chunk("Hello [")
-        text2, found2 = parser.parse_chunk("0] world")
+        # Split "[cite: 0]" across chunks
+        text1, found1 = parser.parse_chunk("Hello [cite:")
+        text2, found2 = parser.parse_chunk(" 0] world")
         remaining = parser.flush()
 
         # Should eventually find the citation
@@ -1339,8 +1380,8 @@ class TestCitationStreaming:
         parser = CitationStreamParser(citations)
 
         with caplog.at_level(logging.WARNING, logger="ragitect.api.v1.chat"):
-            # Try to cite [99] which doesn't exist
-            text, found = parser.parse_chunk("Test [99] content")
+            # Try to cite [cite: 99] which doesn't exist
+            text, found = parser.parse_chunk("Test [cite: 99] content")
             remaining = parser.flush()
 
         # Should not find any citations (invalid index)
@@ -1359,9 +1400,9 @@ class TestCitationStreaming:
 
         parser = CitationStreamParser(citations)
 
-        # Same citation marker appears twice
-        text1, found1 = parser.parse_chunk("First[0] and ")
-        text2, found2 = parser.parse_chunk("again[0].")
+        # Same citation marker appears twice (using [cite: N] format)
+        text1, found1 = parser.parse_chunk("First[cite: 0] and ")
+        text2, found2 = parser.parse_chunk("again[cite: 0].")
         remaining = parser.flush()
 
         # Should only emit once
@@ -1382,7 +1423,7 @@ class TestCitationStreaming:
         async def mock_chunks():
             yield "Python"
             yield " is great"
-            yield "[0]"
+            yield "[cite: 0]"
             yield "."
 
         events = []
@@ -1474,10 +1515,10 @@ class TestCitationStreaming:
             ],
         )
 
-        # Mock LLM to return response with citation
+        # Mock LLM to return response with citation (using [cite: N] format)
         async def mock_stream(llm, messages):
             yield "Python is powerful"
-            yield "[0]"
+            yield "[cite: 0]"
             yield "."
 
         mocker.patch(

@@ -3,6 +3,7 @@
 import { memo, useMemo } from 'react';
 import type { UIMessage } from 'ai';
 import { MessageWithCitations } from '@/components/MessageWithCitations';
+import { MessageActions } from '@/components/MessageActions';
 import { buildCitationMap, type CitationData } from '@/types/citation';
 
 interface AssistantMessageProps {
@@ -26,11 +27,15 @@ export const AssistantMessage = memo(function AssistantMessage({
   const citations = useMemo(() => buildCitationMap(message.parts), [message.parts]);
 
   return (
-    <div className="w-full">
+    <div className="group w-full">
       <MessageWithCitations
         content={content}
         citations={citations}
         onCitationClick={onCitationClick}
+      />
+      <MessageActions
+        rawContent={content}
+        className="mt-2 opacity-0 transition-opacity group-hover:opacity-100"
       />
     </div>
   );

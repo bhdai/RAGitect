@@ -53,7 +53,7 @@ describe('Citation Deep-Dive Integration', () => {
 
       render(
         <MessageWithCitations
-          content="The architecture is well documented[0]."
+          content="The architecture is well documented [cite: 0]."
           citations={mockCitations}
           onCitationClick={handleCitationClick}
         />
@@ -77,7 +77,7 @@ describe('Citation Deep-Dive Integration', () => {
 
       render(
         <MessageWithCitations
-          content="Check the deployment guide[1]."
+          content="Check the deployment guide [cite: 1]."
           citations={mockCitations}
           onCitationClick={handleCitationClick}
         />
@@ -110,7 +110,7 @@ describe('Citation Deep-Dive Integration', () => {
 
       render(
         <MessageWithCitations
-          content="Check this[0]."
+          content="Check this [cite: 0]."
           citations={citationWithoutDocId}
           onCitationClick={handleCitationClick}
         />
