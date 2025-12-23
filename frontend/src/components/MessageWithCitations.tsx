@@ -1,8 +1,9 @@
 /**
  * Message content renderer with inline citation badges
  *
- * Renders LLM response text with [N] markers replaced by interactive
+ * Renders LLM response text with [cite: N] markers replaced by interactive
  * citation badges. Each badge shows a hover card with source preview.
+ * ADR-3.4.1: Uses [cite: N] format to avoid false positives with markdown lists and array indices.
  */
 
 'use client';
@@ -26,9 +27,9 @@ import { cn } from '@/lib/utils';
  * Props for MessageWithCitations component
  */
 export interface MessageWithCitationsProps {
-  /** Raw text content with [N] citation markers */
+  /** Raw text content with [cite: N] citation markers */
   content: string;
-  /** Map of citation IDs (cite-0, cite-1) to citation data */
+  /** Map of citation IDs (cite-1, cite-2) to citation data */
   citations: CitationMap;
   /** Callback when user clicks a citation badge*/
   onCitationClick?: (citation: CitationData) => void;
@@ -135,7 +136,8 @@ function CitationBadge({
 }
 
 /**
- * Process text to replace [N] markers with citation badges
+ * Process text to replace [cite: N] markers with citation badges
+ * ADR-3.4.1: Uses [cite: N] format to avoid false positives with [N]
  */
 function processTextWithCitations(
   text: string,
@@ -143,7 +145,8 @@ function processTextWithCitations(
   onCitationClick?: (citation: CitationData) => void
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
-  const pattern = /\[(\d+)\]/g;
+  // ADR-3.4.1: Updated pattern from [N] to [cite: N] format
+  const pattern = /\[cite:\s*(\d+)\]/g;
   let lastIndex = 0;
   let match;
   let keyIndex = 0;
@@ -197,10 +200,10 @@ function processTextWithCitations(
  * @example
  * ```tsx
  * <MessageWithCitations
- *   content="Python is a powerful language [0] that supports multiple paradigms [1]."
+ *   content="Python is a powerful language [cite: 1] that supports multiple paradigms [cite: 2]."
  *   citations={{
- *     'cite-0': { id: 'cite-0', title: 'intro.pdf', similarity: 0.95, preview: '...' },
- *     'cite-1': { id: 'cite-1', title: 'advanced.pdf', similarity: 0.87, preview: '...' },
+ *     'cite-1': { id: 'cite-1', title: 'intro.pdf', similarity: 0.95, preview: '...' },
+ *     'cite-2': { id: 'cite-2', title: 'advanced.pdf', similarity: 0.87, preview: '...' },
  *   }}
  * />
  * ```

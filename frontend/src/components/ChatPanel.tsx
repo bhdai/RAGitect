@@ -14,7 +14,8 @@ import { useState, useRef, useEffect, useMemo, FormEvent, KeyboardEvent } from '
 // Note: useRef is still used for selectedProviderRef
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { ArrowUp, Plus, Clock, MessageSquare } from 'lucide-react';
+import { ArrowUp, Plus, Clock, MessageSquare, Trash2, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -105,7 +106,7 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
   }, [workspaceId]);
   /* eslint-enable react-hooks/refs */
 
-  const { messages, status, sendMessage, error } = useChat({
+  const { messages, status, sendMessage, setMessages, error } = useChat({
     id: `workspace-${workspaceId}`,
     transport,
   });
@@ -113,6 +114,25 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
   const isLoading = status === 'streaming' || status === 'submitted';
   // Only show thinking indicator when submitted but not yet streaming
   const showThinkingIndicator = status === 'submitted';
+
+  /**
+   * Clear all chat messages (AC1)
+   * Since MVP is stateless, this just clears frontend state
+   */
+  const handleClearChat = () => {
+    setMessages([]);
+    toast.success('Chat cleared');
+  };
+
+  /**
+   * Refresh context (AC2)
+   * In stateless MVP, this is equivalent to Clear Chat
+   * Future: could trigger context reload from documents
+   */
+  const handleRefreshContext = () => {
+    setMessages([]);
+    toast.info('Context refreshed');
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -228,8 +248,20 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
 
             {/* Bottom toolbar row */}
             <div className="flex items-center justify-between px-2 pt-1 pb-2">
-              {/* Left side - Plus and Clock buttons */}
+              {/* Left side - Chat management and utility buttons */}
               <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                  disabled={isLoading}
+                  onClick={handleClearChat}
+                  aria-label="Clear chat"
+                  title="Clear chat"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -265,7 +297,7 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
             </div>
           </div>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

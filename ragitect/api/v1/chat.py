@@ -126,7 +126,7 @@ def build_citation_metadata(context_chunks: list[dict]) -> list[Citation]:
     for i, chunk in enumerate(context_chunks):
         citations.append(
             Citation.from_context_chunk(
-                index=i,
+                index=i + 1,  # 1-based index
                 document_id=str(chunk.get("document_id", "")),
                 document_name=chunk.get("document_name", "Unknown"),
                 chunk_index=chunk.get("chunk_index", 0),
@@ -141,11 +141,10 @@ class CitationStreamParser:
     """Stateful parser for detecting citations across chunk boundaries.
 
     ADR Decision: Real-time regex streaming with cross-chunk buffering.
-    Handles edge case where LLM outputs '[' in one chunk and '1]' in next.
+    Handles edge case where LLM outputs '[cite:' in one chunk and '0]' in next.
 
-    The LLM is prompted to cite using [N] format matching
-    [Chunk N] labels in the context. This parser detects those markers
-    in the streaming output and triggers citation metadata emission.
+    ADR-3.4.1: Citation format changed from [N] to [cite: N] to avoid
+    false positives with markdown lists and array indices.
     """
 
     def __init__(self, citations: list[Citation]):
@@ -157,7 +156,8 @@ class CitationStreamParser:
         self.citations = citations
         self.buffer = ""  # Buffer for partial citation markers
         self.emitted_ids: set[str] = set()  # Track which citations already emitted
-        self.pattern = re.compile(r"\[(\d+)\]")
+        # ADR-3.4.1: Updated pattern from [N] to [cite: N] format
+        self.pattern = re.compile(r"\[cite:\s*(\d+)\]")
 
     def parse_chunk(self, chunk: str) -> tuple[str, list[Citation]]:
         """Parse chunk and detect citation markers.
@@ -178,7 +178,8 @@ class CitationStreamParser:
             cite_id = f"cite-{cite_idx}"
 
             # Validate citation index (ADR: Hallucination Handling)
-            if cite_idx >= len(self.citations):
+            # 1-based index check
+            if cite_idx < 1 or cite_idx > len(self.citations):
                 logger.warning(
                     "LLM cited non-existent source [%d] (only %d chunks available)",
                     cite_idx,
@@ -188,14 +189,15 @@ class CitationStreamParser:
 
             # Emit each citation only once
             if cite_id not in self.emitted_ids:
-                new_citations.append(self.citations[cite_idx])
+                # Map 1-based index to 0-based list
+                new_citations.append(self.citations[cite_idx - 1])
                 self.emitted_ids.add(cite_id)
 
-        # Emit text, but keep last 10 chars in buffer for partial markers
-        # Max citation marker length: "[9999]" = 6 chars, buffer 10 for safety
-        if len(self.buffer) > 10:
-            text_to_emit = self.buffer[:-10]
-            self.buffer = self.buffer[-10:]
+        # Emit text, but keep last 20 chars in buffer for partial markers
+        # Max citation marker length: "[cite: 9999]" = 12 chars, buffer 20 for safety
+        if len(self.buffer) > 20:
+            text_to_emit = self.buffer[:-20]
+            self.buffer = self.buffer[-20:]
         else:
             text_to_emit = ""
 
@@ -485,7 +487,7 @@ async def retrieve_context(
     results = []
     for i, chunk in enumerate(chunks):
         chunk_copy = {k: v for k, v in chunk.items() if k != "embedding"}
-        chunk_copy["chunk_label"] = f"Chunk {i}"  # Zero-based for citation binding
+        chunk_copy["chunk_label"] = f"Chunk {i + 1}"  # 1-based for citation binding
         results.append(chunk_copy)
 
     logger.info("Retrieved %d context chunks after full pipeline", len(results))

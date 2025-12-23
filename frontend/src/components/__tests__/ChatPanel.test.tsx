@@ -242,4 +242,47 @@ describe('ChatPanel', () => {
     const panel = screen.getByTestId('chat-panel');
     expect(panel).toHaveClass('overflow-hidden');
   });
+
+  describe('Chat Management (AC1, AC2)', () => {
+    it('calls setMessages([]) when Clear Chat button is clicked (AC1)', async () => {
+      const user = userEvent.setup();
+      const mockSetMessages = vi.fn();
+
+      vi.mocked(useChat).mockReturnValue({
+        ...createMockUseChatReturn({
+          messages: [
+            {
+              id: 'msg-1',
+              role: 'user',
+              parts: [{ type: 'text', text: 'Hello' }],
+            },
+          ],
+          sendMessage: mockSendMessage,
+        }),
+        setMessages: mockSetMessages,
+      } as unknown as ReturnType<typeof useChat>);
+
+      render(<ChatPanel workspaceId="test-workspace" />);
+
+      const clearButton = screen.getByRole('button', { name: /clear chat/i });
+      await user.click(clearButton);
+
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
+
+
+
+    it('disables Clear button when loading', () => {
+      vi.mocked(useChat).mockReturnValue(createMockUseChatReturn({
+        status: 'streaming',
+        sendMessage: mockSendMessage,
+      }));
+
+      render(<ChatPanel workspaceId="test-workspace" />);
+
+      const clearButton = screen.getByRole('button', { name: /clear chat/i });
+
+      expect(clearButton).toBeDisabled();
+    });
+  });
 });
