@@ -22,7 +22,7 @@ class TestBuildRagSystemPrompt:
         assert "<citation_rules>" in prompt
         assert "<citation_examples>" in prompt
         assert "<documents>" in prompt
-        assert "[Chunk 1]" in prompt
+        assert '<document index="1">' in prompt
 
     def test_includes_base_prompt_components(self):
         """Test that base prompt includes required identity and constraints."""
@@ -75,7 +75,7 @@ class TestBuildRagSystemPrompt:
         assert "Markdown links" in prompt
 
     def test_chunk_formatting_with_metadata(self):
-        """Test that chunks are formatted with correct metadata."""
+        """Test that chunks are formatted as XML with correct structure."""
         from ragitect.prompts.rag_prompts import build_rag_system_prompt
 
         chunks = [
@@ -85,14 +85,22 @@ class TestBuildRagSystemPrompt:
 
         prompt = build_rag_system_prompt(chunks)
 
-        assert "[Chunk 1]" in prompt
-        assert "[Chunk 2]" in prompt
-        assert "doc1.pdf" in prompt
-        assert "doc2.md" in prompt
-        assert "0.95" in prompt
-        assert "0.85" in prompt
+        # Verify new XML format
+        assert '<document index="1">' in prompt
+        assert '<document index="2">' in prompt
+        assert "<source>doc1.pdf</source>" in prompt
+        assert "<source>doc2.md</source>" in prompt
+        assert "<content>" in prompt
+        assert "</content>" in prompt
         assert "Content A" in prompt
         assert "Content B" in prompt
+        # Verify old format removed
+        assert "[Chunk 1]" not in prompt
+        assert "(From:" not in prompt
+        # Verify similarity score is hidden (AC2)
+        assert "0.95" not in prompt
+        assert "0.85" not in prompt
+        assert "Similarity:" not in prompt
 
     def test_empty_chunks_handled(self):
         """Test that empty chunk list produces valid prompt."""
@@ -147,6 +155,39 @@ class TestBuildRagSystemPrompt:
         assert "OUTPUT STYLE" in prompt
         assert "markdown" in prompt.lower()
 
+    def test_build_rag_system_prompt_uses_xml_format(self):
+        """Test that context chunks are formatted as structured XML."""
+        from ragitect.prompts.rag_prompts import build_rag_system_prompt
+
+        chunks = [
+            {"content": "Chunk 1", "document_name": "a.md", "similarity": 0.9},
+            {"content": "Chunk 2", "document_name": "b.md", "similarity": 0.8},
+        ]
+        prompt = build_rag_system_prompt(chunks)
+
+        # Verify new XML format
+        assert '<document index="1">' in prompt
+        assert '<document index="2">' in prompt
+        assert "<source>" in prompt
+        assert "<content>" in prompt
+
+        # Verify old format removed
+        assert "[Chunk 1]" not in prompt
+        assert "(From:" not in prompt
+        assert "Similarity:" not in prompt
+
+    def test_build_rag_system_prompt_hides_similarity(self):
+        """Test that similarity score is NOT included in LLM context."""
+        from ragitect.prompts.rag_prompts import build_rag_system_prompt
+
+        chunks = [{"content": "X", "document_name": "y.md", "similarity": 0.12345}]
+        prompt = build_rag_system_prompt(chunks)
+
+        assert "0.12" not in prompt
+        assert "similarity" not in prompt.lower().replace("<citation", "").replace(
+            "citation_", ""
+        )  # avoid matching XML tags
+
 
 class TestCitationFormat:
     """Test suite for citation format (AC5: [cite: N] format)."""
@@ -177,6 +218,70 @@ class TestCitationFormat:
         # The old bare [N] format should be forbidden
         # Check for mention of forbidden patterns including brackets
         assert "FORBIDDEN" in RAG_CITATION_INSTRUCTIONS
+
+
+class TestFormatChunkAsXml:
+    """Test suite for format_chunk_as_xml() helper function."""
+
+    def test_format_chunk_as_xml_basic(self):
+        """Test basic XML structure output."""
+        from ragitect.prompts.rag_prompts import format_chunk_as_xml
+
+        chunk = {"content": "Hello", "document_name": "test.md", "similarity": 0.85}
+        result = format_chunk_as_xml(chunk, 1)
+
+        assert '<document index="1">' in result
+        assert "<source>test.md</source>" in result
+        assert "<content>" in result
+        assert "Hello" in result
+        assert "</content>" in result
+        assert "</document>" in result
+
+    def test_format_chunk_as_xml_hides_similarity(self):
+        """Test that similarity score is NOT included in output."""
+        from ragitect.prompts.rag_prompts import format_chunk_as_xml
+
+        chunk = {"content": "Hi", "document_name": "x.md", "similarity": 0.99}
+        result = format_chunk_as_xml(chunk, 1)
+
+        assert "0.99" not in result
+        assert "similarity" not in result.lower()
+        assert "relevance" not in result.lower()
+
+    def test_format_chunk_as_xml_escapes_special_chars(self):
+        """Test XML escaping for special characters."""
+        from ragitect.prompts.rag_prompts import format_chunk_as_xml
+
+        chunk = {
+            "content": "if (a < b && c > d)",
+            "document_name": "code<>.md",
+            "similarity": 0.5,
+        }
+        result = format_chunk_as_xml(chunk, 1)
+
+        assert "&lt;" in result
+        assert "&gt;" in result
+        assert "&amp;" in result
+
+    def test_format_chunk_as_xml_handles_missing_fields(self):
+        """Test fallback handling for missing fields."""
+        from ragitect.prompts.rag_prompts import format_chunk_as_xml
+
+        chunk = {"content": "Just content"}
+        result = format_chunk_as_xml(chunk, 3)
+
+        assert '<document index="3">' in result
+        assert "<source>Unknown</source>" in result
+
+    def test_format_chunk_as_xml_different_indices(self):
+        """Test that various 1-based indices work correctly."""
+        from ragitect.prompts.rag_prompts import format_chunk_as_xml
+
+        chunk = {"content": "Test", "document_name": "doc.md", "similarity": 0.5}
+
+        assert '<document index="1">' in format_chunk_as_xml(chunk, 1)
+        assert '<document index="5">' in format_chunk_as_xml(chunk, 5)
+        assert '<document index="10">' in format_chunk_as_xml(chunk, 10)
 
 
 class TestPromptConstants:

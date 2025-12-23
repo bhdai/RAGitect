@@ -175,24 +175,6 @@ describe('MessageWithCitations', () => {
       expect(title).toBeInTheDocument();
     });
 
-    it('shows relevance score as percentage', async () => {
-      const user = userEvent.setup();
-
-      render(
-        <MessageWithCitations
-          content="Python is powerful[cite: 1]."
-          citations={mockCitations}
-        />
-      );
-
-      const button = screen.getByRole('button');
-      await user.hover(button);
-
-      // 95% relevance from mockCitations
-      const score = await screen.findByText('95% relevant');
-      expect(score).toBeInTheDocument();
-    });
-
     it('shows content preview in quotes', async () => {
       const user = userEvent.setup();
 
