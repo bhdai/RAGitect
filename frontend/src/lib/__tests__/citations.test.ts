@@ -9,31 +9,31 @@ import { stripCitations } from '../citations';
 
 describe('stripCitations', () => {
   it('removes single citation marker', () => {
-    const input = 'Python is powerful [cite: 0].';
+    const input = 'Python is powerful [cite: 1].';
     const expected = 'Python is powerful.';
     expect(stripCitations(input)).toBe(expected);
   });
 
   it('removes multiple citation markers', () => {
-    const input = 'Hello [cite: 0] world [cite: 1].';
+    const input = 'Hello [cite: 1] world [cite: 2].';
     const expected = 'Hello world.';
     expect(stripCitations(input)).toBe(expected);
   });
 
   it('removes consecutive citation markers', () => {
-    const input = 'This is supported by evidence [cite: 0][cite: 1][cite: 2].';
+    const input = 'This is supported by evidence [cite: 1][cite: 2][cite: 3].';
     const expected = 'This is supported by evidence.';
     expect(stripCitations(input)).toBe(expected);
   });
 
   it('handles citation with no space after colon', () => {
-    const input = 'Python[cite:0] is great.';
+    const input = 'Python[cite:1] is great.';
     const expected = 'Python is great.';
     expect(stripCitations(input)).toBe(expected);
   });
 
   it('handles citation with extra space after colon', () => {
-    const input = 'Python[cite:  0] is great.';
+    const input = 'Python[cite:  1] is great.';
     const expected = 'Python is great.';
     expect(stripCitations(input)).toBe(expected);
   });
@@ -55,19 +55,19 @@ describe('stripCitations', () => {
   });
 
   it('collapses multiple spaces to single space', () => {
-    const input = 'Python   [cite: 0]   is great.';
+    const input = 'Python   [cite: 1]   is great.';
     const expected = 'Python is great.';
     expect(stripCitations(input)).toBe(expected);
   });
 
   it('trims leading and trailing whitespace', () => {
-    const input = '  Python is great [cite: 0].  ';
+    const input = '  Python is great [cite: 1].  ';
     const expected = 'Python is great.';
     expect(stripCitations(input)).toBe(expected);
   });
 
   it('handles multiline text', () => {
-    const input = 'Python is powerful [cite: 0].\n\nIt supports multiple paradigms [cite: 1].';
+    const input = 'Python is powerful [cite: 1].\n\nIt supports multiple paradigms [cite: 2].';
     const expected = 'Python is powerful.\n\nIt supports multiple paradigms.';
     expect(stripCitations(input)).toBe(expected);
   });

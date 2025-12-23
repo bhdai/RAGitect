@@ -126,7 +126,7 @@ def build_citation_metadata(context_chunks: list[dict]) -> list[Citation]:
     for i, chunk in enumerate(context_chunks):
         citations.append(
             Citation.from_context_chunk(
-                index=i,
+                index=i + 1,  # 1-based index
                 document_id=str(chunk.get("document_id", "")),
                 document_name=chunk.get("document_name", "Unknown"),
                 chunk_index=chunk.get("chunk_index", 0),
@@ -178,7 +178,8 @@ class CitationStreamParser:
             cite_id = f"cite-{cite_idx}"
 
             # Validate citation index (ADR: Hallucination Handling)
-            if cite_idx >= len(self.citations):
+            # 1-based index check
+            if cite_idx < 1 or cite_idx > len(self.citations):
                 logger.warning(
                     "LLM cited non-existent source [%d] (only %d chunks available)",
                     cite_idx,
@@ -188,7 +189,8 @@ class CitationStreamParser:
 
             # Emit each citation only once
             if cite_id not in self.emitted_ids:
-                new_citations.append(self.citations[cite_idx])
+                # Map 1-based index to 0-based list
+                new_citations.append(self.citations[cite_idx - 1])
                 self.emitted_ids.add(cite_id)
 
         # Emit text, but keep last 20 chars in buffer for partial markers
@@ -485,7 +487,7 @@ async def retrieve_context(
     results = []
     for i, chunk in enumerate(chunks):
         chunk_copy = {k: v for k, v in chunk.items() if k != "embedding"}
-        chunk_copy["chunk_label"] = f"Chunk {i}"  # Zero-based for citation binding
+        chunk_copy["chunk_label"] = f"Chunk {i + 1}"  # 1-based for citation binding
         results.append(chunk_copy)
 
     logger.info("Retrieved %d context chunks after full pipeline", len(results))

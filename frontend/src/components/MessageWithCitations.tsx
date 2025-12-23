@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 export interface MessageWithCitationsProps {
   /** Raw text content with [cite: N] citation markers */
   content: string;
-  /** Map of citation IDs (cite-0, cite-1) to citation data */
+  /** Map of citation IDs (cite-1, cite-2) to citation data */
   citations: CitationMap;
   /** Callback when user clicks a citation badge*/
   onCitationClick?: (citation: CitationData) => void;
@@ -200,10 +200,10 @@ function processTextWithCitations(
  * @example
  * ```tsx
  * <MessageWithCitations
- *   content="Python is a powerful language [cite: 0] that supports multiple paradigms [cite: 1]."
+ *   content="Python is a powerful language [cite: 1] that supports multiple paradigms [cite: 2]."
  *   citations={{
- *     'cite-0': { id: 'cite-0', title: 'intro.pdf', similarity: 0.95, preview: '...' },
- *     'cite-1': { id: 'cite-1', title: 'advanced.pdf', similarity: 0.87, preview: '...' },
+ *     'cite-1': { id: 'cite-1', title: 'intro.pdf', similarity: 0.95, preview: '...' },
+ *     'cite-2': { id: 'cite-2', title: 'advanced.pdf', similarity: 0.87, preview: '...' },
  *   }}
  * />
  * ```

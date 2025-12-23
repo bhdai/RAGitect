@@ -39,7 +39,7 @@ describe('MessageActions', () => {
     const user = userEvent.setup();
 
     render(
-      <MessageActions rawContent="Python is powerful [cite: 0] and versatile [cite: 1]." />
+      <MessageActions rawContent="Python is powerful [cite: 1] and versatile [cite: 2]." />
     );
 
     const button = screen.getByRole('button', { name: /copy/i });
@@ -77,7 +77,7 @@ describe('MessageActions', () => {
   it('handles content with only citations', async () => {
     const user = userEvent.setup();
 
-    render(<MessageActions rawContent="[cite: 0][cite: 1]" />);
+    render(<MessageActions rawContent="[cite: 1][cite: 2]" />);
 
     const button = screen.getByRole('button', { name: /copy/i });
     await user.click(button);

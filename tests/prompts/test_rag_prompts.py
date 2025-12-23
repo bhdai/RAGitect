@@ -152,26 +152,23 @@ class TestCitationFormat:
     """Test suite for citation format (AC5: [cite: N] format)."""
 
     def test_citation_instructions_use_cite_format(self):
-        """Test that citation instructions use [cite: N] format, not [N]."""
+        """Test that citation instructions use [cite: N] format (1-based)."""
         from ragitect.prompts.rag_prompts import RAG_CITATION_INSTRUCTIONS
 
-        # Should use [cite: 0], [cite: 1] format
-        assert "[cite: 0]" in RAG_CITATION_INSTRUCTIONS
+        # Should use [cite: 1], [cite: 2] format
         assert "[cite: 1]" in RAG_CITATION_INSTRUCTIONS
+        assert "[cite: 2]" in RAG_CITATION_INSTRUCTIONS
 
-        # Should NOT use bare [0], [1] format (old format)
-        # We need to check it doesn't have bare [0] without "cite:"
-        # But we can't just check "in" since [cite: 0] contains [0]
-        # Instead check that citation format is explicitly documented
+        # Should NOT use bare [1], [2] format (old format)
         assert "cite:" in RAG_CITATION_INSTRUCTIONS.lower()
 
     def test_citation_examples_use_cite_format(self):
-        """Test that citation examples use [cite: N] format."""
+        """Test that citation examples use [cite: N] format (1-based)."""
         from ragitect.prompts.rag_prompts import RAG_CITATION_EXAMPLES
 
         # Examples should demonstrate [cite: N] format
-        assert "[cite: 0]" in RAG_CITATION_EXAMPLES
         assert "[cite: 1]" in RAG_CITATION_EXAMPLES
+        assert "[cite: 2]" in RAG_CITATION_EXAMPLES
 
     def test_forbidden_patterns_include_old_format(self):
         """Test that old [N] format is listed as forbidden."""
