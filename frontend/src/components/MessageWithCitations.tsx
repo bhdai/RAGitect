@@ -13,7 +13,6 @@ import { Streamdown } from 'streamdown';
 import ReactMarkdown from 'react-markdown';
 import { useTheme } from 'next-themes';
 import { FileText } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import {
   HoverCard,
   HoverCardContent,
@@ -67,7 +66,7 @@ function CitationPreviewMarkdown({ content }: { content: string }) {
  * Citation badge component with hover card
  *
  * Displays citation number as a superscript badge. On hover, shows
- * a scrollable card with document name, relevance score, and full chunk content with markdown.
+ * a scrollable card with document name and full chunk content with markdown.
  */
 function CitationBadge({
   citationIndex,
@@ -78,8 +77,6 @@ function CitationBadge({
   citation: CitationData;
   onCitationClick?: (citation: CitationData) => void;
 }) {
-  const relevancePercent = Math.round(citation.similarity * 100);
-
   return (
     <HoverCard openDelay={200} closeDelay={100}>
       <HoverCardTrigger asChild>
@@ -113,11 +110,6 @@ function CitationBadge({
             <p className="text-sm font-medium truncate" title={citation.title}>
               {citation.title}
             </p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
-                {relevancePercent}% relevant
-              </Badge>
-            </div>
           </div>
         </div>
 

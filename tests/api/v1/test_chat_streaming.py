@@ -1093,8 +1093,8 @@ class TestPromptEnhancements:
             "cannot find" in system_message.lower() or "I cannot find" in system_message
         )
 
-    def test_build_rag_prompt_uses_chunk_labels(self, mocker):
-        """Test context chunks are labeled as [Chunk 1], [Chunk 2], etc. (AC4)."""
+    def test_build_rag_prompt_uses_xml_document_format(self, mocker):
+        """Test context chunks are formatted as XML documents with index attribute (AC4)."""
         from ragitect.api.v1.chat import build_rag_prompt
 
         context_chunks = [
@@ -1115,11 +1115,18 @@ class TestPromptEnhancements:
         messages = build_rag_prompt("Query", context_chunks, [])
 
         system_message = messages[0].content
-        assert "[Chunk 1]" in system_message
-        assert "[Chunk 2]" in system_message
+        # Should use XML format, not [Chunk N]
+        assert '<document index="1">' in system_message
+        assert '<document index="2">' in system_message
+        assert "<source>doc1.txt</source>" in system_message
+        assert "<source>doc2.txt</source>" in system_message
+        assert "<content>" in system_message
+        # Old format should not be present
+        assert "[Chunk 1]" not in system_message
+        assert "[Chunk 2]" not in system_message
 
-    def test_build_rag_prompt_includes_similarity_scores(self, mocker):
-        """Test each chunk includes similarity score for transparency (AC4)."""
+    def test_build_rag_prompt_hides_similarity_scores(self, mocker):
+        """Test that similarity scores are hidden from LLM context to prevent bias (AC4)."""
         from ragitect.api.v1.chat import build_rag_prompt
 
         context_chunks = [
@@ -1134,8 +1141,11 @@ class TestPromptEnhancements:
         messages = build_rag_prompt("Query", context_chunks, [])
 
         system_message = messages[0].content
-        # Should include similarity in format like "Similarity: 0.87"
-        assert "0.87" in system_message or "Similarity" in system_message
+        # Similarity should NOT be included (intentionally hidden to prevent LLM bias)
+        assert "0.87" not in system_message
+        assert "Similarity" not in system_message
+        # Should still include document source
+        assert "<source>test.txt</source>" in system_message
 
     def test_build_rag_prompt_includes_citation_rules(self, mocker):
         """Test prompt includes citation rules for [N] format (AC4)."""
