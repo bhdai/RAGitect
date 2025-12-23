@@ -268,18 +268,6 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
                   size="icon"
                   className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-700"
                   disabled={isLoading}
-                  onClick={handleRefreshContext}
-                  aria-label="Refresh context"
-                  title="Refresh context"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-700"
-                  disabled={isLoading}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -309,7 +297,7 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
             </div>
           </div>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

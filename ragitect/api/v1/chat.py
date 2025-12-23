@@ -191,11 +191,11 @@ class CitationStreamParser:
                 new_citations.append(self.citations[cite_idx])
                 self.emitted_ids.add(cite_id)
 
-        # Emit text, but keep last 10 chars in buffer for partial markers
-        # Max citation marker length: "[9999]" = 6 chars, buffer 10 for safety
-        if len(self.buffer) > 10:
-            text_to_emit = self.buffer[:-10]
-            self.buffer = self.buffer[-10:]
+        # Emit text, but keep last 20 chars in buffer for partial markers
+        # Max citation marker length: "[cite: 9999]" = 12 chars, buffer 20 for safety
+        if len(self.buffer) > 20:
+            text_to_emit = self.buffer[:-20]
+            self.buffer = self.buffer[-20:]
         else:
             text_to_emit = ""
 
