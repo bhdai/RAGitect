@@ -6,11 +6,14 @@ parallel aggregation.
 """
 
 import operator
-from typing import Annotated, TypedDict
+from typing import TYPE_CHECKING, Annotated, TypedDict
 
 from langchain_core.messages import AnyMessage
 
 from ragitect.api.schemas.chat import Citation
+
+if TYPE_CHECKING:
+    from ragitect.agents.rag.schemas import SearchStrategy
 
 
 class ContextChunk(TypedDict):
@@ -41,6 +44,7 @@ class RAGState(TypedDict):
         messages: Conversation history (reducer for multi-turn)
         original_query: The user's original query text
         final_query: Optionally refined/rewritten query for retrieval
+        strategy: Generated search strategy (from generate_strategy node)
         context_chunks: Retrieved chunks (reducer for parallel search aggregation)
         citations: Extracted citations for response
         llm_calls: Counter for telemetry (reducer for tracking)
@@ -49,6 +53,7 @@ class RAGState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
     original_query: str
     final_query: str | None
+    strategy: "SearchStrategy | None"
     context_chunks: Annotated[list[ContextChunk], operator.add]
     citations: list[Citation]
     llm_calls: Annotated[int, operator.add]
