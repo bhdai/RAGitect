@@ -54,6 +54,7 @@ async def _retrieve_documents_impl(
     # Distance is cosine distance: 0 = identical, 2 = opposite
     # Convert to similarity: similarity = 1.0 - distance
     # Note: document.file_name requires relationship loading, deferred to graph node
+    # Embedding preserved from DB to avoid redundant API calls during MMR selection
     return [
         ContextChunk(
             chunk_id=str(chunk.id),
@@ -61,6 +62,7 @@ async def _retrieve_documents_impl(
             score=1.0 - distance,
             document_id=str(chunk.document_id),
             title="",  # Populated by graph node after document lookup
+            embedding=list(chunk.embedding),
         )
         for chunk, distance in chunks_with_distances
     ]

@@ -43,6 +43,7 @@ class TestRetrieveDocumentsImpl:
         mock_chunk.id = "chunk-001"
         mock_chunk.content = "Sample document content"
         mock_chunk.document_id = str(uuid4())
+        mock_chunk.embedding = [0.1] * 768  # Add embedding
 
         # search_similar_chunks returns (chunk, distance) tuples
         mock_vector_repo.search_similar_chunks.return_value = [
@@ -94,6 +95,7 @@ class TestRetrieveDocumentsImpl:
         mock_chunk.id = "chunk-002"
         mock_chunk.content = "Content"
         mock_chunk.document_id = str(uuid4())
+        mock_chunk.embedding = [0.2] * 768  # Add embedding
 
         # Distance 0.15 should become similarity 0.85
         mock_vector_repo.search_similar_chunks.return_value = [
@@ -159,6 +161,7 @@ class TestRetrieveDocumentsImpl:
         mock_chunk.id = "chunk-abc"
         mock_chunk.content = "The content of the chunk"
         mock_chunk.document_id = doc_id
+        mock_chunk.embedding = [0.3] * 768  # Add embedding
 
         mock_vector_repo.search_similar_chunks.return_value = [
             (mock_chunk, 0.05),
@@ -179,6 +182,7 @@ class TestRetrieveDocumentsImpl:
         assert "score" in chunk
         assert "document_id" in chunk
         assert "title" in chunk
+        assert "embedding" in chunk  # New field for embedding preservation
 
         # Verify values
         assert chunk["chunk_id"] == "chunk-abc"
@@ -186,3 +190,55 @@ class TestRetrieveDocumentsImpl:
         assert chunk["document_id"] == doc_id
         assert chunk["title"] == ""  # Title populated later by graph node
         assert chunk["score"] == pytest.approx(0.95, abs=0.001)
+        assert len(chunk["embedding"]) == 768  # Verify embedding preserved
+
+    async def test_context_chunk_preserves_embeddings(self):
+        """Embeddings from DB should be preserved in ContextChunk (AC2).
+
+        This test verifies that embeddings retrieved from the vector database
+        are properly preserved in the ContextChunk format, eliminating the need
+        for redundant embedding API calls during MMR selection.
+        """
+        workspace_id = str(uuid4())
+        mock_vector_repo = AsyncMock()
+        mock_embed_fn = AsyncMock(return_value=[0.1] * 768)
+
+        # Create mock chunks with specific embeddings to verify preservation
+        expected_embedding_1 = [0.5 + i * 0.001 for i in range(768)]
+        expected_embedding_2 = [0.3 + i * 0.002 for i in range(768)]
+
+        mock_chunk_1 = MagicMock()
+        mock_chunk_1.id = "chunk-embed-1"
+        mock_chunk_1.content = "First chunk content"
+        mock_chunk_1.document_id = str(uuid4())
+        mock_chunk_1.embedding = expected_embedding_1
+
+        mock_chunk_2 = MagicMock()
+        mock_chunk_2.id = "chunk-embed-2"
+        mock_chunk_2.content = "Second chunk content"
+        mock_chunk_2.document_id = str(uuid4())
+        mock_chunk_2.embedding = expected_embedding_2
+
+        mock_vector_repo.search_similar_chunks.return_value = [
+            (mock_chunk_1, 0.1),
+            (mock_chunk_2, 0.2),
+        ]
+
+        result = await _retrieve_documents_impl(
+            query="test embeddings",
+            workspace_id=workspace_id,
+            vector_repo=mock_vector_repo,
+            embed_fn=mock_embed_fn,
+            top_k=10,
+        )
+
+        # Verify embeddings are preserved exactly from DB
+        assert len(result) == 2
+        assert result[0]["embedding"] == expected_embedding_1
+        assert result[1]["embedding"] == expected_embedding_2
+        # Verify dimensionality
+        assert len(result[0]["embedding"]) == 768
+        assert len(result[1]["embedding"]) == 768
+        # Verify specific values to ensure no transformation occurred
+        assert result[0]["embedding"][0] == pytest.approx(0.5, abs=0.0001)
+        assert result[1]["embedding"][0] == pytest.approx(0.3, abs=0.0001)

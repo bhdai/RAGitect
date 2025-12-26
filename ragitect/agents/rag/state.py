@@ -28,6 +28,8 @@ class ContextChunk(TypedDict):
         score: Similarity score from vector search
         document_id: ID of the parent document
         title: Title of the parent document
+        embedding: 768-dimensional embedding vector from database (preserved to
+            avoid redundant API calls during MMR selection)
     """
 
     chunk_id: str
@@ -35,6 +37,7 @@ class ContextChunk(TypedDict):
     score: float
     document_id: str
     title: str
+    embedding: list[float]
 
 
 class SearchSubState(TypedDict):

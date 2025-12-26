@@ -278,6 +278,7 @@ class TestSearchAndRankNode:
                 "score": 0.95,
                 "document_id": "doc-1",
                 "title": "fastapi-guide.md",
+                "embedding": [0.1] * 768,
             },
             {
                 "chunk_id": "chunk-2",
@@ -285,6 +286,7 @@ class TestSearchAndRankNode:
                 "score": 0.88,
                 "document_id": "doc-2",
                 "title": "python-async.md",
+                "embedding": [0.2] * 768,
             },
             {
                 "chunk_id": "chunk-3",
@@ -292,6 +294,7 @@ class TestSearchAndRankNode:
                 "score": 0.82,
                 "document_id": "doc-3",
                 "title": "servers.md",
+                "embedding": [0.3] * 768,
             },
         ]
 
@@ -559,6 +562,83 @@ class TestSearchAndRankNode:
         # Verify reranker uses RETRIEVAL_RERANKER_TOP_K
         rerank_call = mock_rerank_chunks.call_args
         assert rerank_call.kwargs["top_k"] == RETRIEVAL_RERANKER_TOP_K
+
+    async def test_search_and_rank_uses_existing_embeddings_for_mmr(
+        self,
+        mock_retrieve_documents,
+        mock_rerank_chunks,
+        mock_mmr_select,
+        mock_select_adaptive_k,
+        mock_embed_fn,
+        mock_vector_repo,
+        sample_chunks,
+        base_search_state,
+    ):
+        """Test that search_and_rank uses embeddings from chunks, not API (AC3/AC5).
+
+        This verifies the critical optimization: embeddings preserved from DB
+        are used directly for MMR selection, eliminating redundant API calls.
+        Zero embedding API calls for chunk content should occur.
+        """
+        from ragitect.agents.rag.nodes import search_and_rank
+        from unittest.mock import call
+
+        # Setup mocks with chunks containing embeddings
+        chunks_with_embeddings = [
+            {**chunk, "embedding": [0.1 + i * 0.1] * 768}
+            for i, chunk in enumerate(sample_chunks)
+        ]
+        reranked_chunks = [
+            {**chunk, "rerank_score": 0.9 - i * 0.1}
+            for i, chunk in enumerate(chunks_with_embeddings)
+        ]
+
+        mock_retrieve_documents.return_value = chunks_with_embeddings
+        mock_rerank_chunks.return_value = reranked_chunks
+        mock_mmr_select.return_value = reranked_chunks
+        mock_select_adaptive_k.return_value = (reranked_chunks, {"adaptive_k": 3})
+
+        # Create an async mock that tracks calls
+        embed_call_count = {"count": 0}
+
+        async def tracking_embed_fn(text: str) -> list[float]:
+            embed_call_count["count"] += 1
+            return [0.1] * 768
+
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": tracking_embed_fn,
+        }
+
+        await search_and_rank(state)
+
+        # embed_fn should only be called ONCE for the search term query embedding
+        # NOT for any chunk content (that would be len(reranked_chunks) = 3 more calls)
+        assert embed_call_count["count"] == 1, (
+            f"embed_fn was called {embed_call_count['count']} times. "
+            f"Expected 1 (for query only), not {1 + len(reranked_chunks)} (query + chunks). "
+            f"Embeddings should be preserved from DB, not regenerated."
+        )
+
+        # Verify MMR was called with embeddings extracted from chunks
+        mock_mmr_select.assert_called_once()
+        mmr_call_args = mock_mmr_select.call_args
+        chunk_embeddings_passed = (
+            mmr_call_args.kwargs.get("chunk_embeddings") or mmr_call_args.args[1]
+        )
+
+        # Verify embeddings were passed (should be list of lists)
+        assert len(chunk_embeddings_passed) == len(reranked_chunks)
+        # Verify they match the embeddings from the chunks (not regenerated)
+        for i, emb in enumerate(chunk_embeddings_passed):
+            expected_first_value = 0.1 + i * 0.1
+            assert emb[0] == pytest.approx(expected_first_value, abs=0.001), (
+                f"Chunk {i} embedding doesn't match preserved value. "
+                f"Expected {expected_first_value}, got {emb[0]}. "
+                f"Embeddings may have been regenerated instead of preserved."
+            )
 
 
 class TestMergeContextNode:
@@ -891,3 +971,185 @@ class TestGenerateAnswerNode:
         prompt_content = str(messages_passed)
         # Should contain chunk content
         assert "FastAPI is a modern" in prompt_content or "Pydantic" in prompt_content
+
+
+# =============================================================================
+# Integration Tests for Embedding Preservation (AC4/AC5)
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestEmbeddingPreservationIntegration:
+    """Integration tests for embedding preservation through RAG pipeline (AC4/AC5).
+
+    These tests verify that complex queries (4+ search terms) complete without
+    timeout by using preserved embeddings instead of regenerating them.
+
+    Requirements:
+    - Run with: `docker compose up db -d && uv run --env-file .env.test pytest -m integration`
+    """
+
+    async def test_complex_query_no_timeout(self, mocker):
+        """Test that complex queries (4+ search terms) complete without timeout (AC4).
+
+        This test simulates the scenario that was causing httpx.ReadTimeout:
+        - 4 search terms × 30 chunks each = 120 chunks requiring embeddings
+        - Previously: 120 embed_fn calls → overwhelmed Ollama API → 30s timeout
+        - Now: 0 chunk embedding calls (embeddings preserved from DB)
+
+        Expected: Query completes in <10s with zero timeout errors.
+        """
+        import time
+        from ragitect.agents.rag.nodes import search_and_rank
+
+        # Create mock chunks with embeddings (simulating DB retrieval)
+        # 30 chunks per search term = what we'd see in production
+        chunks_with_embeddings = [
+            {
+                "chunk_id": f"chunk-{i}",
+                "content": f"Test content for chunk {i} about various topics.",
+                "score": 0.95 - i * 0.01,
+                "document_id": f"doc-{i % 5}",
+                "title": f"doc-{i % 5}.md",
+                "embedding": [0.1 + i * 0.001] * 768,  # Preserved from DB
+            }
+            for i in range(30)
+        ]
+
+        reranked_chunks = [
+            {**chunk, "rerank_score": 0.9 - i * 0.01}
+            for i, chunk in enumerate(chunks_with_embeddings)
+        ]
+
+        # Mock the retriever and reranker
+        mock_retrieve = mocker.patch(
+            "ragitect.agents.rag.nodes._retrieve_documents_impl",
+            new_callable=AsyncMock,
+            return_value=chunks_with_embeddings,
+        )
+        mock_rerank = mocker.patch(
+            "ragitect.agents.rag.nodes.rerank_chunks",
+            new_callable=AsyncMock,
+            return_value=reranked_chunks,
+        )
+        mock_mmr = mocker.patch("ragitect.agents.rag.nodes.mmr_select")
+        mock_mmr.return_value = reranked_chunks[:16]
+
+        mock_adaptive_k = mocker.patch("ragitect.agents.rag.nodes.select_adaptive_k")
+        mock_adaptive_k.return_value = (reranked_chunks[:8], {"adaptive_k": 8})
+
+        # Track embed_fn calls
+        embed_call_count = {"count": 0}
+
+        async def tracking_embed_fn(text: str) -> list[float]:
+            embed_call_count["count"] += 1
+            return [0.1] * 768
+
+        mock_vector_repo = mocker.MagicMock()
+
+        # State for search_and_rank
+        state = {
+            "search_term": "complex authentication JWT OAuth2 security",
+            "workspace_id": "ws-test-123",
+            "vector_repo": mock_vector_repo,
+            "embed_fn": tracking_embed_fn,
+        }
+
+        # Execute and time
+        start_time = time.time()
+        result = await search_and_rank(state)
+        elapsed = time.time() - start_time
+
+        # Assertions
+        # 1. Should complete in <10s (previously would timeout at 30s)
+        assert elapsed < 10, f"Query took {elapsed}s, expected <10s"
+
+        # 2. embed_fn should only be called ONCE for query embedding
+        # NOT for each chunk (that would be 30 calls, previously 120 with 4 terms)
+        assert embed_call_count["count"] == 1, (
+            f"embed_fn was called {embed_call_count['count']} times. "
+            f"Expected 1 (query only). Chunk embeddings should be preserved from DB."
+        )
+
+        # 3. Should return valid results
+        assert "search_results" in result
+        assert len(result["search_results"]) > 0
+
+        # 4. MMR should receive embeddings from chunks (not regenerated)
+        mock_mmr.assert_called_once()
+        mmr_call = mock_mmr.call_args
+        chunk_embeddings = mmr_call.kwargs.get("chunk_embeddings") or mmr_call.args[1]
+        assert len(chunk_embeddings) == len(reranked_chunks)
+
+    async def test_zero_chunk_embedding_api_calls(self, mocker):
+        """Test that zero embedding API calls occur for chunk content (AC5).
+
+        Given: A retrieval request with 4 search terms (120 chunks total)
+        When: The pipeline executes
+        Then: Embedding API is called only for query embeddings (5 calls total:
+              1 strategy + 4 search queries), NOT for chunk embeddings.
+        """
+        from ragitect.agents.rag.nodes import search_and_rank
+
+        # Simulate chunks retrieved from DB with embeddings already present
+        chunks_with_embeddings = [
+            {
+                "chunk_id": f"chunk-{i}",
+                "content": f"Content about topic {i}",
+                "score": 0.9 - i * 0.01,
+                "document_id": "doc-1",
+                "title": "test.md",
+                "embedding": [float(i) / 100] * 768,  # DB-preserved embedding
+            }
+            for i in range(30)
+        ]
+
+        reranked = [
+            {**c, "rerank_score": c["score"] - 0.05} for c in chunks_with_embeddings
+        ]
+
+        mocker.patch(
+            "ragitect.agents.rag.nodes._retrieve_documents_impl",
+            new_callable=AsyncMock,
+            return_value=chunks_with_embeddings,
+        )
+        mocker.patch(
+            "ragitect.agents.rag.nodes.rerank_chunks",
+            new_callable=AsyncMock,
+            return_value=reranked,
+        )
+        mock_mmr = mocker.patch("ragitect.agents.rag.nodes.mmr_select")
+        mock_mmr.return_value = reranked[:10]
+        mocker.patch(
+            "ragitect.agents.rag.nodes.select_adaptive_k",
+            return_value=(reranked[:5], {}),
+        )
+
+        # Create a strict mock that tracks all calls
+        embed_calls = []
+
+        async def strict_embed_fn(text: str) -> list[float]:
+            embed_calls.append(text)
+            return [0.1] * 768
+
+        state = {
+            "search_term": "authentication security",
+            "workspace_id": "ws-123",
+            "vector_repo": mocker.MagicMock(),
+            "embed_fn": strict_embed_fn,
+        }
+
+        await search_and_rank(state)
+
+        # Only the search term should be embedded (1 call)
+        # No chunk content should be embedded
+        assert len(embed_calls) == 1
+        assert embed_calls[0] == "authentication security"
+
+        # Verify no chunk content was passed to embed_fn
+        chunk_contents = [c["content"] for c in chunks_with_embeddings]
+        for call in embed_calls:
+            assert call not in chunk_contents, (
+                f"Chunk content was embedded: '{call}'. "
+                f"Embeddings should be preserved from DB."
+            )

@@ -4,8 +4,8 @@ This module implements the node functions used in the RAG StateGraph.
 Each node takes state and returns partial state updates.
 """
 
+import logging
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
-import asyncio
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_litellm import ChatLiteLLM
@@ -30,6 +30,8 @@ from ragitect.services.config import (
     RETRIEVAL_RERANKER_TOP_K,
 )
 from ragitect.services.mmr import mmr_select
+
+logger = logging.getLogger(__name__)
 from ragitect.services.reranker import rerank_chunks
 
 if TYPE_CHECKING:
@@ -112,6 +114,8 @@ async def search_and_rank(state: "RAGState") -> dict:
     search_term = state["search_term"]
     workspace_id = state["workspace_id"]
 
+    logger.info("search_and_rank: Processing search term '%s'", search_term)
+
     # Extract dependencies from parent state (runtime injection)
     vector_repo = state.get("vector_repo")
     embed_fn = state.get("embed_fn")
@@ -150,12 +154,9 @@ async def search_and_rank(state: "RAGState") -> dict:
         return {"search_results": []}
 
     # Step 4: Apply MMR diversity selection
-    # MMR requires embeddings - generate them in parallel for performance
-    # Using asyncio.gather to parallelize API calls (avoids 30 x latency)
-    # NOTE: Concurrency limited by max_concurrency in search strategy (5 searches)
-    # query_embedding is already computed above
-    chunk_embedding_tasks = [embed_fn(chunk["content"]) for chunk in reranked]
-    chunk_embeddings = await asyncio.gather(*chunk_embedding_tasks)
+    # Extract embeddings directly from chunks (preserved from DB during retrieval)
+    # This eliminates 100% of embedding API calls for chunks - embeddings already computed
+    chunk_embeddings = [chunk["embedding"] for chunk in reranked]
 
     mmr_selected = mmr_select(
         query_embedding=query_embedding,

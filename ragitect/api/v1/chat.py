@@ -601,9 +601,14 @@ async def retrieve_context_with_graph(
     strategy = result.get("strategy")
 
     if strategy:
+        search_terms = [s.term for s in strategy.searches]
         logger.info(
-            "LangGraph retrieval: %d search terms generated, %d chunks retrieved",
+            "LangGraph retrieval: %d search terms generated: %s",
             len(strategy.searches),
+            search_terms,
+        )
+        logger.info(
+            "LangGraph retrieval: %d chunks retrieved after merge",
             len(context_chunks),
         )
     else:

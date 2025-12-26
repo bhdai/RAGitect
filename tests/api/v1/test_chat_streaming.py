@@ -20,6 +20,16 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.fixture(autouse=True)
+def disable_langgraph_retrieval(mocker):
+    """Disable LangGraph retrieval for all tests in this module.
+
+    These tests mock retrieve_context (legacy path), so we need to ensure
+    USE_LANGGRAPH_RETRIEVAL is False to use the mocked path.
+    """
+    mocker.patch("ragitect.api.v1.chat.USE_LANGGRAPH_RETRIEVAL", False)
+
+
 class TestChatStreamEndpoint:
     """Tests for POST /api/v1/workspaces/{workspace_id}/chat/stream."""
 
