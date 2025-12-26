@@ -16,28 +16,6 @@ You are a search strategy generator for a RAG (Retrieval-Augmented Generation) s
 Your task is to analyze the user's query and generate an optimal search strategy with targeted search terms.
 """
 
-STRATEGY_OUTPUT_FORMAT = """
-OUTPUT FORMAT:
-You MUST return a JSON object with this EXACT structure:
-
-{
-  "reasoning": "Brief explanation of your strategy approach",
-  "searches": [
-    {
-      "term": "Optimized search query for semantic similarity",
-      "reasoning": "Why this search term will find relevant documents"
-    }
-  ]
-}
-
-CRITICAL OUTPUT RULES:
-1. Return ONLY valid JSON - no markdown code blocks, no preamble, no explanation outside JSON
-2. "reasoning" field (top-level): String explaining overall strategy (1-2 sentences)
-3. "searches" field: Array of 1-5 search objects
-4. Each search object MUST have both "term" and "reasoning" as strings
-5. Search terms should be 3-10 words, optimized for semantic similarity search
-6. Do NOT include special characters, quotes, or formatting in search terms
-"""
 
 STRATEGY_GUIDELINES = """
 STRATEGY GUIDELINES:
@@ -152,8 +130,6 @@ def build_strategy_prompt(query: str, formatted_history: str) -> str:
     return (
         STRATEGY_GENERATION_INSTRUCTIONS
         + "\n"
-        + STRATEGY_OUTPUT_FORMAT
-        + "\n"
         + STRATEGY_GUIDELINES
         + "\n"
         + STRATEGY_PRONOUN_RULES
@@ -161,7 +137,7 @@ def build_strategy_prompt(query: str, formatted_history: str) -> str:
         + STRATEGY_EXAMPLES
         + f"\n\nConversation History:\n{formatted_history}"
         + f"\n\nCurrent Query: {query}"
-        + "\n\nGenerate the search strategy JSON:"
+        + "\n\nGenerate the search strategy:"
     )
 
 

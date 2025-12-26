@@ -32,6 +32,8 @@ class TestGenerateStrategyNode:
             "original_query": "How do I install FastAPI?",
             "final_query": None,
             "strategy": None,
+            "strategy": None,
+            "search_results": [],
             "context_chunks": [],
             "citations": [],
             "llm_calls": 0,
@@ -467,10 +469,10 @@ class TestSearchAndRankNode:
             embed_fn=mock_embed_fn,
         )
 
-        # Result should have context_chunks for state reducer
-        assert "context_chunks" in result
-        assert result["context_chunks"] == final_chunks
-        assert len(result["context_chunks"]) == 2
+        # Result should have search_results for state reducer
+        assert "search_results" in result
+        assert result["search_results"] == final_chunks
+        assert len(result["search_results"]) == 2
 
     async def test_search_and_rank_handles_empty_results(
         self,
@@ -497,8 +499,8 @@ class TestSearchAndRankNode:
             embed_fn=mock_embed_fn,
         )
 
-        assert "context_chunks" in result
-        assert result["context_chunks"] == []
+        assert "search_results" in result
+        assert result["search_results"] == []
 
     async def test_search_and_rank_uses_config_constants(
         self,
@@ -592,8 +594,10 @@ class TestMergeContextNode:
             "messages": [HumanMessage(content="How do I use FastAPI?")],
             "original_query": "How do I use FastAPI?",
             "final_query": None,
+            "final_query": None,
             "strategy": None,
-            "context_chunks": sample_chunks_with_duplicates,
+            "search_results": sample_chunks_with_duplicates,
+            "context_chunks": [],
             "citations": [],
             "llm_calls": 0,
         }
@@ -655,7 +659,7 @@ class TestMergeContextNode:
             for i in range(50)  # More than RETRIEVAL_ADAPTIVE_K_MAX (16)
         ]
         state = base_merge_state.copy()
-        state["context_chunks"] = many_chunks
+        state["search_results"] = many_chunks
 
         result = await merge_context(state)
 
@@ -670,6 +674,7 @@ class TestMergeContextNode:
             "original_query": "test",
             "final_query": None,
             "strategy": None,
+            "search_results": [],
             "context_chunks": [],
             "citations": [],
             "llm_calls": 0,

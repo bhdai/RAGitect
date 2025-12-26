@@ -5,15 +5,15 @@ RAG pipeline. Annotated types with operator.add enable LangGraph reducers for
 parallel aggregation.
 """
 
+from __future__ import annotations
+
 import operator
-from typing import TYPE_CHECKING, Annotated, TypedDict
+from typing import Annotated, TypedDict
 
 from langchain_core.messages import AnyMessage
 
+from ragitect.agents.rag.schemas import SearchStrategy
 from ragitect.api.schemas.chat import Citation
-
-if TYPE_CHECKING:
-    from ragitect.agents.rag.schemas import SearchStrategy
 
 
 class ContextChunk(TypedDict):
@@ -53,7 +53,9 @@ class RAGState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
     original_query: str
     final_query: str | None
-    strategy: "SearchStrategy | None"
-    context_chunks: Annotated[list[ContextChunk], operator.add]
+    strategy: SearchStrategy | None
+    search_results: Annotated[list[ContextChunk], operator.add]
+    context_chunks: list[ContextChunk]
     citations: list[Citation]
     llm_calls: Annotated[int, operator.add]
+    workspace_id: str

@@ -1560,3 +1560,168 @@ class TestCitationStreaming:
         assert "source-document" in content
         assert "cite-1" in content
         assert "python-intro.pdf" in content
+
+
+class TestLangGraphRetrieval:
+    """Tests for LangGraph-based retrieval pipeline (Story 4.2)."""
+
+    async def test_langgraph_retrieval_flag_uses_graph_based_retrieval(
+        self, async_client, mocker
+    ):
+        """Test that USE_LANGGRAPH_RETRIEVAL=true uses graph-based retrieval."""
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        from ragitect.services.database.models import Workspace
+
+        mock_workspace = Workspace(id=workspace_id, name="Test")
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        # Enable LangGraph retrieval
+        mocker.patch("ragitect.api.v1.chat.USE_LANGGRAPH_RETRIEVAL", True)
+
+        # Track which retrieval function is called
+        mock_retrieve_context = mocker.AsyncMock(return_value=[])
+        mock_retrieve_with_graph = mocker.AsyncMock(
+            return_value=[
+                {
+                    "content": "Graph-based retrieval content",
+                    "document_name": "graph-doc.pdf",
+                    "chunk_index": 0,
+                    "similarity": 0.9,
+                    "chunk_label": "Chunk 1",
+                }
+            ]
+        )
+
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context",
+            mock_retrieve_context,
+        )
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
+            mock_retrieve_with_graph,
+        )
+
+        async def mock_stream(llm, messages):
+            yield "Test response"
+
+        mocker.patch(
+            "ragitect.api.v1.chat.generate_response_stream",
+            side_effect=mock_stream,
+        )
+
+        mock_llm = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            return_value=mock_llm,
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "Test query"},
+        )
+
+        assert response.status_code == 200
+
+        # Graph-based retrieval should be called
+        mock_retrieve_with_graph.assert_called_once()
+        # Legacy retrieval should NOT be called
+        mock_retrieve_context.assert_not_called()
+
+    async def test_langgraph_retrieval_disabled_uses_legacy_retrieval(
+        self, async_client, mocker
+    ):
+        """Test that USE_LANGGRAPH_RETRIEVAL=false uses legacy retrieval."""
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        from ragitect.services.database.models import Workspace
+
+        mock_workspace = Workspace(id=workspace_id, name="Test")
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        # Disable LangGraph retrieval (default)
+        mocker.patch("ragitect.api.v1.chat.USE_LANGGRAPH_RETRIEVAL", False)
+
+        mock_retrieve_context = mocker.AsyncMock(
+            return_value=[
+                {
+                    "content": "Legacy retrieval content",
+                    "document_name": "legacy-doc.pdf",
+                    "chunk_index": 0,
+                    "similarity": 0.9,
+                    "chunk_label": "Chunk 1",
+                }
+            ]
+        )
+        mock_retrieve_with_graph = mocker.AsyncMock(return_value=[])
+
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context",
+            mock_retrieve_context,
+        )
+        mocker.patch(
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
+            mock_retrieve_with_graph,
+        )
+
+        async def mock_stream(llm, messages):
+            yield "Test response"
+
+        mocker.patch(
+            "ragitect.api.v1.chat.generate_response_stream",
+            side_effect=mock_stream,
+        )
+
+        mock_llm = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            return_value=mock_llm,
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "Test query"},
+        )
+
+        assert response.status_code == 200
+
+        # Legacy retrieval should be called
+        mock_retrieve_context.assert_called_once()
+        # Graph-based retrieval should NOT be called
+        mock_retrieve_with_graph.assert_not_called()

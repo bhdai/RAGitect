@@ -103,32 +103,36 @@ async def search_and_rank(
     search term. Results are aggregated via the context_chunks reducer.
 
     Args:
-        state: Sub-state containing search_term, workspace_id, query_embedding
+        state: Sub-state containing search_term, workspace_id
         vector_repo: VectorRepository instance for database access
         embed_fn: Async function to generate embeddings
 
     Returns:
-        Dict with 'context_chunks' list for state reducer aggregation
+        Dict with 'search_results' list for state reducer aggregation
     """
     search_term = state["search_term"]
     workspace_id = state["workspace_id"]
 
-    # Step 1: Retrieve initial candidates
+    # Step 1: Pre-compute query embedding for reuse (optimization)
+    query_embedding = await embed_fn(search_term)
+
+    # Step 2: Retrieve initial candidates
     chunks = await _retrieve_documents_impl(
         query=search_term,
         workspace_id=workspace_id,
         vector_repo=vector_repo,
         embed_fn=embed_fn,
         top_k=RETRIEVAL_INITIAL_K,
+        query_embedding=query_embedding,
     )
 
     if not chunks:
-        return {"context_chunks": []}
+        return {"search_results": []}
 
     # Convert ContextChunk TypedDicts to regular dicts for service functions
     chunks_as_dicts = [dict(chunk) for chunk in chunks]
 
-    # Step 2: Rerank with cross-encoder
+    # Step 3: Rerank with cross-encoder
     reranked = await rerank_chunks(
         search_term,
         chunks_as_dicts,
@@ -136,12 +140,13 @@ async def search_and_rank(
     )
 
     if not reranked:
-        return {"context_chunks": []}
+        return {"search_results": []}
 
-    # Step 3: Apply MMR diversity selection
+    # Step 4: Apply MMR diversity selection
     # MMR requires embeddings - generate them in parallel for performance
     # Using asyncio.gather to parallelize API calls (avoids 30 x latency)
-    query_embedding = await embed_fn(search_term)
+    # NOTE: Concurrency limited by max_concurrency in search strategy (5 searches)
+    # query_embedding is already computed above
     chunk_embedding_tasks = [embed_fn(chunk["content"]) for chunk in reranked]
     chunk_embeddings = await asyncio.gather(*chunk_embedding_tasks)
 
@@ -154,7 +159,7 @@ async def search_and_rank(
     )
 
     if not mmr_selected:
-        return {"context_chunks": []}
+        return {"search_results": []}
 
     # Step 4: Apply adaptive-K selection
     final_chunks, _metadata = select_adaptive_k(
@@ -165,7 +170,7 @@ async def search_and_rank(
         gap_threshold=RETRIEVAL_ADAPTIVE_K_GAP_THRESHOLD,
     )
 
-    return {"context_chunks": final_chunks}
+    return {"search_results": final_chunks}
 
 
 async def merge_context(state: "RAGState") -> dict:
@@ -177,12 +182,12 @@ async def merge_context(state: "RAGState") -> dict:
     3. Limits final context to RETRIEVAL_ADAPTIVE_K_MAX chunks
 
     Args:
-        state: RAGState containing context_chunks from parallel searches
+        state: RAGState containing search_results from parallel searches
 
     Returns:
         Dict with deduplicated, sorted, limited 'context_chunks'
     """
-    all_chunks = state.get("context_chunks", [])
+    all_chunks = state.get("search_results", [])
 
     if not all_chunks:
         return {"context_chunks": []}

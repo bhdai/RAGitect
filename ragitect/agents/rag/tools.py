@@ -19,6 +19,7 @@ async def _retrieve_documents_impl(
     vector_repo: VectorRepository,
     embed_fn: Callable[[str], Awaitable[list[float]]],
     top_k: int = 50,
+    query_embedding: list[float] | None = None,
 ) -> list[ContextChunk]:
     """Core retrieval logic - retrieve relevant document chunks for the given query.
 
@@ -31,13 +32,15 @@ async def _retrieve_documents_impl(
         vector_repo: VectorRepository instance for database access
         embed_fn: Async function to generate query embeddings
         top_k: Maximum number of chunks to retrieve (default: 50)
+        query_embedding: Optional pre-computed embedding to avoid regeneration
 
     Returns:
         List of ContextChunk dicts containing retrieved chunks with
         chunk_id, content, score, document_id, and title.
     """
-    # Generate query embedding
-    query_embedding = await embed_fn(query)
+    # Generate query embedding if not provided
+    if query_embedding is None:
+        query_embedding = await embed_fn(query)
 
     # Search for similar chunks
     chunks_with_distances = await vector_repo.search_similar_chunks(
