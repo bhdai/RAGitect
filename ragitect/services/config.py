@@ -26,6 +26,10 @@ DEFAULT_SIMILARITY_THRESHOLD: float = float(
 )
 DEFAULT_RETRIEVAL_K: int = int(os.getenv("DEFAULT_RETRIEVAL_K", "10"))
 
+# Default LLM model for LangGraph nodes and other services
+# Format: "{provider}/{model}" for LiteLLM compatibility
+DEFAULT_LLM_MODEL: str = os.getenv("DEFAULT_LLM_MODEL", "ollama/llama3.1:8b")
+
 # Multi-stage retrieval pipeline configuration
 RETRIEVAL_INITIAL_K: int = int(os.getenv("RETRIEVAL_INITIAL_K", "50"))
 RETRIEVAL_USE_RERANKER: bool = (
