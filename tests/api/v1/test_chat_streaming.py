@@ -1563,7 +1563,7 @@ class TestCitationStreaming:
 
 
 class TestLangGraphRetrieval:
-    """Tests for LangGraph-based retrieval pipeline (Story 4.2)."""
+    """Tests for LangGraph-based retrieval pipeline"""
 
     async def test_langgraph_retrieval_flag_uses_graph_based_retrieval(
         self, async_client, mocker

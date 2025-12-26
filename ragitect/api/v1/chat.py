@@ -5,7 +5,7 @@ full Retrieval-Augmented Generation (RAG) integration.
 
 Supports two retrieval modes:
 1. Legacy: Manual orchestration via retrieve_context()
-2. LangGraph: Agent-based pipeline via retrieve_context_with_graph() (Story 4.2)
+2. LangGraph: Agent-based pipeline via retrieve_context_with_graph()
 """
 
 import json
@@ -19,12 +19,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from ragitect.agents.rag import build_rag_graph
-from ragitect.agents.rag.state import RAGState
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ragitect.agents.rag import build_rag_graph
+from ragitect.agents.rag.state import RAGState
 from ragitect.api.schemas.chat import Citation
 from ragitect.prompts.rag_prompts import build_rag_system_prompt
 from ragitect.services.adaptive_k import select_adaptive_k
@@ -55,10 +55,15 @@ from ragitect.services.mmr import mmr_select
 from ragitect.services.query_service import query_with_iterative_fallback
 from ragitect.services.reranker import rerank_chunks
 
-# Feature flag for LangGraph-based retrieval (Story 4.2)
+# Feature flag for LangGraph-based retrieval
 USE_LANGGRAPH_RETRIEVAL = (
     os.environ.get("USE_LANGGRAPH_RETRIEVAL", "false").lower() == "true"
 )
+
+# Compile graph once at module level (performance optimization)
+# Graph compilation is expensive - do it once, reuse across requests
+# Dependencies (vector_repo, embed_fn) injected via state at runtime
+_RAG_GRAPH = build_rag_graph(retrieval_only=True)
 
 logger = logging.getLogger(__name__)
 
@@ -513,13 +518,16 @@ async def retrieve_context_with_graph(
     chat_history: list[dict[str, str]],
     provider: str | None = None,
 ) -> list[dict]:
-    """Retrieve relevant context chunks using LangGraph-based pipeline (Story 4.2).
+    """Retrieve relevant context chunks using LangGraph-based pipeline
 
-    This function uses the LangGraph StateGraph for intelligent query decomposition
-    and parallel search execution:
+    This function uses the pre-compiled LangGraph StateGraph for intelligent query
+    decomposition and parallel search execution:
     1. generate_strategy: Decompose query into 1-5 search terms
     2. search_and_rank: Parallel retrieval with reranking, MMR, adaptive-K
     3. merge_context: Deduplicate and re-rank aggregated results
+
+    Performance: Graph is compiled once at module level. Request-scoped
+    dependencies (vector_repo, embed_fn) are injected via state at runtime.
 
     Args:
         session: Database session
@@ -558,14 +566,6 @@ async def retrieve_context_with_graph(
     # This ensures generate_strategy uses the requested provider (e.g. Ollama)
     llm = await create_llm_with_provider(session, provider=provider)
 
-    # Build graph with dependencies
-    graph = build_rag_graph(
-        vector_repo=vector_repo,
-        embed_fn=embed_fn,
-        retrieval_only=True,
-        llm=llm,
-    )
-
     # Convert chat history to LangChain messages
     messages = []
     for msg in chat_history:
@@ -576,7 +576,7 @@ async def retrieve_context_with_graph(
         elif role == "assistant":
             messages.append(AIMessage(content=content))
 
-    # Build initial state
+    # Build initial state with dependencies injected
     initial_state: RAGState = {
         "messages": messages,
         "original_query": query,
@@ -586,12 +586,15 @@ async def retrieve_context_with_graph(
         "citations": [],
         "llm_calls": 0,
         "workspace_id": str(workspace_id),
+        # Runtime dependency injection (avoiding per-request graph compilation)
+        "vector_repo": vector_repo,
+        "embed_fn": embed_fn,
+        "llm": llm,
     }
 
-    # Execute graph (strategy → search → merge, stops before generate_answer)
-    # For now, we run the full graph but only use context_chunks
-    # Story 4.3 will integrate streaming
-    result = await graph.ainvoke(initial_state)
+    # Execute pre-compiled graph (strategy → search → merge, stops before generate_answer)
+    # Uses module-level _RAG_GRAPH compiled once at import time
+    result = await _RAG_GRAPH.ainvoke(initial_state)
 
     # Extract context chunks from result
     context_chunks = result.get("context_chunks", [])
@@ -731,7 +734,7 @@ async def chat_stream(
     # Retrieve context from documents (AC2)
     # Use LangGraph-based pipeline if enabled, otherwise legacy manual orchestration
     if USE_LANGGRAPH_RETRIEVAL:
-        logger.info("Using LangGraph-based retrieval pipeline (Story 4.2)")
+        logger.info("Using LangGraph-based retrieval pipeline")
         context_chunks = await retrieve_context_with_graph(
             session,
             workspace_id,

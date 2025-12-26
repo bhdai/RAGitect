@@ -43,7 +43,10 @@ def continue_to_searches(state: RAGState) -> list[Send]:
     searches = strategy.searches[:5]
 
     # Build sub-state for each parallel branch
+    # Include workspace_id and dependencies from parent state
     workspace_id = state.get("workspace_id", "")
+    vector_repo = state.get("vector_repo")
+    embed_fn = state.get("embed_fn")
 
     return [
         Send(
@@ -51,6 +54,8 @@ def continue_to_searches(state: RAGState) -> list[Send]:
             {
                 "search_term": search.term,
                 "workspace_id": workspace_id,
+                "vector_repo": vector_repo,
+                "embed_fn": embed_fn,
             },
         )
         for search in searches
@@ -59,8 +64,6 @@ def continue_to_searches(state: RAGState) -> list[Send]:
 
 def build_rag_graph(
     *,
-    vector_repo=None,
-    embed_fn: Callable[[str], Awaitable[list[float]]] | None = None,
     retrieval_only: bool = False,
     llm: Any = None,
 ):
@@ -70,9 +73,10 @@ def build_rag_graph(
     START → generate_strategy → [Send() fan-out] → search_and_rank (parallel)
           → merge_context → [generate_answer] → END
 
+    Dependencies (vector_repo, embed_fn) are passed via state at runtime,
+    allowing the graph to be compiled once and reused across requests.
+
     Args:
-        vector_repo: VectorRepository instance for search_and_rank
-        embed_fn: Async embedding function for search_and_rank
         retrieval_only: If True, graph ends after merge_context (skips answer gen)
         llm: Optional LLM instance to inject into nodes (for provider overrides)
 
@@ -84,23 +88,11 @@ def build_rag_graph(
 
     # Add nodes
     # generate_strategy dependency injection
-    async def generate_strategy_with_deps(state: RAGState) -> dict:
-        return await generate_strategy(state, llm=llm)
+    # generate_strategy dependency injection (now runtime via state)
+    builder.add_node("generate_strategy", generate_strategy)
 
-    builder.add_node("generate_strategy", generate_strategy_with_deps)
-
-    # search_and_rank needs dependencies injected via closure
-    async def search_and_rank_with_deps(state: dict) -> dict:
-        if vector_repo is None or embed_fn is None:
-            # If no deps, return empty (for testing graph structure)
-            return {"search_results": []}
-        return await search_and_rank(
-            state,
-            vector_repo=vector_repo,
-            embed_fn=embed_fn,
-        )
-
-    builder.add_node("search_and_rank", search_and_rank_with_deps)
+    # search_and_rank now extracts dependencies from state at runtime
+    builder.add_node("search_and_rank", search_and_rank)
     builder.add_node("merge_context", merge_context)
 
     # Add edges
@@ -122,10 +114,8 @@ def build_rag_graph(
         builder.add_edge("merge_context", END)
     else:
         # Continue to answer generation (for autonomous agents)
-        async def generate_answer_with_deps(state: RAGState) -> dict:
-            return await generate_answer(state, llm=llm)
-
-        builder.add_node("generate_answer", generate_answer_with_deps)
+        # Continue to answer generation (for autonomous agents)
+        builder.add_node("generate_answer", generate_answer)
         builder.add_edge("merge_context", "generate_answer")
         builder.add_edge("generate_answer", END)
 

@@ -63,7 +63,11 @@ async def generate_strategy(
         Dict with 'strategy' (SearchStrategy) and 'llm_calls' (int)
     """
     if llm is None:
-        # Use centralized config for default LLM model
+        # P0: Check state for runtime injection (per-request LLM)
+        llm = state.get("llm")
+
+    if llm is None:
+        # Fallback to centralized config for default LLM model
         llm = ChatLiteLLM(model=DEFAULT_LLM_MODEL)
 
     # Build prompt with chat history for pronoun resolution
@@ -85,12 +89,7 @@ async def generate_strategy(
     }
 
 
-async def search_and_rank(
-    state: dict,
-    *,
-    vector_repo: "VectorRepository",
-    embed_fn: Callable[[str], Awaitable[list[float]]],
-) -> dict:
+async def search_and_rank(state: "RAGState") -> dict:
     """Execute retrieval pipeline for a single search term.
 
     Performs the full retrieval pipeline:
@@ -99,19 +98,27 @@ async def search_and_rank(
     3. Apply MMR diversity selection (k=RETRIEVAL_MMR_K)
     4. Apply adaptive-K selection based on score gaps
 
-    This node receives isolated sub-state from Send() containing a single
-    search term. Results are aggregated via the context_chunks reducer.
+    This node receives state from Send() with search_term and workspace_id.
+    It extracts vector_repo and embed_fn from the parent state for runtime
+    dependency injection (avoiding graph recompilation per request).
 
     Args:
-        state: Sub-state containing search_term, workspace_id
-        vector_repo: VectorRepository instance for database access
-        embed_fn: Async function to generate embeddings
+        state: RAGState with search_term, workspace_id, vector_repo, embed_fn
 
     Returns:
         Dict with 'search_results' list for state reducer aggregation
     """
+    # Extract search parameters from sub-state
     search_term = state["search_term"]
     workspace_id = state["workspace_id"]
+
+    # Extract dependencies from parent state (runtime injection)
+    vector_repo = state.get("vector_repo")
+    embed_fn = state.get("embed_fn")
+
+    # Graceful handling for tests that don't inject dependencies
+    if vector_repo is None or embed_fn is None:
+        return {"search_results": []}
 
     # Step 1: Pre-compute query embedding for reuse (optimization)
     query_embedding = await embed_fn(search_term)
@@ -240,7 +247,11 @@ async def generate_answer(
         Dict with 'messages' (list containing AIMessage) and 'llm_calls' (int)
     """
     if llm is None:
-        # Use centralized config for default LLM model
+        # P0: Check state for runtime injection (per-request LLM)
+        llm = state.get("llm")
+
+    if llm is None:
+        # Fallback to centralized config for default LLM model
         llm = ChatLiteLLM(model=DEFAULT_LLM_MODEL)
 
     context_chunks = state.get("context_chunks", [])

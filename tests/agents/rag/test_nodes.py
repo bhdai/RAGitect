@@ -32,7 +32,6 @@ class TestGenerateStrategyNode:
             "original_query": "How do I install FastAPI?",
             "final_query": None,
             "strategy": None,
-            "strategy": None,
             "search_results": [],
             "context_chunks": [],
             "citations": [],
@@ -325,11 +324,14 @@ class TestSearchAndRankNode:
         mock_mmr_select.return_value = sample_chunks
         mock_select_adaptive_k.return_value = (sample_chunks, {"adaptive_k": 3})
 
-        await search_and_rank(
-            base_search_state,
-            vector_repo=mock_vector_repo,
-            embed_fn=mock_embed_fn,
-        )
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": mock_embed_fn,
+        }
+
+        await search_and_rank(state)
 
         # Verify retriever was called
         mock_retrieve_documents.assert_called_once()
@@ -361,11 +363,14 @@ class TestSearchAndRankNode:
         mock_mmr_select.return_value = reranked_chunks
         mock_select_adaptive_k.return_value = (reranked_chunks, {"adaptive_k": 3})
 
-        await search_and_rank(
-            base_search_state,
-            vector_repo=mock_vector_repo,
-            embed_fn=mock_embed_fn,
-        )
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": mock_embed_fn,
+        }
+
+        await search_and_rank(state)
 
         # Verify reranker was called with retrieved chunks
         mock_rerank_chunks.assert_called_once()
@@ -397,11 +402,14 @@ class TestSearchAndRankNode:
         mock_mmr_select.return_value = reranked_chunks[:2]  # MMR reduces set
         mock_select_adaptive_k.return_value = (reranked_chunks[:2], {"adaptive_k": 2})
 
-        await search_and_rank(
-            base_search_state,
-            vector_repo=mock_vector_repo,
-            embed_fn=mock_embed_fn,
-        )
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": mock_embed_fn,
+        }
+
+        await search_and_rank(state)
 
         # Verify MMR was called with reranked chunks
         mock_mmr_select.assert_called_once()
@@ -433,11 +441,14 @@ class TestSearchAndRankNode:
             {"adaptive_k": 2, "gap_found": True, "gap_size": 0.2},
         )
 
-        await search_and_rank(
-            base_search_state,
-            vector_repo=mock_vector_repo,
-            embed_fn=mock_embed_fn,
-        )
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": mock_embed_fn,
+        }
+
+        await search_and_rank(state)
 
         # Verify adaptive-K was called
         mock_select_adaptive_k.assert_called_once()
@@ -463,11 +474,14 @@ class TestSearchAndRankNode:
         final_chunks = sample_chunks[:2]
         mock_select_adaptive_k.return_value = (final_chunks, {"adaptive_k": 2})
 
-        result = await search_and_rank(
-            base_search_state,
-            vector_repo=mock_vector_repo,
-            embed_fn=mock_embed_fn,
-        )
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": mock_embed_fn,
+        }
+
+        result = await search_and_rank(state)
 
         # Result should have search_results for state reducer
         assert "search_results" in result
@@ -493,11 +507,14 @@ class TestSearchAndRankNode:
         mock_mmr_select.return_value = []
         mock_select_adaptive_k.return_value = ([], {"adaptive_k": 0})
 
-        result = await search_and_rank(
-            base_search_state,
-            vector_repo=mock_vector_repo,
-            embed_fn=mock_embed_fn,
-        )
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": mock_embed_fn,
+        }
+
+        result = await search_and_rank(state)
 
         assert "search_results" in result
         assert result["search_results"] == []
@@ -526,11 +543,14 @@ class TestSearchAndRankNode:
         mock_mmr_select.return_value = sample_chunks
         mock_select_adaptive_k.return_value = (sample_chunks, {"adaptive_k": 3})
 
-        await search_and_rank(
-            base_search_state,
-            vector_repo=mock_vector_repo,
-            embed_fn=mock_embed_fn,
-        )
+        # Add dependencies to state
+        state = {
+            **base_search_state,
+            "vector_repo": mock_vector_repo,
+            "embed_fn": mock_embed_fn,
+        }
+
+        await search_and_rank(state)
 
         # Verify initial retrieval uses RETRIEVAL_INITIAL_K
         retrieve_call = mock_retrieve_documents.call_args

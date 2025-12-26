@@ -809,6 +809,8 @@ class TestDependencyInjection:
         mock_llm = MagicMock()
 
         # Patch the node function in the graph module
+        # Note: We patch ragitect.agents.rag.graph.generate_strategy specifically
+        # because the graph imports it directly
         with patch(
             "ragitect.agents.rag.graph.generate_strategy", new_callable=AsyncMock
         ) as mock_node:
@@ -818,7 +820,8 @@ class TestDependencyInjection:
                 "llm_calls": 1,
             }
 
-            graph = build_rag_graph(llm=mock_llm, retrieval_only=True)
+            # LLM is now injected via state, not build arg
+            graph = build_rag_graph(retrieval_only=True)
 
             initial_state: RAGState = {
                 "messages": [],
@@ -829,14 +832,17 @@ class TestDependencyInjection:
                 "context_chunks": [],
                 "citations": [],
                 "llm_calls": 0,
+                "llm": mock_llm,  # Inject LLM here
             }
 
             await graph.ainvoke(initial_state)
 
-            # Verify mock was called with llm kwarg
+            # Verify mock was called
             mock_node.assert_called_once()
-            call_kwargs = mock_node.call_args.kwargs
-            assert call_kwargs.get("llm") is mock_llm
+            # The node should have received the state with 'llm' in it
+            call_args = mock_node.call_args
+            state_arg = call_args[0][0]
+            assert state_arg.get("llm") is mock_llm
 
     async def test_llm_injection_into_generate_answer(self):
         """Test that LLM is injected into generate_answer node."""
@@ -873,7 +879,8 @@ class TestDependencyInjection:
             mock_merge.return_value = {"context_chunks": []}
             mock_search.return_value = {"search_results": []}
 
-            graph = build_rag_graph(llm=mock_llm, retrieval_only=False)
+            # LLM is now injected via state
+            graph = build_rag_graph(retrieval_only=False)
 
             initial_state: RAGState = {
                 "messages": [],
@@ -884,14 +891,17 @@ class TestDependencyInjection:
                 "context_chunks": [],
                 "citations": [],
                 "llm_calls": 0,
+                "llm": mock_llm,  # Inject LLM here
             }
 
             await graph.ainvoke(initial_state)
 
-            # Verify generate_answer mock was called with llm kwarg
+            # Verify generate_answer mock was called
             mock_ans.assert_called_once()
-            call_kwargs = mock_ans.call_args.kwargs
-            assert call_kwargs.get("llm") is mock_llm
+            # The node should have received the state with 'llm' in it
+            call_args = mock_ans.call_args
+            state_arg = call_args[0][0]
+            assert state_arg.get("llm") is mock_llm
 
 
 class TestRetrievalOnlyMode:
