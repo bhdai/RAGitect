@@ -5,7 +5,7 @@ Tests verify:
 - Endpoint streams data in SSE format (data: ...)
 - Workspace validation (404 for invalid workspace)
 - Empty message handling
-- RAG retrieval from workspace documents
+- RAG retrieval from workspace documents using LangGraph pipeline
 - Context used in LLM prompt
 - Empty workspace handling
 - Chat history support
@@ -18,16 +18,6 @@ from datetime import datetime, timezone
 import pytest
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(autouse=True)
-def disable_langgraph_retrieval(mocker):
-    """Disable LangGraph retrieval for all tests in this module.
-
-    These tests mock retrieve_context (legacy path), so we need to ensure
-    USE_LANGGRAPH_RETRIEVAL is False to use the mocked path.
-    """
-    mocker.patch("ragitect.api.v1.chat.USE_LANGGRAPH_RETRIEVAL", False)
 
 
 class TestChatStreamEndpoint:
@@ -69,7 +59,7 @@ class TestChatStreamEndpoint:
 
         # Mock retrieve_context to skip actual RAG
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             return_value=[
                 {
                     "content": "test",
@@ -138,7 +128,7 @@ class TestChatStreamEndpoint:
 
         # Mock retrieve_context
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             return_value=[
                 {
                     "content": "test",
@@ -398,7 +388,7 @@ class TestChatRAGIntegration:
         ]
 
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             mock_retrieve_context,
         )
 
@@ -471,7 +461,7 @@ class TestChatRAGIntegration:
         ]
 
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             mock_retrieve_context,
         )
 
@@ -553,7 +543,7 @@ class TestChatProviderOverride:
         )
 
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             return_value=[
                 {
                     "content": "test",
@@ -620,7 +610,7 @@ class TestChatProviderOverride:
         )
 
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             return_value=[],
         )
 
@@ -666,7 +656,7 @@ class TestChatProviderOverride:
         )
 
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             return_value=[],
         )
 
@@ -712,7 +702,7 @@ class TestChatProviderOverride:
         )
 
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             return_value=[
                 {
                     "content": "test",
@@ -749,527 +739,6 @@ class TestChatProviderOverride:
         mock_create_llm.assert_called_once()
         call_kwargs = mock_create_llm.call_args.kwargs
         assert call_kwargs.get("provider") is None
-
-
-class TestRetrievalThresholdFiltering:
-    """Tests for similarity threshold filtering."""
-
-    def test_retrieve_context_initial_k_is_configurable(self):
-        """Test that retrieve_context uses RETRIEVAL_INITIAL_K for over-retrieval (AC1)."""
-        import inspect
-
-        from ragitect.api.v1.chat import retrieve_context
-        from ragitect.services.config import RETRIEVAL_INITIAL_K
-
-        sig = inspect.signature(retrieve_context)
-        initial_k_param = sig.parameters.get("initial_k")
-        assert initial_k_param is not None
-        assert initial_k_param.default == RETRIEVAL_INITIAL_K
-
-    async def test_retrieve_context_passes_similarity_threshold(self, mocker):
-        """Test that retrieve_context passes similarity_threshold=0.3 to vector search (AC1)."""
-        from ragitect.api.v1.chat import retrieve_context
-
-        workspace_id = uuid.uuid4()
-        mock_session = mocker.AsyncMock()
-
-        # Mock LLM
-        mock_llm = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_llm_with_provider",
-            return_value=mock_llm,
-        )
-
-        # Mock embedding config
-        mocker.patch(
-            "ragitect.api.v1.chat.get_active_embedding_config",
-            return_value=None,
-        )
-
-        # Mock embedding model
-        mock_embed_model = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_embeddings_model",
-            return_value=mock_embed_model,
-        )
-        mocker.patch(
-            "ragitect.api.v1.chat.embed_text",
-            return_value=[0.1] * 768,
-        )
-
-        # Mock VectorRepository to capture arguments
-        from ragitect.services.database.models import DocumentChunk
-
-        mock_chunk = mocker.MagicMock(spec=DocumentChunk)
-        mock_chunk.content = "Test chunk content"
-        mock_chunk.document_id = uuid.uuid4()
-        mock_chunk.chunk_index = 0
-
-        mock_vector_repo = mocker.AsyncMock()
-        mock_vector_repo.search_similar_chunks.return_value = [(mock_chunk, 0.5)]
-
-        mocker.patch(
-            "ragitect.api.v1.chat.VectorRepository",
-            return_value=mock_vector_repo,
-        )
-
-        # Mock DocumentRepository
-        mock_doc_repo = mocker.AsyncMock()
-        mock_doc_repo.get_by_id.return_value = None
-        mocker.patch(
-            "ragitect.api.v1.chat.DocumentRepository",
-            return_value=mock_doc_repo,
-        )
-
-        # Mock query_with_iterative_fallback to call the vector_search_fn callback
-        async def mock_iterative_fallback(llm, query, chat_history, vector_search_fn):
-            # Call the vector search function to trigger the actual search
-            await vector_search_fn(query)
-            return (
-                ["Test content"],
-                {
-                    "final_query": query,
-                    "classification": "simple",
-                    "used_reformulation": False,
-                },
-            )
-
-        mocker.patch(
-            "ragitect.api.v1.chat.query_with_iterative_fallback",
-            side_effect=mock_iterative_fallback,
-        )
-
-        # Call retrieve_context
-        await retrieve_context(
-            session=mock_session,
-            workspace_id=workspace_id,
-            query="Test query",
-            chat_history=[],
-        )
-
-        # Verify search_similar_chunks was called with similarity_threshold=0.3
-        mock_vector_repo.search_similar_chunks.assert_called_once()
-        call_args = mock_vector_repo.search_similar_chunks.call_args
-        assert call_args.kwargs.get("similarity_threshold") == 0.3
-
-    async def test_retrieve_context_uses_initial_k_parameter(self, mocker):
-        """Test that retrieve_context passes the initial_k parameter correctly for over-retrieval"""
-        from ragitect.api.v1.chat import retrieve_context
-
-        workspace_id = uuid.uuid4()
-        mock_session = mocker.AsyncMock()
-
-        # Mock LLM
-        mock_llm = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_llm_with_provider",
-            return_value=mock_llm,
-        )
-
-        # Mock embedding config
-        mocker.patch(
-            "ragitect.api.v1.chat.get_active_embedding_config",
-            return_value=None,
-        )
-
-        # Mock embedding model
-        mock_embed_model = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_embeddings_model",
-            return_value=mock_embed_model,
-        )
-        mocker.patch(
-            "ragitect.api.v1.chat.embed_text",
-            return_value=[0.1] * 768,
-        )
-
-        # Mock VectorRepository to capture arguments
-        from ragitect.services.database.models import DocumentChunk
-
-        mock_chunk = mocker.MagicMock(spec=DocumentChunk)
-        mock_chunk.content = "Test chunk content"
-        mock_chunk.document_id = uuid.uuid4()
-        mock_chunk.chunk_index = 0
-
-        mock_vector_repo = mocker.AsyncMock()
-        mock_vector_repo.search_similar_chunks.return_value = [(mock_chunk, 0.5)]
-
-        mocker.patch(
-            "ragitect.api.v1.chat.VectorRepository",
-            return_value=mock_vector_repo,
-        )
-
-        # Mock DocumentRepository
-        mock_doc_repo = mocker.AsyncMock()
-        mock_doc_repo.get_by_id.return_value = None
-        mocker.patch(
-            "ragitect.api.v1.chat.DocumentRepository",
-            return_value=mock_doc_repo,
-        )
-
-        # Mock query_with_iterative_fallback to call the vector_search_fn callback
-        async def mock_iterative_fallback(llm, query, chat_history, vector_search_fn):
-            await vector_search_fn(query)
-            return (
-                ["Test content"],
-                {
-                    "final_query": query,
-                    "classification": "simple",
-                    "used_reformulation": False,
-                },
-            )
-
-        mocker.patch(
-            "ragitect.api.v1.chat.query_with_iterative_fallback",
-            side_effect=mock_iterative_fallback,
-        )
-
-        # Call retrieve_context with default initial_k (uses RETRIEVAL_INITIAL_K)
-        await retrieve_context(
-            session=mock_session,
-            workspace_id=workspace_id,
-            query="Test query",
-            chat_history=[],
-        )
-
-        # Verify search_similar_chunks was called with RETRIEVAL_INITIAL_K (over-retrieval)
-        from ragitect.services.config import RETRIEVAL_INITIAL_K
-
-        mock_vector_repo.search_similar_chunks.assert_called_once()
-        call_args = mock_vector_repo.search_similar_chunks.call_args
-        assert call_args.kwargs.get("k") == RETRIEVAL_INITIAL_K
-
-    async def test_retrieve_context_includes_chunk_label(self, mocker):
-        """Test that retrieve_context adds chunk_label to results (AC4)."""
-        from ragitect.api.v1.chat import retrieve_context
-
-        workspace_id = uuid.uuid4()
-        mock_session = mocker.AsyncMock()
-
-        # Mock LLM
-        mock_llm = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_llm_with_provider",
-            return_value=mock_llm,
-        )
-
-        # Mock embedding config
-        mocker.patch(
-            "ragitect.api.v1.chat.get_active_embedding_config",
-            return_value=None,
-        )
-
-        # Mock embedding model
-        mocker.patch(
-            "ragitect.api.v1.chat.create_embeddings_model",
-            return_value=mocker.MagicMock(),
-        )
-        mocker.patch(
-            "ragitect.api.v1.chat.embed_text",
-            return_value=[0.1] * 768,
-        )
-
-        # Mock VectorRepository
-        from ragitect.services.database.models import DocumentChunk
-
-        mock_chunk1 = mocker.MagicMock(spec=DocumentChunk)
-        mock_chunk1.content = "First chunk"
-        mock_chunk1.document_id = uuid.uuid4()
-        mock_chunk1.chunk_index = 0
-
-        mock_chunk2 = mocker.MagicMock(spec=DocumentChunk)
-        mock_chunk2.content = "Second chunk"
-        mock_chunk2.document_id = uuid.uuid4()
-        mock_chunk2.chunk_index = 1
-
-        mock_vector_repo = mocker.AsyncMock()
-        mock_vector_repo.search_similar_chunks.return_value = [
-            (mock_chunk1, 0.3),
-            (mock_chunk2, 0.4),
-        ]
-
-        mocker.patch(
-            "ragitect.api.v1.chat.VectorRepository",
-            return_value=mock_vector_repo,
-        )
-
-        # Mock DocumentRepository
-        mock_doc_repo = mocker.AsyncMock()
-        mock_doc_repo.get_by_id.return_value = None
-        mocker.patch(
-            "ragitect.api.v1.chat.DocumentRepository",
-            return_value=mock_doc_repo,
-        )
-
-        # Mock query_with_iterative_fallback to call the vector_search_fn callback
-        async def mock_iterative_fallback(llm, query, chat_history, vector_search_fn):
-            await vector_search_fn(query)
-            return (
-                ["First chunk", "Second chunk"],
-                {
-                    "final_query": query,
-                    "classification": "simple",
-                    "used_reformulation": False,
-                },
-            )
-
-        mocker.patch(
-            "ragitect.api.v1.chat.query_with_iterative_fallback",
-            side_effect=mock_iterative_fallback,
-        )
-
-        results = await retrieve_context(
-            session=mock_session,
-            workspace_id=workspace_id,
-            query="Test query",
-            chat_history=[],
-        )
-
-        # Verify chunk_label is included in results
-        assert len(results) == 2
-        # Should have chunk label (1-based)
-        assert results[0]["chunk_label"] == "Chunk 1"
-        assert results[1]["chunk_label"] == "Chunk 2"
-
-
-class TestPromptEnhancements:
-    """Tests for prompt structure and citation format."""
-
-    def test_build_rag_prompt_uses_xml_structure(self, mocker):
-        """Test prompt uses XML structure for context isolation (AC3)."""
-        from ragitect.api.v1.chat import build_rag_prompt
-
-        context_chunks = [
-            {
-                "content": "Python is a programming language.",
-                "document_name": "python.txt",
-                "similarity": 0.85,
-                "chunk_label": "Chunk 1",
-            }
-        ]
-
-        messages = build_rag_prompt("What is Python?", context_chunks, [])
-
-        system_message = messages[0].content
-        assert "<system_instructions>" in system_message
-        assert "</system_instructions>" in system_message
-        assert "<documents>" in system_message
-        assert "</documents>" in system_message
-        # Note: user_query is intentionally NOT in system prompt per review feedback
-        # Query comes only as final HumanMessage to respect semantic causal flow
-        assert "<user_query>" not in system_message
-
-    def test_build_rag_prompt_includes_negative_constraints(self, mocker):
-        """Test prompt includes negative constraints to prevent hallucination (AC3)."""
-        from ragitect.api.v1.chat import build_rag_prompt
-
-        context_chunks = [
-            {
-                "content": "FastAPI docs.",
-                "document_name": "fastapi.txt",
-                "similarity": 0.9,
-                "chunk_label": "Chunk 1",
-            }
-        ]
-
-        messages = build_rag_prompt("What is FastAPI?", context_chunks, [])
-
-        system_message = messages[0].content
-        # Should contain negative constraints
-        assert "DO NOT" in system_message or "do not" in system_message.lower()
-        assert (
-            "fabricate" in system_message.lower()
-            or "outside knowledge" in system_message.lower()
-        )
-
-    def test_build_rag_prompt_includes_refusal_protocol(self, mocker):
-        """Test prompt specifies refusal protocol for out-of-context questions (AC3)."""
-        from ragitect.api.v1.chat import build_rag_prompt
-
-        context_chunks = [
-            {
-                "content": "Some content",
-                "document_name": "doc.txt",
-                "similarity": 0.8,
-                "chunk_label": "Chunk 1",
-            }
-        ]
-
-        messages = build_rag_prompt("Random question", context_chunks, [])
-
-        system_message = messages[0].content
-        # Should contain refusal instruction
-        assert (
-            "cannot find" in system_message.lower() or "I cannot find" in system_message
-        )
-
-    def test_build_rag_prompt_uses_xml_document_format(self, mocker):
-        """Test context chunks are formatted as XML documents with index attribute (AC4)."""
-        from ragitect.api.v1.chat import build_rag_prompt
-
-        context_chunks = [
-            {
-                "content": "First chunk content",
-                "document_name": "doc1.txt",
-                "similarity": 0.9,
-                "chunk_label": "Chunk 1",
-            },
-            {
-                "content": "Second chunk content",
-                "document_name": "doc2.txt",
-                "similarity": 0.85,
-                "chunk_label": "Chunk 2",
-            },
-        ]
-
-        messages = build_rag_prompt("Query", context_chunks, [])
-
-        system_message = messages[0].content
-        # Should use XML format, not [Chunk N]
-        assert '<document index="1">' in system_message
-        assert '<document index="2">' in system_message
-        assert "<source>doc1.txt</source>" in system_message
-        assert "<source>doc2.txt</source>" in system_message
-        assert "<content>" in system_message
-        # Old format should not be present
-        assert "[Chunk 1]" not in system_message
-        assert "[Chunk 2]" not in system_message
-
-    def test_build_rag_prompt_hides_similarity_scores(self, mocker):
-        """Test that similarity scores are hidden from LLM context to prevent bias (AC4)."""
-        from ragitect.api.v1.chat import build_rag_prompt
-
-        context_chunks = [
-            {
-                "content": "Content here",
-                "document_name": "test.txt",
-                "similarity": 0.87,
-                "chunk_label": "Chunk 1",
-            }
-        ]
-
-        messages = build_rag_prompt("Query", context_chunks, [])
-
-        system_message = messages[0].content
-        # Similarity should NOT be included (intentionally hidden to prevent LLM bias)
-        assert "0.87" not in system_message
-        assert "Similarity" not in system_message
-        # Should still include document source
-        assert "<source>test.txt</source>" in system_message
-
-    def test_build_rag_prompt_includes_citation_rules(self, mocker):
-        """Test prompt includes citation rules for [N] format (AC4)."""
-        from ragitect.api.v1.chat import build_rag_prompt
-
-        context_chunks = [
-            {
-                "content": "Test content",
-                "document_name": "doc.txt",
-                "similarity": 0.8,
-                "chunk_label": "Chunk 1",
-            }
-        ]
-
-        messages = build_rag_prompt("Test query", context_chunks, [])
-
-        system_message = messages[0].content
-        # Should contain citation instruction
-        assert "[N]" in system_message or "cite" in system_message.lower()
-
-
-class TestRetrievalLogging:
-    """Tests for retrieval logging and observability."""
-
-    async def test_retrieval_logs_score_distribution(self, mocker, caplog):
-        """Test that retrieval logs similarity score distribution (AC5, AC6)."""
-        import logging
-
-        from ragitect.api.v1.chat import retrieve_context
-
-        workspace_id = uuid.uuid4()
-        mock_session = mocker.AsyncMock()
-
-        # Mock LLM
-        mock_llm = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_llm_with_provider",
-            return_value=mock_llm,
-        )
-
-        # Mock embedding config
-        mocker.patch(
-            "ragitect.api.v1.chat.get_active_embedding_config",
-            return_value=None,
-        )
-
-        # Mock embedding model
-        mocker.patch(
-            "ragitect.api.v1.chat.create_embeddings_model",
-            return_value=mocker.MagicMock(),
-        )
-        mocker.patch(
-            "ragitect.api.v1.chat.embed_text",
-            return_value=[0.1] * 768,
-        )
-
-        # Create multiple mock chunks with different distances
-        from ragitect.services.database.models import DocumentChunk
-
-        mock_chunks = []
-        for i, distance in enumerate([0.2, 0.4, 0.6]):
-            mock_chunk = mocker.MagicMock(spec=DocumentChunk)
-            mock_chunk.content = f"Chunk {i} content"
-            mock_chunk.document_id = uuid.uuid4()
-            mock_chunk.chunk_index = i
-            mock_chunk.embedding = [0.1] * 768  # Mock embedding for MMR
-            mock_chunks.append((mock_chunk, distance))
-
-        mock_vector_repo = mocker.AsyncMock()
-        mock_vector_repo.search_similar_chunks.return_value = mock_chunks
-
-        mocker.patch(
-            "ragitect.api.v1.chat.VectorRepository",
-            return_value=mock_vector_repo,
-        )
-
-        # Mock DocumentRepository
-        mock_doc_repo = mocker.AsyncMock()
-        mock_doc_repo.get_by_id.return_value = None
-        mocker.patch(
-            "ragitect.api.v1.chat.DocumentRepository",
-            return_value=mock_doc_repo,
-        )
-
-        # Mock query_with_iterative_fallback to call the vector_search_fn callback
-        async def mock_iterative_fallback(llm, query, chat_history, vector_search_fn):
-            await vector_search_fn(query)
-            return (
-                ["Chunk 0 content"],
-                {
-                    "final_query": query,
-                    "classification": "simple",
-                    "used_reformulation": False,
-                },
-            )
-
-        mocker.patch(
-            "ragitect.api.v1.chat.query_with_iterative_fallback",
-            side_effect=mock_iterative_fallback,
-        )
-
-        with caplog.at_level(logging.INFO, logger="ragitect.api.v1.chat"):
-            await retrieve_context(
-                session=mock_session,
-                workspace_id=workspace_id,
-                query="Test query",
-                chat_history=[],
-            )
-
-        # Check that initial retrieval stats were logged (AC6)
-        log_text = caplog.text
-        assert "Initial retrieval" in log_text
-        assert "chunks" in log_text
-        assert "similarity" in log_text.lower()
 
 
 class TestCitationStreaming:
@@ -1529,7 +998,7 @@ class TestCitationStreaming:
 
         # Mock retrieve_context with context that should be cited
         mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
+            "ragitect.api.v1.chat.retrieve_context_with_graph",
             return_value=[
                 {
                     "content": "Python is a powerful programming language.",
@@ -1570,168 +1039,3 @@ class TestCitationStreaming:
         assert "source-document" in content
         assert "cite-1" in content
         assert "python-intro.pdf" in content
-
-
-class TestLangGraphRetrieval:
-    """Tests for LangGraph-based retrieval pipeline"""
-
-    async def test_langgraph_retrieval_flag_uses_graph_based_retrieval(
-        self, async_client, mocker
-    ):
-        """Test that USE_LANGGRAPH_RETRIEVAL=true uses graph-based retrieval."""
-        workspace_id = uuid.uuid4()
-        now = datetime.now(timezone.utc)
-
-        from ragitect.services.database.models import Workspace
-
-        mock_workspace = Workspace(id=workspace_id, name="Test")
-        mock_workspace.created_at = now
-        mock_workspace.updated_at = now
-
-        mock_ws_repo = mocker.AsyncMock()
-        mock_ws_repo.get_by_id.return_value = mock_workspace
-
-        mocker.patch(
-            "ragitect.api.v1.chat.WorkspaceRepository",
-            return_value=mock_ws_repo,
-        )
-
-        mock_doc_repo = mocker.AsyncMock()
-        mock_doc_repo.get_by_workspace_count.return_value = 5
-
-        mocker.patch(
-            "ragitect.api.v1.chat.DocumentRepository",
-            return_value=mock_doc_repo,
-        )
-
-        # Enable LangGraph retrieval
-        mocker.patch("ragitect.api.v1.chat.USE_LANGGRAPH_RETRIEVAL", True)
-
-        # Track which retrieval function is called
-        mock_retrieve_context = mocker.AsyncMock(return_value=[])
-        mock_retrieve_with_graph = mocker.AsyncMock(
-            return_value=[
-                {
-                    "content": "Graph-based retrieval content",
-                    "document_name": "graph-doc.pdf",
-                    "chunk_index": 0,
-                    "similarity": 0.9,
-                    "chunk_label": "Chunk 1",
-                }
-            ]
-        )
-
-        mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
-            mock_retrieve_context,
-        )
-        mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context_with_graph",
-            mock_retrieve_with_graph,
-        )
-
-        async def mock_stream(llm, messages):
-            yield "Test response"
-
-        mocker.patch(
-            "ragitect.api.v1.chat.generate_response_stream",
-            side_effect=mock_stream,
-        )
-
-        mock_llm = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_llm_with_provider",
-            return_value=mock_llm,
-        )
-
-        response = await async_client.post(
-            f"/api/v1/workspaces/{workspace_id}/chat/stream",
-            json={"message": "Test query"},
-        )
-
-        assert response.status_code == 200
-
-        # Graph-based retrieval should be called
-        mock_retrieve_with_graph.assert_called_once()
-        # Legacy retrieval should NOT be called
-        mock_retrieve_context.assert_not_called()
-
-    async def test_langgraph_retrieval_disabled_uses_legacy_retrieval(
-        self, async_client, mocker
-    ):
-        """Test that USE_LANGGRAPH_RETRIEVAL=false uses legacy retrieval."""
-        workspace_id = uuid.uuid4()
-        now = datetime.now(timezone.utc)
-
-        from ragitect.services.database.models import Workspace
-
-        mock_workspace = Workspace(id=workspace_id, name="Test")
-        mock_workspace.created_at = now
-        mock_workspace.updated_at = now
-
-        mock_ws_repo = mocker.AsyncMock()
-        mock_ws_repo.get_by_id.return_value = mock_workspace
-
-        mocker.patch(
-            "ragitect.api.v1.chat.WorkspaceRepository",
-            return_value=mock_ws_repo,
-        )
-
-        mock_doc_repo = mocker.AsyncMock()
-        mock_doc_repo.get_by_workspace_count.return_value = 5
-
-        mocker.patch(
-            "ragitect.api.v1.chat.DocumentRepository",
-            return_value=mock_doc_repo,
-        )
-
-        # Disable LangGraph retrieval (default)
-        mocker.patch("ragitect.api.v1.chat.USE_LANGGRAPH_RETRIEVAL", False)
-
-        mock_retrieve_context = mocker.AsyncMock(
-            return_value=[
-                {
-                    "content": "Legacy retrieval content",
-                    "document_name": "legacy-doc.pdf",
-                    "chunk_index": 0,
-                    "similarity": 0.9,
-                    "chunk_label": "Chunk 1",
-                }
-            ]
-        )
-        mock_retrieve_with_graph = mocker.AsyncMock(return_value=[])
-
-        mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context",
-            mock_retrieve_context,
-        )
-        mocker.patch(
-            "ragitect.api.v1.chat.retrieve_context_with_graph",
-            mock_retrieve_with_graph,
-        )
-
-        async def mock_stream(llm, messages):
-            yield "Test response"
-
-        mocker.patch(
-            "ragitect.api.v1.chat.generate_response_stream",
-            side_effect=mock_stream,
-        )
-
-        mock_llm = mocker.MagicMock()
-        mocker.patch(
-            "ragitect.api.v1.chat.create_llm_with_provider",
-            return_value=mock_llm,
-        )
-
-        response = await async_client.post(
-            f"/api/v1/workspaces/{workspace_id}/chat/stream",
-            json={"message": "Test query"},
-        )
-
-        assert response.status_code == 200
-
-        # Legacy retrieval should be called
-        mock_retrieve_context.assert_called_once()
-        # Graph-based retrieval should NOT be called
-        mock_retrieve_with_graph.assert_not_called()

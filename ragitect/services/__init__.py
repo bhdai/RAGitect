@@ -45,11 +45,6 @@ from ragitect.services.llm_factory import (
     get_active_llm_config,
 )
 
-# Query service
-from ragitect.services.query_service import (
-    format_chat_history,
-    reformulate_query_with_chat_history,
-)
 
 __all__ = [
     # Document processing
@@ -71,9 +66,6 @@ __all__ = [
     "generate_response_with_prompt",
     "get_active_llm_config",
     "validate_llm_config",
-    # Query service
-    "format_chat_history",
-    "reformulate_query_with_chat_history",
     # Configuration
     "DATABASE_URL",
     "DB_ECHO",
