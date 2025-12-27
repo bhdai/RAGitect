@@ -17,6 +17,7 @@ dependencies = [
     "langchain-ollama>=1.0.1",
     "langchain-openai>=0.3.35",
     "langchain-text-splitters>=1.0.0",
+    "langgraph>=1.0.5",
     "litellm>=1.79.3",
     "pgvector>=0.4.1",
     "psycopg2-binary>=2.9.11",

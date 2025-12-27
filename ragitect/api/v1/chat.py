@@ -2,10 +2,15 @@
 
 This module provides the SSE streaming endpoint for chat functionality with
 full Retrieval-Augmented Generation (RAG) integration.
+
+Supports two retrieval modes:
+1. Legacy: Manual orchestration via retrieve_context()
+2. LangGraph: Agent-based pipeline via retrieve_context_with_graph()
 """
 
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -18,6 +23,8 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ragitect.agents.rag import build_rag_graph
+from ragitect.agents.rag.state import RAGState
 from ragitect.api.schemas.chat import Citation
 from ragitect.prompts.rag_prompts import build_rag_system_prompt
 from ragitect.services.adaptive_k import select_adaptive_k
@@ -47,6 +54,16 @@ from ragitect.services.llm_factory import create_llm_with_provider
 from ragitect.services.mmr import mmr_select
 from ragitect.services.query_service import query_with_iterative_fallback
 from ragitect.services.reranker import rerank_chunks
+
+# Feature flag for LangGraph-based retrieval
+USE_LANGGRAPH_RETRIEVAL = (
+    os.environ.get("USE_LANGGRAPH_RETRIEVAL", "false").lower() == "true"
+)
+
+# Compile graph once at module level (performance optimization)
+# Graph compilation is expensive - do it once, reuse across requests
+# Dependencies (vector_repo, embed_fn) injected via state at runtime
+_RAG_GRAPH = build_rag_graph(retrieval_only=True)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +105,7 @@ async def format_sse_stream(
     Yields:
         SSE formatted strings following Data Stream Protocol
     """
-    import uuid
+    # import uuid (removed redundant import)
 
     message_id = str(uuid.uuid4())
     text_id = str(uuid.uuid4())
@@ -286,7 +303,7 @@ async def empty_workspace_response() -> AsyncGenerator[str, None]:
     Yields:
         SSE formatted message following Data Stream Protocol
     """
-    import uuid
+    # import uuid (removed redundant import)
 
     message = (
         "I don't have any documents to search in this workspace. "
@@ -494,6 +511,142 @@ async def retrieve_context(
     return results
 
 
+async def retrieve_context_with_graph(
+    session: AsyncSession,
+    workspace_id: UUID,
+    query: str,
+    chat_history: list[dict[str, str]],
+    provider: str | None = None,
+) -> list[dict]:
+    """Retrieve relevant context chunks using LangGraph-based pipeline
+
+    This function uses the pre-compiled LangGraph StateGraph for intelligent query
+    decomposition and parallel search execution:
+    1. generate_strategy: Decompose query into 1-5 search terms
+    2. search_and_rank: Parallel retrieval with reranking, MMR, adaptive-K
+    3. merge_context: Deduplicate and re-rank aggregated results
+
+    Performance: Graph is compiled once at module level. Request-scoped
+    dependencies (vector_repo, embed_fn) are injected via state at runtime.
+
+    Args:
+        session: Database session
+        workspace_id: Workspace to search
+        query: User query
+        chat_history: Previous conversation for context
+        provider: Optional provider override for LLM
+
+    Returns:
+        List of chunks with content and metadata
+    """
+    # Get embedding configuration and create model
+    embedding_config = await get_active_embedding_config(session)
+
+    if embedding_config:
+        config = EmbeddingConfig(
+            provider=embedding_config.provider_name,
+            model=embedding_config.model_name or "nomic-embed-text",
+            base_url=embedding_config.config_data.get("base_url"),
+            api_key=embedding_config.config_data.get("api_key"),
+            dimension=embedding_config.config_data.get("dimension", 768),
+        )
+    else:
+        config = EmbeddingConfig()
+
+    embedding_model = create_embeddings_model(config)
+
+    # Create async embedding function for graph
+    async def embed_fn(text: str) -> list[float]:
+        return await embed_text(embedding_model, text)
+
+    # Create vector repository
+    vector_repo = VectorRepository(session)
+
+    # Create LLM with provider for graph nodes
+    # This ensures generate_strategy uses the requested provider (e.g. Ollama)
+    llm = await create_llm_with_provider(session, provider=provider)
+
+    # Convert chat history to LangChain messages
+    messages = []
+    for msg in chat_history:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        if role == "user":
+            messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            messages.append(AIMessage(content=content))
+
+    # Build initial state with dependencies injected
+    initial_state: RAGState = {
+        "messages": messages,
+        "original_query": query,
+        "final_query": None,
+        "strategy": None,
+        "context_chunks": [],
+        "citations": [],
+        "llm_calls": 0,
+        "workspace_id": str(workspace_id),
+        # Runtime dependency injection (avoiding per-request graph compilation)
+        "vector_repo": vector_repo,
+        "embed_fn": embed_fn,
+        "llm": llm,
+    }
+
+    # Execute pre-compiled graph (strategy → search → merge, stops before generate_answer)
+    # Uses module-level _RAG_GRAPH compiled once at import time
+    result = await _RAG_GRAPH.ainvoke(initial_state)
+
+    # Extract context chunks from result
+    context_chunks = result.get("context_chunks", [])
+    strategy = result.get("strategy")
+
+    if strategy:
+        search_terms = [s.term for s in strategy.searches]
+        logger.info(
+            "LangGraph retrieval: %d search terms generated: %s",
+            len(strategy.searches),
+            search_terms,
+        )
+        logger.info(
+            "LangGraph retrieval: %d chunks retrieved after merge",
+            len(context_chunks),
+        )
+    else:
+        logger.warning("LangGraph retrieval: No strategy generated")
+
+    # Format chunks for prompt (match existing retrieve_context format)
+    doc_repo = DocumentRepository(session)
+    results = []
+    for i, chunk in enumerate(context_chunks):
+        # Try to get document name from chunk or load from DB
+        document_name = chunk.get("title", "Unknown")
+        if document_name == "Unknown" and chunk.get("document_id"):
+            try:
+                doc = await doc_repo.get_by_id(UUID(chunk["document_id"]))
+                if doc:
+                    document_name = doc.file_name
+            except (ValueError, TypeError):
+                pass
+
+        chunk_copy = {
+            "content": chunk.get("content", ""),
+            "document_name": document_name,
+            "document_id": chunk.get("document_id", ""),
+            "chunk_index": chunk.get("chunk_index", i),
+            "similarity": chunk.get("score", 0.0),
+            "rerank_score": chunk.get("rerank_score"),
+            "chunk_label": f"Chunk {i + 1}",
+        }
+        results.append(chunk_copy)
+
+    logger.info(
+        "LangGraph pipeline complete: %d context chunks, %d LLM calls",
+        len(results),
+        result.get("llm_calls", 0),
+    )
+    return results
+
+
 def build_rag_prompt(
     user_query: str,
     context_chunks: list[dict],
@@ -584,14 +737,25 @@ async def chat_stream(
         )
 
     # Retrieve context from documents (AC2)
-    # Pass provider override to use consistent LLM for query processing
-    context_chunks = await retrieve_context(
-        session,
-        workspace_id,
-        request.message,
-        request.chat_history,
-        provider=request.provider,
-    )
+    # Use LangGraph-based pipeline if enabled, otherwise legacy manual orchestration
+    if USE_LANGGRAPH_RETRIEVAL:
+        logger.info("Using LangGraph-based retrieval pipeline")
+        context_chunks = await retrieve_context_with_graph(
+            session,
+            workspace_id,
+            request.message,
+            request.chat_history,
+            provider=request.provider,
+        )
+    else:
+        # Legacy: Pass provider override to use consistent LLM for query processing
+        context_chunks = await retrieve_context(
+            session,
+            workspace_id,
+            request.message,
+            request.chat_history,
+            provider=request.provider,
+        )
 
     # Build citation metadata from context chunks
     citations = build_citation_metadata(context_chunks)

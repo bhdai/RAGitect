@@ -125,7 +125,7 @@ def mmr_select(
         selected_indices.append(best_idx)
         remaining_indices.remove(best_idx)
 
-    logger.debug(
+    logger.info(
         f"MMR selected {len(selected_indices)} chunks from {len(chunks)} "
         f"(lambda={lambda_param})"
     )
