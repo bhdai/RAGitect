@@ -112,8 +112,14 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
   });
 
   const isLoading = status === 'streaming' || status === 'submitted';
-  // Only show thinking indicator when submitted but not yet streaming
-  const showThinkingIndicator = status === 'submitted';
+
+  // Show shimmer during 'submitted' OR 'streaming' until we have actual text content
+  // This prevents the frozen feeling during node-level streaming where there's a gap
+  // between when streaming starts and when the first text-delta event arrives
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const hasAssistantTextContent = lastMessage?.role === 'assistant' &&
+    lastMessage.parts.some(p => p.type === 'text' && p.text && p.text.length > 0);
+  const showThinkingIndicator = (status === 'submitted' || status === 'streaming') && !hasAssistantTextContent;
 
   /**
    * Clear all chat messages (AC1)
@@ -166,43 +172,55 @@ export function ChatPanel({ workspaceId, onCitationClick }: ChatPanelProps) {
             />
           ) : (
             <div className="w-full max-w-3xl mx-auto px-4 pt-6 pb-24 space-y-6">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    'flex flex-col gap-1',
-                    message.role === 'user' ? 'items-end' : 'items-start'
-                  )}
-                >
-                  {/* Role label */}
-                  <span className="text-xs font-medium text-muted-foreground px-1">
-                    {message.role === 'user' ? 'You' : 'Assistant'}
-                  </span>
+              {messages
+                .filter((message) => {
+                  // Filter out empty assistant messages when shimmer is showing
+                  // This prevents showing both an empty message skeleton and shimmer
+                  if (message.role === 'assistant' && showThinkingIndicator) {
+                    const hasText = message.parts.some(
+                      (p) => p.type === 'text' && p.text && p.text.length > 0
+                    );
+                    return hasText; // Only show assistant message if it has text
+                  }
+                  return true; // Show all user messages and assistant messages with text
+                })
+                .map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      'flex flex-col gap-1',
+                      message.role === 'user' ? 'items-end' : 'items-start'
+                    )}
+                  >
+                    {/* Role label */}
+                    <span className="text-xs font-medium text-muted-foreground px-1">
+                      {message.role === 'user' ? 'You' : 'Assistant'}
+                    </span>
 
-                  {/* Message content - bubble for user, full width for assistant */}
-                  {message.role === 'user' ? (
-                    <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground rounded-br-md">
-                      {message.parts.map((part, idx) => {
-                        if (part.type === 'text') {
-                          return (
-                            <p key={idx} className="whitespace-pre-wrap text-sm">
-                              {part.text}
-                            </p>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                  ) : (
-                    <AssistantMessage
-                      message={message}
-                      onCitationClick={onCitationClick}
-                    />
-                  )}
-                </div>
-              ))}
+                    {/* Message content - bubble for user, full width for assistant */}
+                    {message.role === 'user' ? (
+                      <div className="max-w-[85%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground rounded-br-md">
+                        {message.parts.map((part, idx) => {
+                          if (part.type === 'text') {
+                            return (
+                              <p key={idx} className="whitespace-pre-wrap text-sm">
+                                {part.text}
+                              </p>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+                    ) : (
+                      <AssistantMessage
+                        message={message}
+                        onCitationClick={onCitationClick}
+                      />
+                    )}
+                  </div>
+                ))}
 
-              {/* Animated thinking indicator - only show before streaming starts */}
+              {/* Animated thinking indicator - show while waiting for text content */}
               {showThinkingIndicator && (
                 <div className="flex flex-col gap-1 items-start w-full" data-testid="thinking-indicator">
                   <span className="text-xs font-medium text-muted-foreground px-1">
