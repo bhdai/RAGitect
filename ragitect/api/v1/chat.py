@@ -11,9 +11,7 @@ The RAG pipeline uses intelligent query decomposition with parallel search execu
 
 import json
 import logging
-import os
 import re
-import time
 import uuid
 from collections.abc import AsyncGenerator
 from uuid import UUID
@@ -26,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ragitect.agents.rag import build_rag_graph
 from ragitect.agents.rag.state import RAGState
+from ragitect.agents.rag.streaming import LangGraphToAISDKAdapter
 from ragitect.api.schemas.chat import Citation
 from ragitect.prompts.rag_prompts import build_rag_system_prompt
 from ragitect.services.config import EmbeddingConfig
@@ -34,15 +33,21 @@ from ragitect.services.database.repositories.document_repo import DocumentReposi
 from ragitect.services.database.repositories.vector_repo import VectorRepository
 from ragitect.services.database.repositories.workspace_repo import WorkspaceRepository
 from ragitect.services.embedding import create_embeddings_model, embed_text
-from ragitect.services.llm import generate_response_stream
 from ragitect.services.llm_config_service import get_active_embedding_config
 from ragitect.services.llm_factory import create_llm_with_provider
 
 
-# Compile graph once at module level (performance optimization)
+# Compile graphs once at module level (performance optimization)
 # Graph compilation is expensive - do it once, reuse across requests
-# Dependencies (vector_repo, embed_fn) injected via state at runtime
-_RAG_GRAPH = build_rag_graph(retrieval_only=True)
+# Dependencies (vector_repo, embed_fn, llm) injected via state at runtime
+
+# Retrieval-only graph: For current non-streaming chat endpoint
+# Executes: generate_strategy → search_and_rank (parallel) → merge_context → END
+_RAG_GRAPH_RETRIEVAL_ONLY = build_rag_graph(retrieval_only=True)
+
+# Full graph: For streaming with LangGraphToAISDKAdapter
+# Executes: generate_strategy → search_and_rank (parallel) → merge_context → generate_answer → END
+_RAG_GRAPH_FULL = build_rag_graph(retrieval_only=False)
 
 logger = logging.getLogger(__name__)
 
@@ -374,6 +379,7 @@ async def retrieve_context_with_graph(
         "original_query": query,
         "final_query": None,
         "strategy": None,
+        "search_results": [],
         "context_chunks": [],
         "citations": [],
         "llm_calls": 0,
@@ -385,8 +391,8 @@ async def retrieve_context_with_graph(
     }
 
     # Execute pre-compiled graph (strategy → search → merge, stops before generate_answer)
-    # Uses module-level _RAG_GRAPH compiled once at import time
-    result = await _RAG_GRAPH.ainvoke(initial_state)
+    # Uses module-level _RAG_GRAPH_RETRIEVAL_ONLY compiled once at import time
+    result = await _RAG_GRAPH_RETRIEVAL_ONLY.ainvoke(initial_state)
 
     # Extract context chunks from result
     context_chunks = result.get("context_chunks", [])
@@ -529,24 +535,7 @@ async def chat_stream(
         )
 
     # Retrieve context from documents using LangGraph-based pipeline
-    logger.info("Using LangGraph-based retrieval pipeline")
-    context_chunks = await retrieve_context_with_graph(
-        session,
-        workspace_id,
-        request.message,
-        request.chat_history,
-        provider=request.provider,
-    )
-
-    # Build citation metadata from context chunks
-    citations = build_citation_metadata(context_chunks)
-
-    # Build RAG prompt with context (AC3)
-    messages = build_rag_prompt(
-        request.message,
-        context_chunks,
-        request.chat_history,
-    )
+    logger.info("Using LangGraph full pipeline with streaming adapter")
 
     # Get LLM with optional provider override
     try:
@@ -554,12 +543,65 @@ async def chat_stream(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Generate streaming response WITH citation detection
+    # Get active embedding configuration and model
+    embed_config_dto = await get_active_embedding_config(session)
+    if embed_config_dto is None:
+        # Use default config if no active config found
+        embed_config = EmbeddingConfig()
+    else:
+        # Convert DTO to EmbeddingConfig
+        embed_config = EmbeddingConfig(
+            provider=embed_config_dto.provider_name,
+            model=embed_config_dto.model_name or "all-MiniLM-L6-v2",
+            api_key=embed_config_dto.api_key,
+            base_url=embed_config_dto.base_url,
+            dimension=embed_config_dto.dimension,
+        )
+
+    embed_model = create_embeddings_model(embed_config)
+
+    async def embed_fn(text: str) -> list[float]:
+        """Embedding function for runtime dependency injection."""
+        return await embed_text(embed_model, text)
+
+    # Initialize vector repository
+    vector_repo = VectorRepository(session)
+
+    # Build chat history messages for LangGraph state
+    messages = []
+    for msg in request.chat_history:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        if role == "user":
+            messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            messages.append(AIMessage(content=content))
+
+    # Build initial state with all dependencies
+    initial_state: RAGState = {
+        "messages": messages,
+        "original_query": request.message,
+        "final_query": None,
+        "strategy": None,
+        "search_results": [],
+        "context_chunks": [],
+        "citations": [],
+        "llm_calls": 0,
+        "workspace_id": str(workspace_id),
+        # Runtime dependency injection
+        "vector_repo": vector_repo,
+        "embed_fn": embed_fn,
+        "llm": llm,
+    }
+
+    # Generate streaming response using LangGraphToAISDKAdapter
     async def generate():
-        """Generate SSE formatted stream with citations."""
-        chunks = generate_response_stream(llm, messages)
-        async for sse_chunk in format_sse_stream_with_citations(chunks, citations):
-            yield sse_chunk
+        """Generate SSE stream from full LangGraph execution."""
+        adapter = LangGraphToAISDKAdapter()
+        async for sse_event in adapter.transform_stream(
+            _RAG_GRAPH_FULL, dict(initial_state)
+        ):
+            yield sse_event
 
     return StreamingResponse(
         generate(),

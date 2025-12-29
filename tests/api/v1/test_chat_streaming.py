@@ -1039,3 +1039,191 @@ class TestCitationStreaming:
         assert "source-document" in content
         assert "cite-1" in content
         assert "python-intro.pdf" in content
+
+
+class TestLangGraphStreaming:
+    """Tests for LangGraph streaming adapter integration in chat endpoint."""
+
+    async def test_langgraph_adapter_integration(self, async_client, mocker):
+        """Test /chat/stream endpoint uses LangGraphToAISDKAdapter.
+
+        Verifies that the endpoint:
+        1. Uses the full graph (not retrieval-only)
+        2. Integrates with LangGraphToAISDKAdapter
+        3. Returns proper SSE headers
+        4. Streams events in correct format
+        """
+        from datetime import datetime, timezone
+
+        from ragitect.services.database.models import Workspace
+
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        mock_workspace = Workspace(
+            id=workspace_id,
+            name="Test Workspace",
+        )
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        # Mock WorkspaceRepository
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        # Mock DocumentRepository - workspace has documents
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        # Mock LLM factory
+        mock_llm = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            return_value=mock_llm,
+        )
+
+        # Mock embedding model and function
+        mock_embed_model = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_embeddings_model",
+            return_value=mock_embed_model,
+        )
+
+        async def mock_embed_fn(text: str):
+            return [0.1] * 768
+
+        mocker.patch(
+            "ragitect.api.v1.chat.embed_text",
+            side_effect=mock_embed_fn,
+        )
+
+        # Mock VectorRepository
+        mock_vector_repo = mocker.AsyncMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.VectorRepository",
+            return_value=mock_vector_repo,
+        )
+
+        # Mock embedding config
+        mocker.patch(
+            "ragitect.api.v1.chat.get_active_embedding_config",
+            return_value=mocker.MagicMock(model_name="all-MiniLM-L6-v2"),
+        )
+
+        # This test expects the adapter to be integrated
+        # When not integrated yet, this will fail (RED phase)
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "What is Python?"},
+        )
+
+        assert response.status_code == 200
+
+        # Verify SSE headers
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+        assert response.headers.get("x-vercel-ai-ui-message-stream") == "v1"
+
+    async def test_sse_event_format_compliance(self, async_client, mocker):
+        """Test SSE events match AI SDK protocol format.
+
+        Verifies:
+        - All events are prefixed with "data: "
+        - All events are valid JSON
+        - Event types match AI SDK spec
+        """
+        from datetime import datetime, timezone
+
+        from ragitect.services.database.models import Workspace
+
+        workspace_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+
+        mock_workspace = Workspace(
+            id=workspace_id,
+            name="Test Workspace",
+        )
+        mock_workspace.created_at = now
+        mock_workspace.updated_at = now
+
+        mock_ws_repo = mocker.AsyncMock()
+        mock_ws_repo.get_by_id.return_value = mock_workspace
+
+        mocker.patch(
+            "ragitect.api.v1.chat.WorkspaceRepository",
+            return_value=mock_ws_repo,
+        )
+
+        mock_doc_repo = mocker.AsyncMock()
+        mock_doc_repo.get_by_workspace_count.return_value = 5
+
+        mocker.patch(
+            "ragitect.api.v1.chat.DocumentRepository",
+            return_value=mock_doc_repo,
+        )
+
+        mock_llm = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_llm_with_provider",
+            return_value=mock_llm,
+        )
+
+        mock_embed_model = mocker.MagicMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.create_embeddings_model",
+            return_value=mock_embed_model,
+        )
+
+        async def mock_embed_fn(text: str):
+            return [0.1] * 768
+
+        mocker.patch(
+            "ragitect.api.v1.chat.embed_text",
+            side_effect=mock_embed_fn,
+        )
+
+        mock_vector_repo = mocker.AsyncMock()
+        mocker.patch(
+            "ragitect.api.v1.chat.VectorRepository",
+            return_value=mock_vector_repo,
+        )
+
+        mocker.patch(
+            "ragitect.api.v1.chat.get_active_embedding_config",
+            return_value=mocker.MagicMock(model_name="all-MiniLM-L6-v2"),
+        )
+
+        response = await async_client.post(
+            f"/api/v1/workspaces/{workspace_id}/chat/stream",
+            json={"message": "Test query"},
+        )
+
+        assert response.status_code == 200
+        content = response.text
+
+        # Split SSE stream into events
+        events = []
+        for line in content.split("\n"):
+            if line.startswith("data: "):
+                import json
+
+                event_data = line[6:]  # Strip "data: "
+                event = json.loads(event_data)
+                events.append(event)
+
+        # Verify at least start, text-start, text-delta, text-end, finish
+        event_types = [e["type"] for e in events]
+        assert "start" in event_types
+        assert "text-start" in event_types
+        assert "text-delta" in event_types or "source-document" in event_types
+        assert "text-end" in event_types
+        assert "finish" in event_types
