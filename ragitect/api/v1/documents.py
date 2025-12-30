@@ -1,13 +1,15 @@
 """Document API endpoints
 
 Provides REST API endpoints for document operations:
-- POST /api/v1/workspaces/{workspace_id}/documents - Upload documents
+- POST /api/v1/workspaces/{workspace_id}/documents - Upload documents (file)
+- POST /api/v1/workspaces/{workspace_id}/documents/upload-url - Upload documents (URL)
 - GET /api/v1/workspaces/{workspace_id}/documents - List documents
 - GET /api/v1/documents/{document_id} - Get document detail
 - DELETE /api/v1/documents/{document_id} - Delete document
 """
 
 import logging
+from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
 from fastapi import (
@@ -27,14 +29,20 @@ from ragitect.api.schemas.document import (
     DocumentStatusResponse,
     DocumentUploadResponse,
 )
+from ragitect.api.schemas.document_input import URLUploadInput, URLUploadResponse
 from ragitect.services.database.connection import get_async_session
-from ragitect.services.database.exceptions import NotFoundError
+from ragitect.services.database.exceptions import DuplicateError, NotFoundError
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 from ragitect.services.database.repositories.workspace_repo import WorkspaceRepository
 from ragitect.services.document_processing_service import DocumentProcessingService
 from ragitect.services.document_upload_service import DocumentUploadService
 from ragitect.services.exceptions import FileSizeExceededError
 from ragitect.services.processor.factory import UnsupportedFormatError
+from ragitect.services.validators.url_validator import (
+    InvalidURLSchemeError,
+    SSRFAttemptError,
+    URLValidator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +163,130 @@ async def upload_documents(
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/{workspace_id}/documents/upload-url",
+    response_model=URLUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Submit URL for document ingestion",
+    description="""Submit a URL for document ingestion. Supports web pages, YouTube videos, and PDF URLs.
+
+The URL is validated for security (SSRF prevention) and queued for background processing.
+Actual content fetching happens asynchronously (Story 5.5).
+
+**Security Notes:**
+- Only HTTP and HTTPS URLs are allowed
+- Private IPs and localhost are blocked for security reasons
+- Cloud metadata endpoints (169.254.x.x) are blocked
+""",
+)
+async def upload_url(
+    workspace_id: UUID,
+    input_data: URLUploadInput,
+    session: AsyncSession = Depends(get_async_session),
+) -> URLUploadResponse:
+    """Submit URL for document ingestion
+
+    Args:
+        workspace_id: Target workspace UUID
+        input_data: URL upload input with source_type and url
+        session: Database session (injected by FastAPI)
+
+    Returns:
+        URLUploadResponse with document ID and status
+
+    Raises:
+        HTTPException 404: If workspace not found
+        HTTPException 400: If URL validation fails (invalid scheme or SSRF attempt)
+        HTTPException 409: If URL already submitted for this workspace
+    """
+    source_url = str(input_data.url)
+    source_type = input_data.source_type
+
+    # Sanitize URL for storage/logging (strip userinfo and fragment)
+    split = urlsplit(source_url)
+    hostname = split.hostname or ""
+    port = f":{split.port}" if split.port else ""
+    host_for_netloc = hostname
+    if hostname and ":" in hostname and not hostname.startswith("["):
+        host_for_netloc = f"[{hostname}]"
+    sanitized_netloc = f"{host_for_netloc}{port}"
+    sanitized_url = urlunsplit(
+        (split.scheme, sanitized_netloc, split.path, split.query, "")
+    )
+    safe_log_url = f"{split.scheme}://{hostname}{port}{split.path or ''}"
+
+    logger.info(
+        "URL upload request: workspace=%s, type=%s, url=%s",
+        workspace_id,
+        source_type,
+        safe_log_url,
+    )
+
+    # Validate workspace exists
+    workspace_repo = WorkspaceRepository(session)
+    try:
+        _ = await workspace_repo.get_by_id_or_raise(workspace_id)
+    except NotFoundError as e:
+        logger.warning(f"Workspace not found: {workspace_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace not found: {workspace_id}",
+        ) from e
+
+    # Validate URL security (SSRF prevention)
+    url_validator = URLValidator()
+    try:
+        url_validator.validate_url(sanitized_url)
+    except InvalidURLSchemeError as e:
+        logger.warning("Invalid URL scheme blocked: %s", safe_log_url)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except SSRFAttemptError as e:
+        logger.warning("SSRF attempt blocked: %s", safe_log_url)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    # Create document placeholder (status="backlog")
+    document_repo = DocumentRepository(session)
+    try:
+        document = await document_repo.create_from_url(
+            workspace_id=workspace_id,
+            source_url=sanitized_url,
+            source_type=source_type,
+        )
+
+        # Commit transaction
+        await session.commit()
+
+        logger.info(
+            "URL submitted for ingestion: document_id=%s, url=%s",
+            document.id,
+            safe_log_url,
+        )
+
+        # NOTE: Background processing NOT triggered here (Story 5.5)
+        # Document will remain in "backlog" status until background task picks it up
+
+        return URLUploadResponse(
+            id=str(document.id),
+            source_type=source_type,
+            source_url=sanitized_url,
+            status="backlog",
+            message="URL submitted for ingestion. Processing will begin shortly.",
+        )
+
+    except DuplicateError as e:
+        logger.warning("Duplicate URL submission: %s", safe_log_url)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"URL already submitted for this workspace: {sanitized_url}",
         ) from e
 
 
