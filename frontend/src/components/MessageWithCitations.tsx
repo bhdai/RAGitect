@@ -130,6 +130,14 @@ function CitationBadge({
 /**
  * Process text to replace [cite: N] markers with citation badges
  * ADR-3.4.1: Uses [cite: N] format to avoid false positives with [N]
+ * 
+ * Citation Index Mapping:
+ * - LLM outputs: [cite: 1], [cite: 2], ..., [cite: N] (1-based, user-friendly)
+ * - Backend emits: cite-0, cite-1, ..., cite-(N-1) (0-based, internal)
+ * - Frontend displays: 1, 2, ..., N (1-based, user-friendly)
+ * 
+ * Example: For 9 chunks
+ * - LLM: [cite: 9] → citationId: cite-8 → Display: 9
  */
 function processTextWithCitations(
   text: string,
@@ -149,15 +157,20 @@ function processTextWithCitations(
       result.push(text.slice(lastIndex, match.index));
     }
 
-    const citationIndex = parseInt(match[1], 10);
-    const citationId = `cite-${citationIndex}`;
+    // Parse the 1-based citation number from LLM output (e.g., [cite: 9])
+    const llmCitationNumber = parseInt(match[1], 10);
+
+    // Convert to 0-based citation ID for lookup (e.g., cite-8)
+    // LLM uses 1-based: [cite: 1] through [cite: N]
+    // Backend emits 0-based: cite-0 through cite-(N-1)
+    const citationId = `cite-${llmCitationNumber - 1}`;
     const citation = citations[citationId];
 
     if (citation) {
       result.push(
         <CitationBadge
           key={`cite-${keyIndex++}`}
-          citationIndex={citationIndex}
+          citationIndex={llmCitationNumber}  // Display 1-based number to user
           citation={citation}
           onCitationClick={onCitationClick}
         />
@@ -166,7 +179,7 @@ function processTextWithCitations(
       // Graceful degradation for invalid citations
       result.push(
         <span key={`invalid-${keyIndex++}`} className="text-muted-foreground">
-          [{citationIndex}]
+          [{llmCitationNumber}]
         </span>
       );
     }
