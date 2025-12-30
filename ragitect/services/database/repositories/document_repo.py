@@ -1,13 +1,18 @@
 """Document repository for CRUD operations"""
 
-from sqlalchemy.ext.asyncio.session import AsyncSession
-from sqlalchemy.sql.functions import func
+import base64
+from datetime import UTC, datetime
+import hashlib
+import logging
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-import hashlib
-from typing import Any
-import logging
-from uuid import UUID
+from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.sql.functions import func
+
 from ragitect.services.database.exceptions import DuplicateError
 from ragitect.services.database.models import Document, DocumentChunk
 from ragitect.services.database.repositories.base import BaseRepository
@@ -348,9 +353,6 @@ class DocumentRepository(BaseRepository[Document]):
         Raises:
             DuplicateError: If document with same unique identifier exists
         """
-        import base64
-        from datetime import UTC, datetime
-
         content_hash = hashlib.sha256(file_bytes).hexdigest()
         unique_hash = hashlib.sha256(
             f"{workspace_id}:{file_name}:{datetime.now(UTC).isoformat()}".encode()
@@ -433,8 +435,6 @@ class DocumentRepository(BaseRepository[Document]):
             NotFoundError: If document doesn't exist
             ValueError: If file_bytes_b64 not found in metadata
         """
-        import base64
-
         document = await self.get_by_id_or_raise(document_id)
         metadata = document.metadata_ or {}
 
@@ -474,3 +474,77 @@ class DocumentRepository(BaseRepository[Document]):
             logger.info(f"Cleared file bytes for document {document_id}")
 
         return document
+
+    async def create_from_url(
+        self,
+        workspace_id: UUID,
+        source_url: str,
+        source_type: str,
+    ) -> Document:
+        """Create document placeholder from URL submission (Story 5.1)
+
+        Creates a document record with status="backlog" to indicate
+        the URL has been submitted but not yet fetched/processed.
+        Actual URL fetching happens in Story 5.5 background tasks.
+
+        Args:
+            workspace_id: Parent workspace UUID
+            source_url: The submitted URL (validated by caller)
+            source_type: Type of URL source ("url", "youtube", "pdf")
+
+        Returns:
+            Document: Created document instance with status="backlog"
+
+        Raises:
+            DuplicateError: If document with same URL already exists in workspace
+        """
+        # Generate file name from URL (use last path segment or domain)
+        parsed = urlparse(source_url)
+        path_segments = [s for s in parsed.path.split("/") if s]
+        if path_segments:
+            file_name = path_segments[-1]
+        else:
+            file_name = parsed.netloc
+
+        # Add source type prefix for clarity
+        if source_type == "youtube":
+            # Prefer YouTube video id when available
+            video_id = parse_qs(parsed.query or "").get("v", [""])[0]
+            if video_id:
+                file_name = f"[YouTube] {video_id}"
+            else:
+                file_name = f"[YouTube] {file_name}"
+        elif source_type == "pdf":
+            if not file_name.lower().endswith(".pdf"):
+                file_name = f"{file_name}.pdf"
+
+        # Hash based on URL for duplicate detection
+        # NOTE: unique_identifier_hash must be deterministic so re-submitting the same
+        # URL in the same workspace triggers the DB uniqueness constraint.
+        content_hash = hashlib.sha256(source_url.encode()).hexdigest()
+        unique_hash = hashlib.sha256(
+            f"url:{workspace_id}:{source_type}:{source_url}".encode()
+        ).hexdigest()
+
+        # Determine file type from source type
+        file_type_map = {
+            "url": "html",
+            "youtube": "youtube",
+            "pdf": "pdf",
+        }
+        file_type = file_type_map.get(source_type, "unknown")
+
+        return await self.create(
+            workspace_id=workspace_id,
+            file_name=file_name,
+            file_type=file_type,
+            content_hash=content_hash,
+            unique_identifier_hash=unique_hash,
+            processed_content=None,  # Not fetched yet
+            metadata={
+                "status": "backlog",  # Queued for fetching
+                "source_type": source_type,
+                "source_url": source_url,
+                "submitted_at": datetime.now(UTC).isoformat(),
+            },
+        )
