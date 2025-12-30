@@ -5,6 +5,7 @@ streaming events into Vercel AI SDK UI Message Stream Protocol v1 format.
 """
 
 import json
+import logging
 from typing import Any, AsyncIterator
 
 import pytest
@@ -305,3 +306,133 @@ class TestEventOrdering:
         )
 
         assert source_doc_idx < text_delta_idx, "Citations must appear before text"
+
+
+class TestCitationValidation:
+    """Test citation index validation for invalid references.
+
+    AC #4: Invalid citation indices should be logged as warnings and not crash.
+    """
+
+    async def test_build_citations_handles_empty_chunks(self):
+        """Test _build_citations_from_context handles empty list gracefully."""
+        from ragitect.agents.rag.streaming import LangGraphToAISDKAdapter
+
+        adapter = LangGraphToAISDKAdapter()
+
+        citations = adapter._build_citations_from_context([])
+
+        assert citations == []
+
+    async def test_build_citations_handles_missing_fields(self):
+        """Test _build_citations_from_context handles chunks with missing optional fields."""
+        from ragitect.agents.rag.streaming import LangGraphToAISDKAdapter
+
+        adapter = LangGraphToAISDKAdapter()
+
+        # Minimal chunk with only required fields missing
+        chunks = [
+            {
+                "content": "Some content",
+                # Missing: document_id, title, chunk_index, score
+            }
+        ]
+
+        citations = adapter._build_citations_from_context(chunks)
+
+        assert len(citations) == 1
+        assert citations[0].source_id == "cite-0"
+        # Should use defaults for missing fields
+        assert citations[0].title == "Unknown"
+
+    async def test_citation_indices_are_zero_based(self):
+        """Test that citation indices are 0-based (cite-0, cite-1, etc.)."""
+        from ragitect.agents.rag.streaming import LangGraphToAISDKAdapter
+
+        adapter = LangGraphToAISDKAdapter()
+
+        chunks = [
+            {
+                "content": "First",
+                "title": "doc1.pdf",
+                "document_id": "d1",
+                "chunk_index": 0,
+                "score": 0.9,
+            },
+            {
+                "content": "Second",
+                "title": "doc2.pdf",
+                "document_id": "d2",
+                "chunk_index": 1,
+                "score": 0.8,
+            },
+            {
+                "content": "Third",
+                "title": "doc3.pdf",
+                "document_id": "d3",
+                "chunk_index": 2,
+                "score": 0.7,
+            },
+        ]
+
+        citations = adapter._build_citations_from_context(chunks)
+
+        assert len(citations) == 3
+        assert citations[0].source_id == "cite-0"
+        assert citations[1].source_id == "cite-1"
+        assert citations[2].source_id == "cite-2"
+
+    async def test_citation_sse_format_matches_ai_sdk_protocol(self):
+        """Test that Citation.to_sse_dict() produces valid AI SDK source-document format."""
+        from ragitect.agents.rag.streaming import LangGraphToAISDKAdapter
+
+        adapter = LangGraphToAISDKAdapter()
+
+        chunks = [
+            {
+                "content": "Test content",
+                "title": "research.pdf",
+                "document_id": "doc-abc-123",
+                "chunk_index": 5,
+                "score": 0.95,
+            }
+        ]
+
+        citations = adapter._build_citations_from_context(chunks)
+        sse_dict = citations[0].to_sse_dict()
+
+        # Verify AI SDK source-document format
+        assert sse_dict["type"] == "source-document"
+        assert sse_dict["sourceId"] == "cite-0"
+        assert sse_dict["mediaType"] == "text/plain"
+        assert sse_dict["title"] == "research.pdf"
+
+        # Verify providerMetadata.ragitect structure
+        ragitect_meta = sse_dict["providerMetadata"]["ragitect"]
+        assert ragitect_meta["chunkIndex"] == 5
+        assert ragitect_meta["similarity"] == 0.95
+        assert ragitect_meta["preview"] == "Test content"
+        assert ragitect_meta["documentId"] == "doc-abc-123"
+
+    async def test_citation_uses_rerank_score_over_score(self):
+        """Test that rerank_score takes precedence over score when available."""
+        from ragitect.agents.rag.streaming import LangGraphToAISDKAdapter
+
+        adapter = LangGraphToAISDKAdapter()
+
+        chunks = [
+            {
+                "content": "Test",
+                "title": "doc.pdf",
+                "document_id": "d1",
+                "chunk_index": 0,
+                "score": 0.5,  # Original vector similarity
+                "rerank_score": 0.95,  # Reranker score should take precedence
+            }
+        ]
+
+        citations = adapter._build_citations_from_context(chunks)
+        sse_dict = citations[0].to_sse_dict()
+
+        # Should use rerank_score (0.95) not score (0.5)
+        assert sse_dict["providerMetadata"]["ragitect"]["similarity"] == 0.95

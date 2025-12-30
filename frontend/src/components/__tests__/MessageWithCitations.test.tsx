@@ -11,9 +11,11 @@ import { MessageWithCitations } from '../MessageWithCitations';
 import type { CitationMap } from '@/types/citation';
 
 describe('MessageWithCitations', () => {
+  // Mock data uses 0-based citation IDs to match backend format
+  // LLM outputs [cite: 1], [cite: 2] → Maps to cite-0, cite-1
   const mockCitations: CitationMap = {
-    'cite-1': {
-      id: 'cite-1',
+    'cite-0': {
+      id: 'cite-0',
       title: 'intro.pdf',
       mediaType: 'text/plain',
       chunkIndex: 0,
@@ -21,8 +23,8 @@ describe('MessageWithCitations', () => {
       preview: 'Python is a powerful programming language used worldwide...',
       documentId: 'doc-uuid-1',
     },
-    'cite-2': {
-      id: 'cite-2',
+    'cite-1': {
+      id: 'cite-1',
       title: 'advanced.pdf',
       mediaType: 'text/plain',
       chunkIndex: 5,
@@ -152,7 +154,7 @@ describe('MessageWithCitations', () => {
       const button = screen.getByRole('button');
       await user.click(button);
 
-      expect(handleClick).toHaveBeenCalledWith(mockCitations['cite-1']);
+      expect(handleClick).toHaveBeenCalledWith(mockCitations['cite-0']);
     });
   });
 

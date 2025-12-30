@@ -68,7 +68,7 @@ class LangGraphToAISDKAdapter:
        [cite: N] markers split across token chunks (20-char lookahead).
 
     Reference Implementation:
-    - See git history for CitationStreamParser (pre-Story 4.3)
+    - See git history for CitationStreamParser
     - Production examples: docs/research/2025-12-28-ENG-4.3-langgraph-streaming-adapter.md
 
     Example:
@@ -98,11 +98,38 @@ class LangGraphToAISDKAdapter:
     ) -> list[Citation]:
         """Build Citation objects from context chunks.
 
+        Node-Level Streaming Simplification:
+        ================================================
+        This method emits ALL context chunks as citations upfront, not just
+        the ones referenced in the LLM response. This is intentional because:
+
+        1. **No Buffer Needed**: Node-level streaming (stream_mode="updates")
+           provides complete text per node. Citation markers like [cite: 1]
+           are never split across chunks, unlike token-level streaming.
+
+        2. **Indexing Scheme**:
+           - Internal (Python): 0-based (enumerate index)
+           - LLM Prompt: 1-based ([Chunk 1], [Chunk 2] in context)
+           - SSE sourceId: 0-based (cite-0, cite-1)
+           - Frontend display: 1-based (Citation 1, 2, etc.)
+
+        3. **Frontend Compatibility**: AI SDK useChat() receives all source
+           documents before text-delta, enabling immediate citation rendering.
+
+        4. **Future Enhancement**: Detect only cited sources via regex:
+           ```python
+           pattern = re.compile(r"\\[cite:\\s*(\\d+)\\]")
+           for match in pattern.finditer(full_text):
+               cite_idx = int(match.group(1)) - 1  # 1-based to 0-based
+           ```
+           This would filter to only actually-cited sources.
+
         Args:
-            context_chunks: List of context chunk dicts from merge_context node
+            context_chunks: List of context chunk dicts from merge_context node.
+                Expected keys: document_id, title, chunk_index, score/rerank_score, content
 
         Returns:
-            List of Citation objects ready for streaming
+            List of Citation objects ready for streaming as source-document events.
         """
         citations = []
         for idx, chunk in enumerate(context_chunks):

@@ -23,7 +23,7 @@ pytestmark = pytest.mark.asyncio
 def setup_langgraph_streaming_mocks(mocker):
     """Setup common mocks for LangGraph streaming architecture.
 
-    After Story 4.3, the endpoint uses LangGraphToAISDKAdapter with full graph execution.
+    the endpoint uses LangGraphToAISDKAdapter with full graph execution.
     This helper mocks all required dependencies for the streaming pipeline.
 
     Args:
@@ -72,7 +72,7 @@ def setup_langgraph_streaming_mocks(mocker):
     mock_structured_llm = mocker.AsyncMock()
 
     # Mock strategy response for generate_strategy node
-    from ragitect.agents.rag.schemas import SearchStrategy, Search
+    from ragitect.agents.rag.schemas import Search, SearchStrategy
 
     mock_strategy = SearchStrategy(
         reasoning="Test analysis",
@@ -141,7 +141,7 @@ class TestChatStreamEndpoint:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         setup_langgraph_streaming_mocks(mocker)
 
         response = await async_client.post(
@@ -182,7 +182,7 @@ class TestChatStreamEndpoint:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         setup_langgraph_streaming_mocks(mocker)
 
         response = await async_client.post(
@@ -405,7 +405,7 @@ class TestChatRAGIntegration:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         setup_langgraph_streaming_mocks(mocker)
 
         response = await async_client.post(
@@ -443,7 +443,7 @@ class TestChatRAGIntegration:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         setup_langgraph_streaming_mocks(mocker)
 
         response = await async_client.post(
@@ -502,7 +502,7 @@ class TestChatProviderOverride:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         mocks = setup_langgraph_streaming_mocks(mocker)
 
         # Track which provider was requested
@@ -643,7 +643,7 @@ class TestChatProviderOverride:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         mocks = setup_langgraph_streaming_mocks(mocker)
 
         mock_create_llm = mocker.AsyncMock()
@@ -663,277 +663,6 @@ class TestChatProviderOverride:
         mock_create_llm.assert_called_once()
         call_kwargs = mock_create_llm.call_args.kwargs
         assert call_kwargs.get("provider") is None
-
-
-class TestCitationStreaming:
-    """Tests for citation detection and streaming."""
-
-    async def test_citation_parser_uses_cite_format(self):
-        """Test that CitationStreamParser uses [cite: N] format"""
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import CitationStreamParser
-
-        citations = [
-            Citation.from_context_chunk(1, "doc-id-1", "doc1.pdf", 0, 0.9, "Content 1"),
-            Citation.from_context_chunk(2, "doc-id-2", "doc2.pdf", 1, 0.8, "Content 2"),
-        ]
-
-        parser = CitationStreamParser(citations)
-
-        # Parse chunks with [cite: N] format
-        text1, found1 = parser.parse_chunk("Python is great[cite: 1] and ")
-        text2, found2 = parser.parse_chunk("versatile[cite: 2].")
-        remaining = parser.flush()
-
-        # Should find both citations with new format
-        assert len(found1) == 1
-        assert found1[0].source_id == "cite-1"
-        assert len(found2) == 1
-        assert found2[0].source_id == "cite-2"
-
-    async def test_citation_parser_ignores_old_bare_bracket_format(self):
-        """Test that parser does NOT match old [N] format"""
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import CitationStreamParser
-
-        citations = [
-            Citation.from_context_chunk(1, "doc-id-1", "doc1.pdf", 0, 0.9, "Content 1"),
-        ]
-
-        parser = CitationStreamParser(citations)
-
-        # Parse chunks with OLD bare [N] format - should NOT match
-        text1, found1 = parser.parse_chunk("Python is great[1] but this won't match.")
-        remaining = parser.flush()
-
-        # Should NOT find the citation with old format
-        assert len(found1) == 0
-
-    async def test_build_citation_metadata_creates_citations_from_chunks(self):
-        """Test that build_citation_metadata creates Citation objects from context chunks (AC1, AC2)."""
-        from ragitect.api.v1.chat import build_citation_metadata
-
-        context_chunks = [
-            {
-                "content": "Python is a programming language used for many applications.",
-                "document_name": "python-intro.pdf",
-                "chunk_index": 0,
-                "similarity": 0.95,
-            },
-            {
-                "content": "FastAPI is a modern web framework for building APIs.",
-                "document_name": "fastapi-docs.pdf",
-                "chunk_index": 3,
-                "rerank_score": 0.88,  # Should use rerank_score over similarity
-            },
-        ]
-
-        citations = build_citation_metadata(context_chunks)
-
-        assert len(citations) == 2
-        assert citations[0].source_id == "cite-1"
-        assert citations[0].title == "python-intro.pdf"
-        assert citations[1].source_id == "cite-2"
-        assert citations[1].title == "fastapi-docs.pdf"
-
-    async def test_citation_stream_parser_detects_markers(self):
-        """Test that CitationStreamParser detects [N] markers in text (AC1)."""
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import CitationStreamParser
-
-        citations = [
-            Citation.from_context_chunk(1, "doc-id-1", "doc1.pdf", 0, 0.9, "Content 1"),
-            Citation.from_context_chunk(2, "doc-id-2", "doc2.pdf", 1, 0.8, "Content 2"),
-        ]
-
-        parser = CitationStreamParser(citations)
-
-        # Parse chunks with citation markers using [cite: N] format
-        text1, found1 = parser.parse_chunk("Python is great[cite: 1] and ")
-        text2, found2 = parser.parse_chunk("versatile[cite: 2].")
-        remaining = parser.flush()
-
-        # Should find both citations
-        assert len(found1) == 1
-        assert found1[0].source_id == "cite-1"
-        assert len(found2) == 1
-        assert found2[0].source_id == "cite-2"
-
-    async def test_citation_stream_parser_handles_split_markers(self):
-        """Test that parser handles citation markers split across chunks (AC1)."""
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import CitationStreamParser
-
-        citations = [
-            Citation.from_context_chunk(1, "doc-id", "doc.pdf", 0, 0.9, "Content"),
-        ]
-
-        parser = CitationStreamParser(citations)
-
-        # Split "[cite: 1]" across chunks
-        text1, found1 = parser.parse_chunk("Hello [cite:")
-        text2, found2 = parser.parse_chunk(" 1] world")
-        remaining = parser.flush()
-
-        # Should eventually find the citation
-        all_citations = found1 + found2
-        assert len(all_citations) == 1
-        assert all_citations[0].source_id == "cite-1"
-
-    async def test_citation_stream_parser_ignores_invalid_citations(self, caplog):
-        """Test that parser logs warning for invalid citation indices (AC6 - hallucination handling)."""
-        import logging
-
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import CitationStreamParser
-
-        citations = [
-            Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
-        ]
-
-        parser = CitationStreamParser(citations)
-
-        with caplog.at_level(logging.WARNING, logger="ragitect.api.v1.chat"):
-            # Try to cite [cite: 99] which doesn't exist
-            text, found = parser.parse_chunk("Test [cite: 99] content")
-            remaining = parser.flush()
-
-        # Should not find any citations (invalid index)
-        assert len(found) == 0
-        # Should have logged a warning
-        assert "cited non-existent source" in caplog.text or "99" in caplog.text
-
-    async def test_citation_stream_emits_each_citation_once(self):
-        """Test that each citation is only emitted once even if marker appears multiple times."""
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import CitationStreamParser
-
-        citations = [
-            Citation.from_context_chunk(0, "doc-id", "doc.pdf", 0, 0.9, "Content"),
-        ]
-
-        parser = CitationStreamParser(citations)
-
-        # Same citation marker appears twice (using [cite: N] format)
-        assert len(citations) >= 1
-        # Test with [cite: 1] which maps to index 0
-        text1, found1 = parser.parse_chunk("First[cite: 1] and ")
-        text2, found2 = parser.parse_chunk("again[cite: 1].")
-        remaining = parser.flush()
-
-        # Should only emit once
-        total_found = len(found1) + len(found2)
-        assert total_found == 1
-
-    async def test_format_sse_stream_with_citations_emits_source_documents(self):
-        """Test that format_sse_stream_with_citations emits source-document events (AC1, AC2)."""
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import format_sse_stream_with_citations
-
-        citations = [
-            Citation.from_context_chunk(
-                1, "doc-uuid", "intro.pdf", 0, 0.95, "Python is..."
-            ),
-        ]
-
-        async def mock_chunks():
-            yield "Python"
-            yield " is great"
-            yield "[cite: 1]"
-            yield "."
-
-        events = []
-        async for event in format_sse_stream_with_citations(mock_chunks(), citations):
-            events.append(event)
-
-        # Should contain source-document event
-        source_doc_events = [e for e in events if "source-document" in e]
-        assert len(source_doc_events) >= 1
-
-        # Verify source-document contains expected fields
-        source_event = source_doc_events[0]
-        # Expect cite-1 because Citation.from_context_chunk will now create cite-1 if we mock correctly or if we pass explicit ID
-        # Wait, from_context_chunk uses index arg.
-        # If we pass index=1 manually:
-        assert "cite-1" in source_event
-        assert "intro.pdf" in source_event
-
-    async def test_format_sse_stream_with_citations_handles_zero_citations(
-        self, caplog
-    ):
-        """Test that stream works when LLM doesn't cite any sources (AC6)."""
-        import logging
-
-        from ragitect.api.schemas.chat import Citation
-        from ragitect.api.v1.chat import format_sse_stream_with_citations
-
-        # Citations available but LLM doesn't use them
-        citations = [
-            Citation.from_context_chunk(1, "doc-id", "doc.pdf", 0, 0.9, "Content"),
-        ]
-
-        async def mock_chunks():
-            yield "2 plus 2 equals 4."  # No citations
-
-        with caplog.at_level(logging.INFO, logger="ragitect.api.v1.chat"):
-            events = []
-            async for event in format_sse_stream_with_citations(
-                mock_chunks(), citations
-            ):
-                events.append(event)
-
-        # Should NOT contain source-document events
-        source_doc_events = [e for e in events if "source-document" in e]
-        assert len(source_doc_events) == 0
-
-        # Should have text-delta events
-        text_events = [e for e in events if "text-delta" in e]
-        assert len(text_events) >= 1
-
-        # Should log that no citations were used
-        assert "no citations" in caplog.text.lower()
-
-    async def test_chat_endpoint_emits_citation_metadata(self, async_client, mocker):
-        """Test that chat endpoint includes source-document events in stream (AC1, AC2)."""
-        workspace_id = uuid.uuid4()
-        now = datetime.now(timezone.utc)
-
-        from ragitect.services.database.models import Workspace
-
-        mock_workspace = Workspace(id=workspace_id, name="Test")
-        mock_workspace.created_at = now
-        mock_workspace.updated_at = now
-
-        mock_ws_repo = mocker.AsyncMock()
-        mock_ws_repo.get_by_id.return_value = mock_workspace
-
-        mocker.patch(
-            "ragitect.api.v1.chat.WorkspaceRepository",
-            return_value=mock_ws_repo,
-        )
-
-        mock_doc_repo = mocker.AsyncMock()
-        mock_doc_repo.get_by_workspace_count.return_value = 5
-
-        mocker.patch(
-            "ragitect.api.v1.chat.DocumentRepository",
-            return_value=mock_doc_repo,
-        )
-
-        # Setup LangGraph streaming mocks (Story 4.3)
-        setup_langgraph_streaming_mocks(mocker)
-
-        response = await async_client.post(
-            f"/api/v1/workspaces/{workspace_id}/chat/stream",
-            json={"message": "What is Python?"},
-        )
-
-        assert response.status_code == 200
-        content = response.text
-
-        # With LangGraph streaming, citations are handled by the adapter
-        # Just verify we got a valid SSE stream
-        assert "data:" in content
 
 
 class TestLangGraphStreaming:
@@ -980,7 +709,7 @@ class TestLangGraphStreaming:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         setup_langgraph_streaming_mocks(mocker)
 
         response = await async_client.post(
@@ -1032,7 +761,7 @@ class TestLangGraphStreaming:
             return_value=mock_doc_repo,
         )
 
-        # Setup LangGraph streaming mocks (Story 4.3)
+        # Setup LangGraph streaming mocks
         setup_langgraph_streaming_mocks(mocker)
 
         response = await async_client.post(
