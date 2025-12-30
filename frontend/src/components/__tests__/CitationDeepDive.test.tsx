@@ -53,13 +53,13 @@ describe('Citation Deep-Dive Integration', () => {
 
       render(
         <MessageWithCitations
-          content="The architecture is well documented [cite: 0]."
+          content="The architecture is well documented [cite: 1]."
           citations={mockCitations}
           onCitationClick={handleCitationClick}
         />
       );
 
-      const citationBadge = screen.getByRole('button', { name: /Citation 0/i });
+      const citationBadge = screen.getByRole('button', { name: /Citation 1/i });
       await user.click(citationBadge);
 
       expect(handleCitationClick).toHaveBeenCalledWith(mockCitations['cite-0']);
@@ -77,17 +77,18 @@ describe('Citation Deep-Dive Integration', () => {
 
       render(
         <MessageWithCitations
-          content="Check the deployment guide [cite: 1]."
+          content="Check the deployment guide [cite: 2]."
           citations={mockCitations}
           onCitationClick={handleCitationClick}
         />
       );
 
-      const citationBadge = screen.getByRole('button', { name: /Citation 1/i });
+      const citationBadge = screen.getByRole('button', { name: /Citation 2/i });
       await user.click(citationBadge);
 
       expect(receivedCitation).not.toBeNull();
       expect(receivedCitation!.documentId).toBe('doc-uuid-456');
+      expect(receivedCitation!.id).toBe('cite-1');
     });
   });
 
@@ -110,13 +111,13 @@ describe('Citation Deep-Dive Integration', () => {
 
       render(
         <MessageWithCitations
-          content="Check this [cite: 0]."
+          content="Check this [cite: 1]."
           citations={citationWithoutDocId}
           onCitationClick={handleCitationClick}
         />
       );
 
-      const citationBadge = screen.getByRole('button', { name: /Citation 0/i });
+      const citationBadge = screen.getByRole('button', { name: /Citation 1/i });
       await user.click(citationBadge);
 
       // The handler is called - workspace page validates and shows error
