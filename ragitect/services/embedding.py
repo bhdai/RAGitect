@@ -202,6 +202,7 @@ def create_embeddings_model(config: EmbeddingConfig | None = None) -> Embeddings
         return OpenAIEmbeddings(
             model=config.model,
             api_key=SecretStr(config.api_key),
+            dimensions=config.dimension,
         )
 
     elif provider == "vertex_ai":
