@@ -32,23 +32,10 @@ def setup_langgraph_streaming_mocks(mocker):
     Returns:
         dict with mock objects for assertions
     """
-    # Mock embedding config - required for both retrieval and streaming
-    mock_embed_config = mocker.MagicMock()
-    mock_embed_config.provider_name = "ollama"
-    mock_embed_config.model_name = "all-MiniLM-L6-v2"
-    mock_embed_config.api_key = None
-    mock_embed_config.base_url = None
-    mock_embed_config.dimension = 768
-
-    mocker.patch(
-        "ragitect.api.v1.chat.get_active_embedding_config",
-        return_value=mock_embed_config,
-    )
-
-    # Mock embedding model and embed function
+    # Mock embedding model - now using the DRY helper
     mock_embed_model = mocker.MagicMock()
     mocker.patch(
-        "ragitect.api.v1.chat.create_embeddings_model",
+        "ragitect.api.v1.chat.get_embedding_model_from_config",
         return_value=mock_embed_model,
     )
 
@@ -96,7 +83,6 @@ def setup_langgraph_streaming_mocks(mocker):
     )
 
     return {
-        "embed_config": mock_embed_config,
         "embed_model": mock_embed_model,
         "vector_repo": mock_vector_repo,
         "llm": mock_llm,
