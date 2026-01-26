@@ -104,8 +104,8 @@ class TestDocumentProcessingService:
                 mock_model = MagicMock()
                 mock_model.aembed_documents = AsyncMock(return_value=[[0.1] * 768])
                 with patch(
-                    "ragitect.services.document_processing_service.create_embeddings_model",
-                    return_value=mock_model,
+                    "ragitect.services.document_processing_service.get_embedding_model_from_config",
+                    new=AsyncMock(return_value=mock_model),
                 ):
                     with patch(
                         "ragitect.services.document_processing_service.embed_documents",
@@ -247,8 +247,11 @@ class TestDocumentProcessingService:
                 "ragitect.services.document_processing_service.split_document",
                 return_value=["Chunk"],
             ):
+                mock_model = MagicMock()
+                mock_model.aembed_documents = AsyncMock(return_value=[[0.1] * 768])
                 with patch(
-                    "ragitect.services.document_processing_service.create_embeddings_model"
+                    "ragitect.services.document_processing_service.get_embedding_model_from_config",
+                    new=AsyncMock(return_value=mock_model),
                 ):
                     with patch(
                         "ragitect.services.document_processing_service.embed_documents",

@@ -74,6 +74,99 @@ class TestEmbeddingModelInitialization:
             create_embeddings_model(config)
 
 
+class TestGetEmbeddingModelFromConfig:
+    """Tests for the get_embedding_model_from_config helper function."""
+
+    @pytest.fixture
+    def mock_session(self):
+        """Mock AsyncSession."""
+        return MagicMock()
+
+    @pytest.fixture
+    def mock_openai_config_dto(self):
+        """Mock OpenAI embedding configuration DTO."""
+        dto = MagicMock()
+        dto.provider_name = "openai"
+        dto.model_name = "text-embedding-3-small"
+        dto.base_url = None
+        dto.api_key = "sk-test-key-12345"
+        dto.dimension = 1536
+        return dto
+
+    @pytest.fixture
+    def mock_ollama_config_dto(self):
+        """Mock Ollama embedding configuration DTO."""
+        dto = MagicMock()
+        dto.provider_name = "ollama"
+        dto.model_name = "qwen3-embedding:0.6b"
+        dto.base_url = "http://localhost:11434"
+        dto.api_key = None
+        dto.dimension = 768
+        return dto
+
+    @pytest.mark.asyncio
+    async def test_get_embedding_model_with_openai_config(
+        self, mock_session, mock_openai_config_dto
+    ):
+        """Test helper returns OpenAI model when active config is OpenAI."""
+        from ragitect.services.embedding import get_embedding_model_from_config
+
+        with patch(
+            "ragitect.services.llm_config_service.get_active_embedding_config",
+            new=AsyncMock(return_value=mock_openai_config_dto),
+        ):
+            model = await get_embedding_model_from_config(mock_session)
+
+        # Should return an embeddings model (OpenAI)
+        assert model is not None
+        assert hasattr(model, "aembed_documents")
+
+    @pytest.mark.asyncio
+    async def test_get_embedding_model_with_ollama_config(
+        self, mock_session, mock_ollama_config_dto
+    ):
+        """Test helper returns Ollama model when active config is Ollama."""
+        from ragitect.services.embedding import get_embedding_model_from_config
+
+        with patch(
+            "ragitect.services.llm_config_service.get_active_embedding_config",
+            new=AsyncMock(return_value=mock_ollama_config_dto),
+        ):
+            model = await get_embedding_model_from_config(mock_session)
+
+        # Should return an embeddings model (Ollama)
+        assert model is not None
+        assert hasattr(model, "aembed_documents")
+
+    @pytest.mark.asyncio
+    async def test_get_embedding_model_with_no_active_config(self, mock_session):
+        """Test helper returns env-configured model when no active DB config."""
+        from ragitect.services.embedding import get_embedding_model_from_config
+        from ragitect.services.config import EmbeddingConfig
+
+        # Mock no DB config and mock env config to Ollama defaults
+        env_config = EmbeddingConfig(
+            provider="ollama",
+            model="qwen3-embedding:0.6b",
+            base_url="http://localhost:11434",
+            dimension=768,
+        )
+
+        with patch(
+            "ragitect.services.llm_config_service.get_active_embedding_config",
+            new=AsyncMock(return_value=None),
+        ):
+            with patch(
+                "ragitect.services.config.load_embedding_config",
+                return_value=env_config,
+            ):
+                model = await get_embedding_model_from_config(mock_session)
+
+        # Should return default embeddings model (Ollama)
+        assert model is not None
+        assert hasattr(model, "aembed_documents")
+
+
 class TestBatchEmbedding:
     """Tests for batch embedding generation."""
 
@@ -307,8 +400,8 @@ class TestDocumentProcessingServiceEmbedding:
                 )
 
                 with patch(
-                    "ragitect.services.document_processing_service.create_embeddings_model",
-                    return_value=mock_model,
+                    "ragitect.services.document_processing_service.get_embedding_model_from_config",
+                    new=AsyncMock(return_value=mock_model),
                 ):
                     with patch(
                         "ragitect.services.document_processing_service.embed_documents",
@@ -354,8 +447,11 @@ class TestDocumentProcessingServiceEmbedding:
                 "ragitect.services.document_processing_service.process_file_bytes",
                 return_value=("Text", {"file_type": ".txt"}),
             ):
+                mock_model = MagicMock()
+                mock_model.aembed_documents = AsyncMock(return_value=[[0.1] * 768])
                 with patch(
-                    "ragitect.services.document_processing_service.create_embeddings_model"
+                    "ragitect.services.document_processing_service.get_embedding_model_from_config",
+                    new=AsyncMock(return_value=mock_model),
                 ):
                     with patch(
                         "ragitect.services.document_processing_service.embed_documents",
@@ -403,8 +499,8 @@ class TestDocumentProcessingServiceEmbedding:
                 return_value=("Text", {"file_type": ".txt"}),
             ):
                 with patch(
-                    "ragitect.services.document_processing_service.create_embeddings_model",
-                    side_effect=Exception("Embedding model unavailable"),
+                    "ragitect.services.document_processing_service.get_embedding_model_from_config",
+                    new=AsyncMock(side_effect=Exception("Embedding model unavailable")),
                 ):
                     with pytest.raises(Exception, match="Embedding model unavailable"):
                         await service.process_document(sample_document.id)
@@ -437,8 +533,11 @@ class TestDocumentProcessingServiceEmbedding:
                 "ragitect.services.document_processing_service.process_file_bytes",
                 return_value=("Text", {"file_type": ".txt"}),
             ):
+                mock_model = MagicMock()
+                mock_model.aembed_documents = AsyncMock(return_value=embeddings)
                 with patch(
-                    "ragitect.services.document_processing_service.create_embeddings_model"
+                    "ragitect.services.document_processing_service.get_embedding_model_from_config",
+                    new=AsyncMock(return_value=mock_model),
                 ):
                     with patch(
                         "ragitect.services.document_processing_service.embed_documents",

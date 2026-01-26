@@ -7,13 +7,16 @@ Implements:
 """
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from langchain_core.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 
 from ragitect.services.config import EmbeddingConfig
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -307,3 +310,47 @@ def get_embedding_dimension(config: EmbeddingConfig | None = None) -> int:
     if config is None:
         return 768  # Default for nomic-embed-text
     return config.dimension
+
+
+async def get_embedding_model_from_config(session: "AsyncSession") -> Embeddings:
+    """Get embedding model using active DB config, fallback to env vars, then defaults.
+
+    Priority order:
+    1. Active embedding config from database (UI-configured)
+    2. Environment variables (EMBEDDING_PROVIDER, EMBEDDING_API_KEY, etc.)
+    3. Hardcoded defaults (Ollama)
+
+    This is the DRY helper that encapsulates embedding config lookup, avoiding
+    duplicate patterns across chat.py and document_processing_service.py.
+
+    Args:
+        session: Database session for config lookup
+
+    Returns:
+        Embeddings model configured from DB, env vars, or defaults
+    """
+    # Import inside function to avoid circular imports
+    from ragitect.services.llm_config_service import get_active_embedding_config
+    from ragitect.services.config import load_embedding_config
+
+    embedding_config = await get_active_embedding_config(session)
+    if embedding_config:
+        logger.info(
+            f"Using embedding config from DB: provider={embedding_config.provider_name}, "
+            f"model={embedding_config.model_name}"
+        )
+        config = EmbeddingConfig(
+            provider=embedding_config.provider_name,
+            model=embedding_config.model_name or "qwen3-embedding:0.6b",
+            base_url=embedding_config.base_url,
+            api_key=embedding_config.api_key,
+            dimension=embedding_config.dimension,
+        )
+    else:
+        # Fall back to environment variables
+        config = load_embedding_config()
+        logger.info(
+            f"No active embedding config in DB, using env vars: "
+            f"provider={config.provider}, model={config.model}"
+        )
+    return create_embeddings_model(config)

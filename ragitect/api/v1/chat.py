@@ -30,8 +30,11 @@ from ragitect.services.database.connection import get_async_session
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 from ragitect.services.database.repositories.vector_repo import VectorRepository
 from ragitect.services.database.repositories.workspace_repo import WorkspaceRepository
-from ragitect.services.embedding import create_embeddings_model, embed_text
-from ragitect.services.llm_config_service import get_active_embedding_config
+from ragitect.services.embedding import (
+    create_embeddings_model,
+    embed_text,
+    get_embedding_model_from_config,
+)
 from ragitect.services.llm_factory import create_llm_with_provider
 
 
@@ -166,21 +169,8 @@ async def retrieve_context_with_graph(
     Returns:
         List of chunks with content and metadata
     """
-    # Get embedding configuration and create model
-    embedding_config = await get_active_embedding_config(session)
-
-    if embedding_config:
-        config = EmbeddingConfig(
-            provider=embedding_config.provider_name,
-            model=embedding_config.model_name or "nomic-embed-text",
-            base_url=embedding_config.config_data.get("base_url"),
-            api_key=embedding_config.config_data.get("api_key"),
-            dimension=embedding_config.config_data.get("dimension", 768),
-        )
-    else:
-        config = EmbeddingConfig()
-
-    embedding_model = create_embeddings_model(config)
+    # Get embedding model from active DB config (or defaults)
+    embedding_model = await get_embedding_model_from_config(session)
 
     # Create async embedding function for graph
     async def embed_fn(text: str) -> list[float]:
@@ -373,22 +363,8 @@ async def chat_stream(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Get active embedding configuration and model
-    embed_config_dto = await get_active_embedding_config(session)
-    if embed_config_dto is None:
-        # Use default config if no active config found
-        embed_config = EmbeddingConfig()
-    else:
-        # Convert DTO to EmbeddingConfig
-        embed_config = EmbeddingConfig(
-            provider=embed_config_dto.provider_name,
-            model=embed_config_dto.model_name or "all-MiniLM-L6-v2",
-            api_key=embed_config_dto.api_key,
-            base_url=embed_config_dto.base_url,
-            dimension=embed_config_dto.dimension,
-        )
-
-    embed_model = create_embeddings_model(embed_config)
+    # Get embedding model from active DB config (or defaults)
+    embed_model = await get_embedding_model_from_config(session)
 
     async def embed_fn(text: str) -> list[float]:
         """Embedding function for runtime dependency injection."""

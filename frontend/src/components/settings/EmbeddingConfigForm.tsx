@@ -17,6 +17,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -152,6 +154,15 @@ export function EmbeddingConfigForm() {
       validationStatus: 'idle',
     }));
   }, [currentProvider]);
+
+  // Handle active toggle
+  const handleToggle = useCallback((checked: boolean) => {
+    setFormState(prev => ({
+      ...prev,
+      isEnabled: checked,
+      hasChanges: true,
+    }));
+  }, []);
 
   // Handler for testing connection
   const handleTestConnection = useCallback(async () => {
@@ -432,6 +443,23 @@ export function EmbeddingConfigForm() {
             <span>{formState.validationMessage}</span>
           </div>
         )}
+
+        <Separator />
+
+        {/* Set as Active Toggle */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="is-active">Set as active</Label>
+            <p className="text-sm text-muted-foreground">
+              Use this embedding provider for document processing
+            </p>
+          </div>
+          <Switch
+            id="is-active"
+            checked={formState.isEnabled}
+            onCheckedChange={handleToggle}
+          />
+        </div>
 
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">

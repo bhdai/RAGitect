@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ragitect.services.config import load_document_config
 from ragitect.services.database.repositories.document_repo import DocumentRepository
 from ragitect.services.document_processor import process_file_bytes, split_document
-from ragitect.services.embedding import create_embeddings_model, embed_documents
+from ragitect.services.embedding import embed_documents, get_embedding_model_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ class DocumentProcessingService:
             # Generate embeddings if there are chunks
             if chunks:
                 try:
-                    embedding_model = create_embeddings_model()
+                    embedding_model = await get_embedding_model_from_config(self.session)
                     embeddings = await embed_documents(embedding_model, chunks)
                     logger.info(
                         f"Generated {len(embeddings)} embeddings for document {document_id}"
