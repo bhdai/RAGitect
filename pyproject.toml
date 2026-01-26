@@ -10,7 +10,7 @@ dependencies = [
     "cryptography>=46.0.3",
     "docling>=2.61.2",
     "fastapi>=0.121.2",
-    "httpx>=0.28.1",
+    "httpx[http2]>=0.28.1",
     "langchain-community>=0.3.17",
     "langchain-google-vertexai>=3.2.0",
     "langchain-litellm>=0.3.0",
@@ -27,6 +27,7 @@ dependencies = [
     "sentence-transformers>=5.2.0",
     "sqlalchemy>=2.0.44",
     "tiktoken>=0.12.0",
+    "trafilatura>=1.7.0",
     "transformers>=4.57.1",
     "uvicorn>=0.38.0",
 ]
