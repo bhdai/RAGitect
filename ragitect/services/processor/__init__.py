@@ -10,11 +10,19 @@ from ragitect.services.processor.web_url_processor import (
     URLFetchError,
     WebURLProcessor,
 )
+from ragitect.services.processor.youtube_processor import (
+    InvalidYouTubeURLError,
+    TranscriptUnavailableError,
+    YouTubeProcessor,
+)
 
 __all__ = [
     "BaseDocumentProcessor",
     "ContentExtractionError",
+    "InvalidYouTubeURLError",
     "SimpleProcessor",
+    "TranscriptUnavailableError",
     "URLFetchError",
     "WebURLProcessor",
+    "YouTubeProcessor",
 ]
