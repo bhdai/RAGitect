@@ -30,6 +30,7 @@ dependencies = [
     "trafilatura>=1.7.0",
     "transformers>=4.57.1",
     "uvicorn>=0.38.0",
+    "youtube-transcript-api>=0.6.3",
 ]
 
 [dependency-groups]
