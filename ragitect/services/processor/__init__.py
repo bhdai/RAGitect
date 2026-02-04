@@ -4,6 +4,12 @@ This module provides processors for extracting text/markdown from various source
 """
 
 from ragitect.services.processor.base import BaseDocumentProcessor
+from ragitect.services.processor.pdf_url_processor import (
+    InvalidPDFURLError,
+    PDFDownloadError,
+    PDFProcessingError,
+    PDFURLProcessor,
+)
 from ragitect.services.processor.simple import SimpleProcessor
 from ragitect.services.processor.web_url_processor import (
     ContentExtractionError,
@@ -19,7 +25,11 @@ from ragitect.services.processor.youtube_processor import (
 __all__ = [
     "BaseDocumentProcessor",
     "ContentExtractionError",
+    "InvalidPDFURLError",
     "InvalidYouTubeURLError",
+    "PDFDownloadError",
+    "PDFProcessingError",
+    "PDFURLProcessor",
     "SimpleProcessor",
     "TranscriptUnavailableError",
     "URLFetchError",
