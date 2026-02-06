@@ -71,6 +71,31 @@ async def process_document_background(document_id: UUID) -> None:
             # Error already logged and status updated in service
 
 
+async def fetch_and_process_url_background(
+    document_id: UUID,
+    url: str,
+    source_type: str,
+) -> None:
+    """Background task wrapper for URL document processing
+
+    Args:
+        document_id: Document UUID to process
+        url: Source URL to fetch content from
+        source_type: Type of URL source ("url", "youtube", "pdf")
+    """
+    from ragitect.services.database.connection import get_session_factory
+    from ragitect.services.url_processing_service import URLProcessingService
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        try:
+            processing_service = URLProcessingService(session)
+            await processing_service.process_url_document(document_id, url, source_type)
+        except Exception as e:
+            logger.error(f"Background URL processing failed for {document_id}: {e}")
+            # Error already logged and status updated in service
+
+
 @router.post(
     "/{workspace_id}/documents",
     response_model=DocumentListResponse,
@@ -185,6 +210,7 @@ Actual content fetching happens asynchronously (Story 5.5).
 async def upload_url(
     workspace_id: UUID,
     input_data: URLUploadInput,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     session: AsyncSession = Depends(get_async_session),
 ) -> URLUploadResponse:
     """Submit URL for document ingestion
@@ -192,6 +218,7 @@ async def upload_url(
     Args:
         workspace_id: Target workspace UUID
         input_data: URL upload input with source_type and url
+        background_tasks: FastAPI background tasks for async processing
         session: Database session (injected by FastAPI)
 
     Returns:
@@ -271,8 +298,14 @@ async def upload_url(
             safe_log_url,
         )
 
-        # NOTE: Background processing NOT triggered here (Story 5.5)
-        # Document will remain in "backlog" status until background task picks it up
+        # Trigger background URL processing
+        background_tasks.add_task(
+            fetch_and_process_url_background,
+            document_id=document.id,
+            url=sanitized_url,
+            source_type=source_type,
+        )
+        logger.info(f"Scheduled background URL processing for document {document.id}")
 
         return URLUploadResponse(
             id=str(document.id),
