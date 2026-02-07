@@ -189,4 +189,115 @@ describe('DocumentList', () => {
       expect(getDocuments).toHaveBeenCalledWith('ws-2');
     });
   });
+
+  it('renders Globe icon for web URL documents', async () => {
+    const { getDocuments } = await import('@/lib/documents');
+    vi.mocked(getDocuments).mockResolvedValue({
+      documents: [
+        { id: '1', fileName: 'https://example.com/article', fileType: null, status: 'ready', createdAt: '2025-12-01T10:00:00Z' },
+      ],
+      total: 1,
+    });
+
+    render(
+      <DocumentList
+        workspaceId="ws-1"
+        onSelectDocument={vi.fn()}
+        onDeleteDocument={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('doc-icon-globe')).toBeInTheDocument();
+    });
+  });
+
+  it('renders YouTube icon for YouTube URL documents', async () => {
+    const { getDocuments } = await import('@/lib/documents');
+    vi.mocked(getDocuments).mockResolvedValue({
+      documents: [
+        { id: '1', fileName: 'https://youtube.com/watch?v=abc', fileType: null, status: 'ready', createdAt: '2025-12-01T10:00:00Z' },
+      ],
+      total: 1,
+    });
+
+    render(
+      <DocumentList
+        workspaceId="ws-1"
+        onSelectDocument={vi.fn()}
+        onDeleteDocument={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('doc-icon-youtube')).toBeInTheDocument();
+    });
+  });
+
+  it('renders PDF icon for PDF URL documents', async () => {
+    const { getDocuments } = await import('@/lib/documents');
+    vi.mocked(getDocuments).mockResolvedValue({
+      documents: [
+        { id: '1', fileName: 'https://example.com/doc.pdf', fileType: null, status: 'ready', createdAt: '2025-12-01T10:00:00Z' },
+      ],
+      total: 1,
+    });
+
+    render(
+      <DocumentList
+        workspaceId="ws-1"
+        onSelectDocument={vi.fn()}
+        onDeleteDocument={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('doc-icon-pdf')).toBeInTheDocument();
+    });
+  });
+
+  it('renders FileText icon for regular file documents', async () => {
+    const { getDocuments } = await import('@/lib/documents');
+    vi.mocked(getDocuments).mockResolvedValue({
+      documents: [
+        { id: '1', fileName: 'report.docx', fileType: 'docx', status: 'ready', createdAt: '2025-12-01T10:00:00Z' },
+      ],
+      total: 1,
+    });
+
+    render(
+      <DocumentList
+        workspaceId="ws-1"
+        onSelectDocument={vi.fn()}
+        onDeleteDocument={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('doc-icon-file')).toBeInTheDocument();
+    });
+  });
+
+  it('renders correct icon in collapsed mode for URL documents', async () => {
+    const { getDocuments } = await import('@/lib/documents');
+    vi.mocked(getDocuments).mockResolvedValue({
+      documents: [
+        { id: '1', fileName: 'https://youtube.com/watch?v=abc', fileType: null, status: 'ready', createdAt: '2025-12-01T10:00:00Z' },
+      ],
+      total: 1,
+    });
+
+    render(
+      <DocumentList
+        workspaceId="ws-1"
+        onSelectDocument={vi.fn()}
+        onDeleteDocument={vi.fn()}
+        collapsed={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('doc-icon-youtube')).toBeInTheDocument();
+    });
+  });
 });

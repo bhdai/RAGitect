@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { uploadDocuments } from '../documents';
+import { uploadDocuments, uploadUrl, detectUrlType } from '../documents';
 
 describe('documents API', () => {
   const originalFetch = global.fetch;
@@ -121,6 +121,148 @@ describe('documents API', () => {
       const uploadedFiles = formData.getAll('files');
       
       expect(uploadedFiles).toHaveLength(3);
+    });
+  });
+
+  describe('uploadUrl', () => {
+    it('sends POST request with JSON body', async () => {
+      const workspaceId = 'test-workspace-id';
+      const url = 'https://example.com/article';
+      const sourceType = 'url' as const;
+
+      const mockResponse = {
+        id: 'doc-1',
+        sourceType: 'url',
+        sourceUrl: url,
+        status: 'backlog',
+        message: 'URL submitted for processing',
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const result = await uploadUrl(workspaceId, url, sourceType);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [fetchUrl, options] = mockFetch.mock.calls[0];
+      expect(fetchUrl).toContain(`/api/v1/workspaces/${workspaceId}/documents/upload-url`);
+      expect(options.method).toBe('POST');
+      expect(options.headers).toEqual({ 'Content-Type': 'application/json' });
+      expect(JSON.parse(options.body)).toEqual({ sourceType: 'url', url });
+
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('sends correct sourceType for YouTube URLs', async () => {
+      const mockResponse = {
+        id: 'doc-2',
+        sourceType: 'youtube',
+        sourceUrl: 'https://youtube.com/watch?v=abc',
+        status: 'backlog',
+        message: 'URL submitted for processing',
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      await uploadUrl('ws-1', 'https://youtube.com/watch?v=abc', 'youtube');
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.sourceType).toBe('youtube');
+    });
+
+    it('throws error on 400 invalid URL', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({ detail: 'Only HTTP and HTTPS URLs are allowed' }),
+      });
+
+      await expect(uploadUrl('ws-1', 'ftp://example.com', 'url')).rejects.toThrow(
+        'Only HTTP and HTTPS URLs are allowed'
+      );
+    });
+
+    it('throws error on 409 duplicate URL', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: async () => ({ detail: 'URL already submitted for this workspace' }),
+      });
+
+      await expect(uploadUrl('ws-1', 'https://example.com', 'url')).rejects.toThrow(
+        'URL already submitted for this workspace'
+      );
+    });
+
+    it('handles network errors', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      await expect(uploadUrl('ws-1', 'https://example.com', 'url')).rejects.toThrow(
+        'Network error'
+      );
+    });
+
+    it('handles non-JSON error responses', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => { throw new Error('not json'); },
+      });
+
+      await expect(uploadUrl('ws-1', 'https://example.com', 'url')).rejects.toThrow(
+        'URL upload failed with status 500'
+      );
+    });
+  });
+
+  describe('detectUrlType', () => {
+    it('detects YouTube URLs with youtube.com/watch', () => {
+      expect(detectUrlType('https://youtube.com/watch?v=abc123')).toBe('youtube');
+      expect(detectUrlType('https://www.youtube.com/watch?v=abc123')).toBe('youtube');
+    });
+
+    it('detects YouTube URLs with youtu.be/', () => {
+      expect(detectUrlType('https://youtu.be/abc123')).toBe('youtube');
+    });
+
+    it('detects YouTube URLs case-insensitively', () => {
+      expect(detectUrlType('https://YOUTUBE.COM/watch?v=abc')).toBe('youtube');
+      expect(detectUrlType('https://YouTu.Be/abc')).toBe('youtube');
+    });
+
+    it('detects PDF URLs by extension', () => {
+      expect(detectUrlType('https://example.com/document.pdf')).toBe('pdf');
+    });
+
+    it('detects PDF URLs with query parameters', () => {
+      expect(detectUrlType('https://example.com/doc.pdf?token=abc')).toBe('pdf');
+    });
+
+    it('detects PDF URLs case-insensitively', () => {
+      expect(detectUrlType('https://example.com/Document.PDF')).toBe('pdf');
+    });
+
+    it('returns url for regular web URLs', () => {
+      expect(detectUrlType('https://example.com/article')).toBe('url');
+      expect(detectUrlType('https://blog.example.com/post/123')).toBe('url');
+    });
+
+    it('returns url for empty or whitespace input', () => {
+      expect(detectUrlType('')).toBe('url');
+      expect(detectUrlType('   ')).toBe('url');
+    });
+
+    it('handles URLs with trailing whitespace', () => {
+      expect(detectUrlType('https://youtube.com/watch?v=abc  ')).toBe('youtube');
+      expect(detectUrlType('https://example.com/doc.pdf  ')).toBe('pdf');
     });
   });
 });

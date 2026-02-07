@@ -16,7 +16,7 @@ export type UploadStatus = 'uploading' | 'success' | 'error';
 /**
  * Processing phase for detailed progress indication
  */
-export type ProcessingPhase = 'parsing' | 'embedding' | null;
+export type ProcessingPhase = 'fetching' | 'parsing' | 'embedding' | null;
 
 export interface Upload {
   fileName: string;
@@ -107,9 +107,11 @@ export function UploadProgress({ uploads, onCancel, onRetry }: UploadProgressPro
                   )}
                   {upload.status === 'uploading' && upload.progress >= 95 && (
                     <p className="text-xs text-muted-foreground mt-1" data-testid="processing-message">
-                      {upload.phase === 'embedding' 
-                        ? 'Generating Embeddings...'
-                        : 'Parsing document...'}
+                      {upload.phase === 'fetching'
+                        ? 'Fetching content...'
+                        : upload.phase === 'embedding' 
+                          ? 'Generating Embeddings...'
+                          : 'Parsing document...'}
                     </p>
                   )}
                   {upload.error && (

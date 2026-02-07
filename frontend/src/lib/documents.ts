@@ -43,6 +43,37 @@ export interface DocumentStatus {
   phase: 'parsing' | 'embedding' | null; // Current processing phase
 }
 
+export interface URLUploadResponse {
+  id: string;
+  sourceType: 'url' | 'youtube' | 'pdf';
+  sourceUrl: string;
+  status: string;
+  message: string;
+}
+
+/**
+ * Detect URL type based on URL pattern
+ *
+ * @param url - URL string to analyze
+ * @returns 'youtube' for YouTube URLs, 'pdf' for PDF URLs, 'url' for other web URLs
+ */
+export function detectUrlType(url: string): 'youtube' | 'pdf' | 'url' {
+  const lower = url.toLowerCase().trim();
+
+  // YouTube detection
+  if (lower.includes('youtube.com/watch') || lower.includes('youtu.be/')) {
+    return 'youtube';
+  }
+
+  // PDF detection (by extension)
+  if (lower.endsWith('.pdf') || lower.includes('.pdf?')) {
+    return 'pdf';
+  }
+
+  // Default: web URL
+  return 'url';
+}
+
 /**
  * Upload multiple documents to a workspace
  * 
@@ -175,4 +206,36 @@ export async function deleteDocument(documentId: string): Promise<void> {
     }));
     throw new Error(error.detail);
   }
+}
+
+/**
+ * Upload a URL for document ingestion
+ *
+ * @param workspaceId - Target workspace ID
+ * @param url - URL to ingest (web page, YouTube, or PDF)
+ * @param sourceType - Detected URL type ('url', 'youtube', or 'pdf')
+ * @returns Promise with URL upload response containing document metadata
+ * @throws Error if upload fails
+ */
+export async function uploadUrl(
+  workspaceId: string,
+  url: string,
+  sourceType: 'url' | 'youtube' | 'pdf',
+): Promise<URLUploadResponse> {
+  const apiUrl = `${API_BASE}/api/v1/workspaces/${workspaceId}/documents/upload-url`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sourceType, url }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `URL upload failed with status ${response.status}`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return response.json();
 }

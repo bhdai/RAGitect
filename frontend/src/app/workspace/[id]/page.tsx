@@ -18,9 +18,9 @@ import { ChatPanel } from '@/components/ChatPanel';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { DeleteDocumentDialog } from '@/components/DeleteDocumentDialog';
 import { ProviderSelectionProvider } from '@/contexts/ProviderSelectionContext';
-import type { Upload } from '@/components/UploadProgress';
+import type { Upload, ProcessingPhase } from '@/components/UploadProgress';
 import { getWorkspace } from '@/lib/api';
-import { uploadDocuments, getDocumentStatus, deleteDocument, type Document } from '@/lib/documents';
+import { uploadDocuments, getDocumentStatus, deleteDocument, uploadUrl, detectUrlType, type Document } from '@/lib/documents';
 import { toast } from 'sonner';
 import type { Workspace } from '@/lib/types';
 import type { CitationData } from '@/types/citation';
@@ -81,12 +81,14 @@ export default function WorkspacePage() {
           upload.fileName === fileName
             ? {
               ...upload,
-              status: (status.status === 'processing' || status.status === 'embedding') ? 'uploading' :
+              status: (status.status === 'processing' || status.status === 'embedding' || status.status === 'fetching') ? 'uploading' :
                 status.status === 'ready' ? 'success' :
                   status.status === 'error' ? 'error' : upload.status,
-              progress: (status.status === 'processing' || status.status === 'embedding') ? 95 :
+              progress: (status.status === 'processing' || status.status === 'embedding' || status.status === 'fetching') ? 95 :
                 status.status === 'ready' ? 100 : upload.progress,
-              phase: status.phase ?? undefined, // Pass phase for detailed progress indicator
+              phase: status.status === 'fetching'
+                ? 'fetching' as ProcessingPhase
+                : status.phase ?? undefined,
             }
             : upload
         )
@@ -202,6 +204,53 @@ export default function WorkspacePage() {
       toast.error(error.message);
     }
   };
+
+  // Handle URL submission for ingestion
+  const handleUrlSubmit = useCallback(async (url: string, sourceType: 'url' | 'youtube' | 'pdf') => {
+    if (!workspace) return;
+
+    const displayName = url.length > 50 ? url.substring(0, 47) + '...' : url;
+
+    // Add to uploads state for progress display
+    const newUpload: Upload = {
+      fileName: displayName,
+      progress: 10,
+      status: 'uploading',
+    };
+    setUploads(prev => [...prev, newUpload]);
+
+    try {
+      const response = await uploadUrl(workspace.id, url, sourceType);
+
+      // Update upload progress
+      setUploads(prev =>
+        prev.map(u => u.fileName === displayName
+          ? { ...u, progress: 50, status: 'uploading' as const }
+          : u
+        )
+      );
+
+      toast.success(`URL submitted - ${response.message}`);
+      setDocumentListRefresh(prev => prev + 1);
+
+      // Start polling (reuse existing pollDocumentStatus)
+      const interval = setInterval(() => {
+        pollDocumentStatus(response.id, displayName);
+      }, 2000);
+      pollingIntervalsRef.current.set(response.id, interval);
+      pollDocumentStatus(response.id, displayName);
+
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('URL upload failed');
+      setUploads(prev =>
+        prev.map(u => u.fileName === displayName
+          ? { ...u, status: 'error' as const, error: error.message }
+          : u
+        )
+      );
+      toast.error(error.message);
+    }
+  }, [workspace, pollDocumentStatus]);
 
   // Handle document selection for viewing
   const handleSelectDocument = (doc: Document) => {
@@ -346,6 +395,7 @@ export default function WorkspacePage() {
             onUploadError={handleUploadError}
             onCancelUpload={handleCancel}
             onRetryUpload={handleRetry}
+            onUrlSubmit={handleUrlSubmit}
           />
         </div>
 
