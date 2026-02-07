@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { getDocuments, type Document } from '@/lib/documents';
-import { FileText, Trash2, Loader2 } from 'lucide-react';
+import { FileText, Trash2, Loader2, Globe, Play, FileType } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DocumentListProps {
@@ -53,6 +53,32 @@ function getStatusStyles(status: string) {
         icon: 'text-zinc-400',
       };
   }
+}
+
+/**
+ * Get the appropriate icon component for a document based on its source type.
+ * URL documents have null fileType, so we detect type from fileName pattern.
+ */
+function getDocumentIcon(doc: Document, className: string) {
+  const name = doc.fileName.toLowerCase();
+
+  // YouTube URLs
+  if (name.includes('youtube.com/watch') || name.includes('youtu.be/')) {
+    return <Play className={className} data-testid="doc-icon-youtube" />;
+  }
+
+  // PDF URLs (null fileType + .pdf in URL)
+  if (doc.fileType === null && (name.endsWith('.pdf') || name.includes('.pdf?'))) {
+    return <FileType className={className} data-testid="doc-icon-pdf" />;
+  }
+
+  // Web URLs (null fileType, not YouTube/PDF)
+  if (doc.fileType === null) {
+    return <Globe className={className} data-testid="doc-icon-globe" />;
+  }
+
+  // Default: regular file upload
+  return <FileText className={className} data-testid="doc-icon-file" />;
 }
 
 export function DocumentList({
@@ -135,7 +161,7 @@ export function DocumentList({
                     onClick={() => onSelectDocument(doc)}
                     data-testid={`collapsed-doc-${doc.id}`}
                   >
-                    <FileText className={cn("h-4 w-4", styles.icon)} />
+                    {getDocumentIcon(doc, cn("h-4 w-4", styles.icon))}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
@@ -167,7 +193,7 @@ export function DocumentList({
             onClick={() => onSelectDocument(doc)}
           >
             {/* Icon - color indicates status */}
-            <FileText className={cn("h-4 w-4 flex-shrink-0", styles.icon)} />
+            {getDocumentIcon(doc, cn("h-4 w-4 flex-shrink-0", styles.icon))}
             
             {/* File name - takes full available space */}
             <p className="text-xs font-medium truncate flex-1 min-w-0" title={doc.fileName}>

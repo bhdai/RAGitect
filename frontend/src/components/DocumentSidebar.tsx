@@ -38,6 +38,8 @@ export interface DocumentSidebarProps {
   onCancelUpload: (fileName: string) => void;
   /** Callback to retry a failed upload (kept for interface compatibility) */
   onRetryUpload: (fileName: string) => void;
+  /** Callback when a URL is submitted for ingestion */
+  onUrlSubmit?: (url: string, sourceType: 'url' | 'youtube' | 'pdf') => void;
 }
 
 /**
@@ -60,6 +62,7 @@ export function DocumentSidebar({
   onUploadError,
   onCancelUpload: _onCancelUpload = () => { }, // eslint-disable-line @typescript-eslint/no-unused-vars -- Kept for interface compatibility
   onRetryUpload: _onRetryUpload = () => { }, // eslint-disable-line @typescript-eslint/no-unused-vars -- Kept for interface compatibility
+  onUrlSubmit,
 }: DocumentSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useLocalStorage('sidebar-collapsed', false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -139,6 +142,7 @@ export function DocumentSidebar({
         onFilesSelected={onFilesSelected}
         onUploadComplete={onUploadComplete}
         onUploadError={onUploadError}
+        onUrlSubmit={onUrlSubmit}
       />
     </>
   );

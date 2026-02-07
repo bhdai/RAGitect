@@ -165,4 +165,19 @@ describe('UploadProgress', () => {
 
     expect(screen.getByText('Parsing document...')).toBeInTheDocument();
   });
+
+  it('shows "Fetching content..." when in fetching phase', () => {
+    const uploads = [
+      {
+        fileName: 'https://example.com/page',
+        progress: 95,
+        status: 'uploading' as const,
+        phase: 'fetching' as const,
+      },
+    ];
+
+    render(<UploadProgress uploads={uploads} onCancel={mockOnCancel} />);
+
+    expect(screen.getByText('Fetching content...')).toBeInTheDocument();
+  });
 });
