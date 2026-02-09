@@ -26,6 +26,9 @@ DEFAULT_SIMILARITY_THRESHOLD: float = float(
 )
 DEFAULT_RETRIEVAL_K: int = int(os.getenv("DEFAULT_RETRIEVAL_K", "10"))
 
+# Embedding dimension (must match the model's output dimension)
+EMBEDDING_DIMENSION: int = int(os.getenv("EMBEDDING_DIMENSION", "768"))
+
 # Default LLM model for LangGraph nodes and other services
 # Format: "{provider}/{model}" for LiteLLM compatibility
 DEFAULT_LLM_MODEL: str = os.getenv("DEFAULT_LLM_MODEL", "ollama/llama3.1:8b")
@@ -48,6 +51,7 @@ RETRIEVAL_ADAPTIVE_K_GAP_THRESHOLD: float = float(
     os.getenv("RETRIEVAL_ADAPTIVE_K_GAP_THRESHOLD", "0.15")
 )
 RETRIEVAL_TOKEN_BUDGET: int = int(os.getenv("RETRIEVAL_TOKEN_BUDGET", "4000"))
+RETRIEVAL_RRF_K: int = int(os.getenv("RETRIEVAL_RRF_K", "60"))
 
 # Encryption key for API key storage (required for cloud LLM providers)
 ENCRYPTION_KEY: str | None = os.getenv("ENCRYPTION_KEY")

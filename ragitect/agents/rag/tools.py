@@ -7,8 +7,9 @@ Uses dependency injection patterns compatible with LangGraph's tool calling.
 from typing import Callable, Awaitable
 from uuid import UUID
 
-from langchain_core.tools import tool, BaseTool
+from langchain_core.tools import tool
 
+from ragitect.services.config import RETRIEVAL_RRF_K
 from ragitect.services.database.repositories.vector_repo import VectorRepository
 from ragitect.agents.rag.state import ContextChunk
 
@@ -42,29 +43,29 @@ async def _retrieve_documents_impl(
     if query_embedding is None:
         query_embedding = await embed_fn(query)
 
-    # Search for similar chunks
-    chunks_with_distances = await vector_repo.search_similar_chunks(
+    # Search using hybrid RRF fusion (vector + full-text search)
+    chunks_with_scores = await vector_repo.hybrid_search(
         workspace_id=UUID(workspace_id),
         query_vector=query_embedding,
+        query_text=query,
         k=top_k,
+        rrf_k=RETRIEVAL_RRF_K,
     )
 
     # Convert to ContextChunk format
-    # Note: search_similar_chunks returns (chunk, distance) tuples
-    # Distance is cosine distance: 0 = identical, 2 = opposite
-    # Convert to similarity: similarity = 1.0 - distance
-    # Note: document.file_name requires relationship loading, deferred to graph node
+    # Note: hybrid_search returns (chunk, rrf_score) tuples
+    # RRF score is already "higher = better", no conversion needed
     # Embedding preserved from DB to avoid redundant API calls during MMR selection
     return [
         ContextChunk(
             chunk_id=str(chunk.id),
             content=chunk.content,
-            score=1.0 - distance,
+            score=rrf_score,
             document_id=str(chunk.document_id),
             title="",  # Populated by graph node after document lookup
             embedding=list(chunk.embedding),
         )
-        for chunk, distance in chunks_with_distances
+        for chunk, rrf_score in chunks_with_scores
     ]
 
 
