@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 from langchain_core.tools import BaseTool
 
-from ragitect.agents.rag.state import ContextChunk
 from ragitect.agents.rag.tools import retrieve_documents, _retrieve_documents_impl
+from ragitect.services.config import RETRIEVAL_RRF_K
 
 
 class TestRetrieveDocumentsToolDecorator:
@@ -36,7 +36,6 @@ class TestRetrieveDocumentsImpl:
         # Setup mocks
         workspace_id = str(uuid4())
         mock_vector_repo = AsyncMock()
-        mock_embeddings_model = MagicMock()
 
         # Mock chunk returned from vector repo
         mock_chunk = MagicMock()
@@ -45,9 +44,9 @@ class TestRetrieveDocumentsImpl:
         mock_chunk.document_id = str(uuid4())
         mock_chunk.embedding = [0.1] * 768  # Add embedding
 
-        # search_similar_chunks returns (chunk, distance) tuples
-        mock_vector_repo.search_similar_chunks.return_value = [
-            (mock_chunk, 0.1),  # distance 0.1 = similarity 0.9
+        # hybrid_search returns (chunk, rrf_score) tuples (higher = better)
+        mock_vector_repo.hybrid_search.return_value = [
+            (mock_chunk, 0.032),  # RRF score
         ]
 
         # Mock embedding function
@@ -72,7 +71,7 @@ class TestRetrieveDocumentsImpl:
         """Tool should return empty list when no chunks found."""
         workspace_id = str(uuid4())
         mock_vector_repo = AsyncMock()
-        mock_vector_repo.search_similar_chunks.return_value = []
+        mock_vector_repo.hybrid_search.return_value = []
         mock_embed_fn = AsyncMock(return_value=[0.1] * 768)
 
         result = await _retrieve_documents_impl(
@@ -85,8 +84,8 @@ class TestRetrieveDocumentsImpl:
 
         assert result == []
 
-    async def test_retrieve_documents_converts_distance_to_similarity(self):
-        """Tool should convert cosine distance to similarity score."""
+    async def test_retrieve_documents_uses_rrf_score_directly(self):
+        """Tool should use RRF score directly (higher = better)."""
         workspace_id = str(uuid4())
         mock_vector_repo = AsyncMock()
         mock_embed_fn = AsyncMock(return_value=[0.1] * 768)
@@ -97,9 +96,10 @@ class TestRetrieveDocumentsImpl:
         mock_chunk.document_id = str(uuid4())
         mock_chunk.embedding = [0.2] * 768  # Add embedding
 
-        # Distance 0.15 should become similarity 0.85
-        mock_vector_repo.search_similar_chunks.return_value = [
-            (mock_chunk, 0.15),
+        # RRF score is used directly (no distance-to-similarity conversion)
+        rrf_score = 0.032
+        mock_vector_repo.hybrid_search.return_value = [
+            (mock_chunk, rrf_score),
         ]
 
         result = await _retrieve_documents_impl(
@@ -110,14 +110,14 @@ class TestRetrieveDocumentsImpl:
             top_k=10,
         )
 
-        # Score should be 1.0 - distance = 0.85
-        assert result[0]["score"] == pytest.approx(0.85, abs=0.001)
+        # Score should be the RRF score directly
+        assert result[0]["score"] == pytest.approx(rrf_score, abs=0.001)
 
     async def test_retrieve_documents_respects_top_k_parameter(self):
-        """Tool should pass top_k to vector repo."""
+        """Tool should pass top_k to hybrid_search."""
         workspace_id = str(uuid4())
         mock_vector_repo = AsyncMock()
-        mock_vector_repo.search_similar_chunks.return_value = []
+        mock_vector_repo.hybrid_search.return_value = []
         mock_embed_fn = AsyncMock(return_value=[0.1] * 768)
 
         await _retrieve_documents_impl(
@@ -128,16 +128,18 @@ class TestRetrieveDocumentsImpl:
             top_k=50,
         )
 
-        # Verify search was called with k=50
-        mock_vector_repo.search_similar_chunks.assert_awaited_once()
-        call_kwargs = mock_vector_repo.search_similar_chunks.call_args.kwargs
+        # Verify hybrid_search was called with k=50 and rrf_k from config
+        mock_vector_repo.hybrid_search.assert_awaited_once()
+        call_kwargs = mock_vector_repo.hybrid_search.call_args.kwargs
         assert call_kwargs.get("k") == 50
+        assert call_kwargs.get("rrf_k") == RETRIEVAL_RRF_K
+        assert call_kwargs.get("query_text") == "test"
 
     async def test_retrieve_documents_calls_embed_fn(self):
         """Tool should call embed_fn with the query."""
         workspace_id = str(uuid4())
         mock_vector_repo = AsyncMock()
-        mock_vector_repo.search_similar_chunks.return_value = []
+        mock_vector_repo.hybrid_search.return_value = []
         mock_embed_fn = AsyncMock(return_value=[0.1] * 768)
 
         await _retrieve_documents_impl(
@@ -163,8 +165,9 @@ class TestRetrieveDocumentsImpl:
         mock_chunk.document_id = doc_id
         mock_chunk.embedding = [0.3] * 768  # Add embedding
 
-        mock_vector_repo.search_similar_chunks.return_value = [
-            (mock_chunk, 0.05),
+        rrf_score = 0.032
+        mock_vector_repo.hybrid_search.return_value = [
+            (mock_chunk, rrf_score),
         ]
 
         result = await _retrieve_documents_impl(
@@ -189,7 +192,7 @@ class TestRetrieveDocumentsImpl:
         assert chunk["content"] == "The content of the chunk"
         assert chunk["document_id"] == doc_id
         assert chunk["title"] == ""  # Title populated later by graph node
-        assert chunk["score"] == pytest.approx(0.95, abs=0.001)
+        assert chunk["score"] == pytest.approx(rrf_score, abs=0.001)
         assert len(chunk["embedding"]) == 768  # Verify embedding preserved
 
     async def test_context_chunk_preserves_embeddings(self):
@@ -219,9 +222,9 @@ class TestRetrieveDocumentsImpl:
         mock_chunk_2.document_id = str(uuid4())
         mock_chunk_2.embedding = expected_embedding_2
 
-        mock_vector_repo.search_similar_chunks.return_value = [
-            (mock_chunk_1, 0.1),
-            (mock_chunk_2, 0.2),
+        mock_vector_repo.hybrid_search.return_value = [
+            (mock_chunk_1, 0.032),
+            (mock_chunk_2, 0.016),
         ]
 
         result = await _retrieve_documents_impl(

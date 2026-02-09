@@ -1,10 +1,11 @@
 """Vector repository for similarity search operations"""
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, type_coerce, Float
 from ragitect.services.database.exceptions import NotFoundError
 from ragitect.services.database.models import Document, Workspace
 from ragitect.services.database.exceptions import ValidationError
 from ragitect.services.database.models import DocumentChunk
+from ragitect.services.config import EMBEDDING_DIMENSION
 from uuid import UUID
 from sqlalchemy.ext.asyncio.session import AsyncSession
 import logging
@@ -72,9 +73,10 @@ class VectorRepository:
             ValidationError: If query_vector dimension is invalid
             NotFoundError: If workspace does not exist
         """
-        if len(query_vector) != 768:
+        if len(query_vector) != EMBEDDING_DIMENSION:
             raise ValidationError(
-                "query_vector", f"Expected 768 dimensions, got {len(query_vector)}"
+                "query_vector",
+                f"Expected {EMBEDDING_DIMENSION} dimensions, got {len(query_vector)}",
             )
 
         # verify if workspace exists
@@ -114,6 +116,159 @@ class VectorRepository:
             )
         return chunks_with_score
 
+    async def hybrid_search(
+        self,
+        workspace_id: UUID,
+        query_vector: list[float],
+        query_text: str,
+        k: int = 10,
+        rrf_k: int = 60,
+        vector_weight: float = 1.0,
+        fts_weight: float = 1.0,
+    ) -> list[tuple[DocumentChunk, float]]:
+        """Search using hybrid RRF fusion of vector similarity and full-text search.
+
+        Combines cosine similarity (pgvector) with PostgreSQL full-text search
+        via Reciprocal Rank Fusion (RRF) in a single CTE-based SQL query.
+
+        RRF Formula: score = Σ(weight / (k + rank_i)) for each retrieval system.
+
+        When full-text search returns no matches, gracefully degrades to
+        vector-only ranking.
+
+        Args:
+            workspace_id: Workspace to search within
+            query_vector: Query embedding vector (768 dims)
+            query_text: Original query text for full-text search
+            k: Number of results to return
+            rrf_k: RRF constant (default: 60). Higher values reduce rank impact.
+            vector_weight: Weight for vector search scores (default: 1.0)
+            fts_weight: Weight for full-text search scores (default: 1.0)
+
+        Returns:
+            List of (DocumentChunk, rrf_score) tuples ordered by RRF score
+            (descending, higher = better).
+
+        Raises:
+            ValidationError: If query_vector dimension is invalid
+            NotFoundError: If workspace does not exist
+        """
+        if len(query_vector) != EMBEDDING_DIMENSION:
+            raise ValidationError(
+                "query_vector",
+                f"Expected {EMBEDDING_DIMENSION} dimensions, got {len(query_vector)}",
+            )
+
+        # Verify workspace exists
+        workspace = await self.session.get(Workspace, workspace_id)
+        if workspace is None:
+            raise NotFoundError("Workspace", workspace_id)
+
+        oversample = k * 3
+
+        # CTE 1: Semantic search ranked by cosine distance (ascending = better)
+        distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label(
+            "distance"
+        )
+        semantic_cte = (
+            select(
+                DocumentChunk.id.label("chunk_id"),
+                func.row_number()
+                .over(order_by=distance_col)
+                .label("semantic_rank"),
+            )
+            .where(DocumentChunk.workspace_id == workspace_id)
+            .order_by(distance_col)
+            .limit(oversample)
+            .cte("semantic_search")
+        )
+
+        # CTE 2: Full-text search ranked by ts_rank_cd (descending = better)
+        fts_config = "english"
+        ts_vector = func.to_tsvector(fts_config, DocumentChunk.content)
+        ts_query = func.plainto_tsquery(fts_config, query_text)
+
+        keyword_cte = (
+            select(
+                DocumentChunk.id.label("chunk_id"),
+                func.row_number()
+                .over(
+                    order_by=func.ts_rank_cd(ts_vector, ts_query).desc()
+                )
+                .label("keyword_rank"),
+            )
+            .where(
+                DocumentChunk.workspace_id == workspace_id,
+                ts_vector.op("@@")(ts_query),
+            )
+            .order_by(func.ts_rank_cd(ts_vector, ts_query).desc())
+            .limit(oversample)
+            .cte("keyword_search")
+        )
+
+        # Full outer join + RRF score computation
+        # Use coalesce: if a chunk only appears in one list, the other rank is absent
+        rrf_score = (
+            func.coalesce(
+                type_coerce(vector_weight, Float)
+                / (rrf_k + semantic_cte.c.semantic_rank),
+                0.0,
+            )
+            + func.coalesce(
+                type_coerce(fts_weight, Float)
+                / (rrf_k + keyword_cte.c.keyword_rank),
+                0.0,
+            )
+        ).label("rrf_score")
+
+        # Coalesce chunk_id from both CTEs for the join back to DocumentChunk
+        chunk_id_col = func.coalesce(
+            semantic_cte.c.chunk_id, keyword_cte.c.chunk_id
+        ).label("chunk_id")
+
+        # Full outer join
+        fusion_query = (
+            select(chunk_id_col, rrf_score)
+            .select_from(
+                semantic_cte.outerjoin(
+                    keyword_cte,
+                    semantic_cte.c.chunk_id == keyword_cte.c.chunk_id,
+                    full=True,
+                )
+            )
+            .order_by(rrf_score.desc())
+            .limit(k)
+            .subquery("fusion")
+        )
+
+        # Join back to DocumentChunk to get full model
+        final_stmt = (
+            select(DocumentChunk, fusion_query.c.rrf_score)
+            .join(fusion_query, DocumentChunk.id == fusion_query.c.chunk_id)
+            .order_by(fusion_query.c.rrf_score.desc())
+        )
+
+        result = await self.session.execute(final_stmt)
+        results = result.all()
+
+        chunks_with_scores = [
+            (chunk, float(rrf_score)) for chunk, rrf_score in results
+        ]
+
+        logger.info(
+            f"Hybrid search: found {len(chunks_with_scores)} chunks "
+            + f"(workspace={workspace_id}, k={k}, rrf_k={rrf_k})"
+        )
+
+        if chunks_with_scores:
+            scores = [score for _, score in chunks_with_scores]
+            logger.debug(
+                f"RRF score range: [{min(scores):.6f}, {max(scores):.6f}], "
+                + f"mean: {sum(scores) / len(scores):.6f}"
+            )
+
+        return chunks_with_scores
+
     async def search_similar_documents(
         self,
         workspace_id: UUID,
@@ -141,9 +296,10 @@ class VectorRepository:
             ValidationError: If query_vector dimension is invalid
             NotFoundError: If workspace does not exist
         """
-        if len(query_vector) != 768:
+        if len(query_vector) != EMBEDDING_DIMENSION:
             raise ValidationError(
-                "query_vector", f"Expected 768 dimensions, got {len(query_vector)}"
+                "query_vector",
+                f"Expected {EMBEDDING_DIMENSION} dimensions, got {len(query_vector)}",
             )
 
         workspace = await self.session.get(Workspace, workspace_id)
@@ -220,9 +376,10 @@ class VectorRepository:
         Raises:
             ValidationError: if query_vector dimension is invalid
         """
-        if len(query_vector) != 768:
+        if len(query_vector) != EMBEDDING_DIMENSION:
             raise ValidationError(
-                "query_vector", f"Expected 768 dimensions, got {len(query_vector)}"
+                "query_vector",
+                f"Expected {EMBEDDING_DIMENSION} dimensions, got {len(query_vector)}",
             )
 
         distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label(
